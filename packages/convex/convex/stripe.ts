@@ -70,7 +70,6 @@ export const createCheckoutSession = internalAction({
     p.set("mode", "payment");
     p.set("success_url", args.successUrl);
     p.set("cancel_url", args.cancelUrl);
-    methods.forEach((m, i) => p.set(`payment_method_types[${i}]`, m));
     p.set("line_items[0][quantity]", "1");
     p.set("line_items[0][price_data][currency]", "eur");
     p.set("line_items[0][price_data][unit_amount]", String(unitAmount));
@@ -88,14 +87,31 @@ export const createCheckoutSession = internalAction({
     if (args.email) p.set("customer_email", args.email);
     // MB WAY: Stripe collects the customer's phone on its hosted page — we don't pass it.
 
-    const res = await fetch(`${STRIPE_API}/checkout/sessions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${secretKey()}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: p.toString(),
-    });
+    const criar = (corpo: URLSearchParams) =>
+      fetch(`${STRIPE_API}/checkout/sessions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${secretKey()}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: corpo.toString(),
+      });
+
+    const comMetodos = new URLSearchParams(p);
+    methods.forEach((m, i) => comMetodos.set(`payment_method_types[${i}]`, m));
+    let res = await criar(comMetodos);
+
+    /* As contas Stripe criadas recentemente já não aceitam escolher os métodos
+       no pedido, em nenhuma versão da API — só no painel. A de produção, mais
+       antiga, aceita, e continua a ir com eles. Numa conta nova (a sandbox de
+       development e staging) repete-se sem: a página do Stripe mostra os
+       métodos ligados nessa conta. */
+    if (res.status === 400) {
+      const erro = await res.clone().text();
+      if (erro.includes("payment_method_types") && erro.includes("no longer supported")) {
+        res = await criar(p);
+      }
+    }
 
     if (!res.ok) {
       const err = await res.text();

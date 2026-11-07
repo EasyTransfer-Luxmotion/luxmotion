@@ -22,7 +22,7 @@ const LEAD_WEBHOOK_URL = destino("EASYTRANSFER_LEAD_WEBHOOK_URL");
 const PEDIDO_WEBHOOK_URL = destino("EASYTRANSFER_PEDIDO_WEBHOOK_URL");
 
 function semDestino(variavel: string, oQue: string): void {
-  console.log(`[Webhook] ${oQue} não enviado: ${variavel} não está definida neste ambiente.`);
+  console.log(`[Webhook] Não enviado (${oQue}): ${variavel} não está definida neste ambiente.`);
 }
 
 /**
