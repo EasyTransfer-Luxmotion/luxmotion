@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { cn } from "@workspace/ui/lib/utils"
 import { type GooglePlaceValue } from "@/components/ui/google-places-input"
 import { ToursSearchBar } from "@/components/tours/shared/tours-search-bar"
+import { cdn } from "@/lib/cdn"
 
 interface DestinationHeroProps {
   destination: string
@@ -51,11 +52,11 @@ export function DestinationHero({ destination, searchQuery, onSearchChange }: De
     <section className="relative w-full overflow-hidden bg-[var(--lm-bg,#0D0D0D)]">
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat hidden md:block"
-        style={{ backgroundImage: "url('/tours/lisbonbanner-desktop.webp')" }}
+        style={{ backgroundImage: `url('${cdn("/tours/lisbonbanner-desktop.webp")}')` }}
       />
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat md:hidden"
-        style={{ backgroundImage: "url('/tours/lisbonbanner-mobile.webp')" }}
+        style={{ backgroundImage: `url('${cdn("/tours/lisbonbanner-mobile.webp")}')` }}
       />
 
       <div

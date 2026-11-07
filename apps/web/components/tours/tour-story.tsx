@@ -2,12 +2,13 @@
 
 import { useTranslations } from "next-intl"
 import Image from "next/image"
+import { cdn } from "@/lib/cdn"
 
 function PhotoComposition({ t }: { t: (key: string) => string }) {
   return (
     <div className="w-[493px] h-[457px] relative origin-top-left scale-[0.676] md:scale-100">
       <img
-        src="/tours/ellipse-blur.svg"
+        src={cdn("/tours/ellipse-blur.svg")}
         alt=""
         className="absolute left-[-61px] top-[271px] w-[577px] h-[110px] pointer-events-none"
       />
@@ -56,7 +57,7 @@ function PhotoComposition({ t }: { t: (key: string) => string }) {
             "linear-gradient(90deg, rgba(var(--lm-accent-rgb,154,117,53),0.22) 0%, rgba(var(--lm-accent-rgb,154,117,53),0.22) 100%), var(--lm-surface,#0D0D0D)",
         }}
       >
-        <img src="/tours/stars-rating.svg" alt="5 stars" className="w-[102px] h-[16px]" />
+        <img src={cdn("/tours/stars-rating.svg")} alt="5 stars" className="w-[102px] h-[16px]" />
         <div className="flex flex-col gap-2">
           <span
             className="text-[14px] font-semibold text-[var(--lm-text,#fff)] leading-none whitespace-nowrap"

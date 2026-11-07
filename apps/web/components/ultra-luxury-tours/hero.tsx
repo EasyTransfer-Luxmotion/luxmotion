@@ -1,6 +1,7 @@
 "use client"
 
 import { useTranslations } from "next-intl"
+import { cdn } from "@/lib/cdn"
 
 const SERIF_FONT = "var(--font-title), 'Cormorant Garamond', serif"
 
@@ -17,8 +18,8 @@ export function UltraLuxuryToursHero() {
     <section className="relative isolate flex flex-col items-center justify-center overflow-hidden bg-[#0D0D0D] px-4 py-6 md:min-h-[600px] md:px-12 md:py-10">
       {/* Mesmo vídeo cinemático da home, silenciado e em loop. */}
       <video
-        src="/video/home-cinematic.mp4"
-        poster="/video/home-cinematic-poster.webp"
+        src={cdn("/video/home-cinematic.mp4")}
+        poster={cdn("/video/home-cinematic-poster.webp")}
         autoPlay
         muted
         loop

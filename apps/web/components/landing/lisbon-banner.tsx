@@ -1,4 +1,5 @@
 "use client"
+import { cdn } from "@/lib/cdn"
 
 export function LisbonBanner() {
   return (
@@ -10,7 +11,7 @@ export function LisbonBanner() {
       {/* Video container: full width, fixed height, stretched horizontally */}
       <div className="relative w-full h-[280px] md:h-[400px] lg:h-[480px]">
         <video
-          src="/video/ad.mp4"
+          src={cdn("/video/ad.mp4")}
           loop
           playsInline
           muted

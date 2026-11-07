@@ -10,6 +10,7 @@ import {
   TRUSTPILOT_REVIEWS_URL,
   REVIEW_LINK_PROPS,
 } from "@/lib/review-links"
+import { cdn } from "@/lib/cdn"
 
 const SERIF_FONT = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
 const SANS_FONT = { fontFamily: "var(--font-sans), system-ui, sans-serif" } as const
@@ -170,7 +171,7 @@ function HeaderBlock({
           </a>
           <a href={TRUSTPILOT_REVIEWS_URL} {...REVIEW_LINK_PROPS} aria-label="Trustpilot" className="transition-opacity hover:opacity-70">
             <Image
-            src="/shared/logos/trustpilot-logo-dark.svg"
+            src={cdn("/shared/logos/trustpilot-logo-dark.svg")}
             alt="Trustpilot"
             width={104}
             height={28}

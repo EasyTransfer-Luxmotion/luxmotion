@@ -12,6 +12,7 @@ import {
   TRUSTPILOT_REVIEWS_URL,
   REVIEW_LINK_PROPS,
 } from "@/lib/review-links"
+import { cdn } from "@/lib/cdn"
 
 function FeatureCard({
   icon,
@@ -340,7 +341,7 @@ export function Hero({
           />
         ) : (
           <Image
-            src={heroImageUrl}
+            src={cdn(heroImageUrl)}
             alt=""
             fill
             className="object-cover object-[20%_center]"
@@ -359,7 +360,7 @@ export function Hero({
           />
         ) : (
           <Image
-            src={heroImageUrl}
+            src={cdn(heroImageUrl)}
             alt=""
             fill
             className="object-cover object-[center_30%]"

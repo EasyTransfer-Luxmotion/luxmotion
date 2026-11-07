@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Link } from "@/i18n/navigation"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { cdn } from "@/lib/cdn"
 
 /**
  * Vídeo de fundo, mudo e em ciclo. Só arranca quando entra no ecrã — e pára
@@ -38,8 +39,8 @@ function CinematicVideo({ label }: { label: string }) {
     <video
       ref={ref}
       className="absolute inset-0 h-full w-full object-cover"
-      src="/video/home-cinematic.mp4"
-      poster="/video/home-cinematic-poster.webp"
+      src={cdn("/video/home-cinematic.mp4")}
+      poster={cdn("/video/home-cinematic-poster.webp")}
       muted
       loop
       playsInline
@@ -62,7 +63,7 @@ export function CinematicBanner() {
     >
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[1535px] h-[960px] pointer-events-none select-none">
         <Image
-          src="/home/cinematic/lines-grid.svg"
+          src={cdn("/home/cinematic/lines-grid.svg")}
           alt=""
           fill
           className="object-cover"

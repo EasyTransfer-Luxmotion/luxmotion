@@ -4,6 +4,7 @@ import Image from "next/image"
 import { useTranslations } from "next-intl"
 import { useScrollReveal } from "@/hooks/use-scroll-reveal"
 import { cn } from "@workspace/ui/lib/utils"
+import { cdn } from "@/lib/cdn"
 
 const SERIF_FONT = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
 
@@ -32,7 +33,7 @@ function PaymentPill({
   return (
     <div className="bg-white border border-[rgba(193,166,114,0.21)] shadow-[0_2px_4px_rgba(0,0,0,0.05)] rounded-[3px] h-8 px-[15px] flex items-center justify-center shrink-0 transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-0.5 hover:border-[rgba(160,130,72,0.5)] hover:shadow-[0_6px_16px_-8px_rgba(26,22,18,0.3)] motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <Image
-        src={src}
+        src={cdn(src)}
         alt={alt}
         width={w}
         height={h}

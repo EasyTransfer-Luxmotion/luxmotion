@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useMemo, useCallback, useEffect } from "react";
+import { cdn } from "@/lib/cdn";
 
 export interface ThemeColors {
   // Brand colors
@@ -2270,8 +2271,8 @@ export function DynamicThemeProvider({
     /* Target the calendar arrow right image if possible */
     [data-theme-provider] .calendar-arrow-icon {
       background-color: var(--theme-hero-booking-icon) !important;
-      -webkit-mask-image: url("/shared/icons/calendar-arrow-right.svg");
-      mask-image: url("/shared/icons/calendar-arrow-right.svg");
+      -webkit-mask-image: url("${cdn("/shared/icons/calendar-arrow-right.svg")}");
+      mask-image: url("${cdn("/shared/icons/calendar-arrow-right.svg")}");
       -webkit-mask-repeat: no-repeat;
       mask-repeat: no-repeat;
       -webkit-mask-position: center;

@@ -1,5 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
+import { cdn } from "@/lib/cdn"
 
 const SANS_FONT = {
   fontFamily: "var(--font-sans), system-ui, sans-serif",
@@ -21,7 +22,7 @@ export function LogoPlaceholder({
         className={`inline-flex items-center justify-center h-[46px] min-w-[140px] max-w-[200px] shrink-0 ${className ?? ""}`}
       >
         <Image
-          src={logoUrl}
+          src={cdn(logoUrl)}
           alt=""
           width={200}
           height={46}

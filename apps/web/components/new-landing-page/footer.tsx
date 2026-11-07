@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation"
 import { Facebook, Instagram, Linkedin, Lock } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { LogoPlaceholder } from "@/components/whitelabel/logo-placeholder"
+import { cdn } from "@/lib/cdn"
 
 const BADGES: Array<{ src: string; alt: string; w: number; h: number; mask?: boolean; cover?: boolean }> = [
   // Selo circular: object-contain (sem cover) para não cortar o texto do aro.
@@ -208,8 +209,8 @@ function BrandColumn({
                 style={{
                   width: `${badge.w}px`,
                   height: `${badge.h}px`,
-                  WebkitMaskImage: `url(${badge.src})`,
-                  maskImage: `url(${badge.src})`,
+                  WebkitMaskImage: `url(${cdn(badge.src)})`,
+                  maskImage: `url(${cdn(badge.src)})`,
                   WebkitMaskRepeat: "no-repeat",
                   maskRepeat: "no-repeat",
                   WebkitMaskPosition: "center",
@@ -220,7 +221,7 @@ function BrandColumn({
               />
             ) : (
               <Image
-                src={badge.src}
+                src={cdn(badge.src)}
                 alt={badge.alt}
                 width={badge.w}
                 height={badge.h}

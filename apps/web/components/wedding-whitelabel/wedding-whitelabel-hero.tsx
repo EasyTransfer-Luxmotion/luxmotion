@@ -4,6 +4,7 @@ import Image from "next/image"
 import { useTranslations } from "next-intl"
 import { ArrowRight, BadgeCheck, Check, MessageSquare, Star } from "lucide-react"
 import { TRUSTPILOT_REVIEWS_URL, REVIEW_LINK_PROPS } from "@/lib/review-links"
+import { cdn } from "@/lib/cdn"
 
 const SERIF_FONT = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
 const SANS_FONT = { fontFamily: "var(--font-sans), system-ui, sans-serif" } as const
@@ -269,7 +270,7 @@ export function WeddingWhitelabelHero({
         <div className="relative h-[358px] w-full">
           <div className="absolute inset-0 overflow-hidden">
             <Image
-              src={heroImageUrl || "/wedding/couple.webp"}
+              src={cdn(heroImageUrl || "/wedding/couple.webp")}
               alt={t("photoAlt")}
               fill
               priority
@@ -339,7 +340,7 @@ export function WeddingWhitelabelHero({
       <div className="hidden md:block relative h-[800px]">
         <div className="absolute top-0 right-0 h-[800px] w-[1058px] overflow-hidden pointer-events-none">
           <Image
-            src={heroImageUrl || "/wedding/couple.webp"}
+            src={cdn(heroImageUrl || "/wedding/couple.webp")}
             alt={t("photoAlt")}
             fill
             priority

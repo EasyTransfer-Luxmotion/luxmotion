@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Link } from "@/i18n/navigation"
 import { ArrowRight } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { cdn } from "@/lib/cdn"
 
 const sans = { fontFamily: "var(--font-sans), system-ui, sans-serif" } as const
 const serif = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
@@ -88,8 +89,8 @@ export function CorporateHero() {
         {/* Vídeo de fundo, silenciado e em loop. O poster segura o
             enquadramento enquanto o primeiro frame não pinta. */}
         <video
-          src="/video/corporate-hero.mp4"
-          poster="/video/corporate-hero-poster.webp"
+          src={cdn("/video/corporate-hero.mp4")}
+          poster={cdn("/video/corporate-hero-poster.webp")}
           autoPlay
           muted
           loop

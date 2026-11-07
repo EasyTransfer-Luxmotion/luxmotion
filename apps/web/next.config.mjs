@@ -19,12 +19,16 @@ const nextConfig = {
     ];
   },
   images: {
-    // Servimos as imagens tal como estão, sem passar pelo optimizador do Vercel:
-    // a quota esgotou e /_next/image devolvia 402 em todo o site. Os ficheiros
-    // em public/ foram convertidos para WebP com o lado maior a 1920px (375MB
-    // -> 21MB), por isso já vêm no tamanho certo e o optimizador não acrescenta
-    // nada. As remotas (Convex, Google) também deixam de gastar quota.
-    unoptimized: true,
+    // Com CDN (Railway), o loader manda o <Image> buscar ao Bunny. Sem ela
+    // (Vercel), servimos as imagens tal como estão, sem passar pelo
+    // optimizador do Vercel: a quota esgotou e /_next/image devolvia 402 em
+    // todo o site. Os ficheiros em public/ foram convertidos para WebP com o
+    // lado maior a 1920px (375MB -> 21MB), por isso já vêm no tamanho certo e
+    // o optimizador não acrescenta nada. Nenhum dos dois caminhos usa o
+    // /_next/image.
+    ...(process.env.NEXT_PUBLIC_CDN_URL
+      ? { loader: "custom", loaderFile: "./lib/cdn-image-loader.ts" }
+      : { unoptimized: true }),
     // Allowed next/image quality values (default 75 + the explicit quality={90}).
     // Required from Next.js 16; silences the build warning now.
     qualities: [75, 90],
@@ -41,6 +45,11 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "convex.easytransferportugal.com",
+      },
+      // Bunny: as imagens carregadas no admin e o espelho de public/
+      {
+        protocol: "https",
+        hostname: "*.b-cdn.net",
       },
       // Fotos de perfil dos autores das reviews do Google
       {

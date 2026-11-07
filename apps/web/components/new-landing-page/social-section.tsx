@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl"
 import { useQuery } from "convex/react"
 import { api } from "@workspace/convex/api"
 import { useAutoScrollMarquee } from "@/hooks/use-auto-scroll-marquee"
+import { cdn } from "@/lib/cdn"
 
 const fallbackPosts = [
   { id: "1", media_url: "/instagram/post-1.webp", permalink: "https://www.instagram.com/luxmotion.tours/" },
@@ -99,7 +100,7 @@ export function SocialSection() {
               className="group relative aspect-square min-h-[300px] flex-1 bg-[var(--lm-surface,#1A1A1A)] overflow-hidden"
             >
               <Image
-                src={post.media_url}
+                src={cdn(post.media_url)}
                 alt="Instagram post"
                 fill
                 className="object-cover transition-opacity duration-300 group-hover:opacity-70"
@@ -128,7 +129,7 @@ export function SocialSection() {
               className="group relative aspect-[1/1.1] w-[60vw] max-w-[280px] shrink-0 bg-[var(--lm-surface,#1A1A1A)] overflow-hidden first:ml-4 last:mr-4"
             >
               <Image
-                src={post.media_url}
+                src={cdn(post.media_url)}
                 alt="Instagram post"
                 fill
                 className="object-cover"

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { Award, Baby, Shield, type LucideIcon } from "lucide-react"
 import { useScrollReveal } from "@/hooks/use-scroll-reveal"
 import { cn } from "@workspace/ui/lib/utils"
+import { cdn } from "@/lib/cdn"
 
 const SERIF_FONT = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
 const SANS_FONT = { fontFamily: "var(--font-sans), system-ui, sans-serif" } as const
@@ -57,7 +58,7 @@ export function SchoolsStats() {
     <section className="relative overflow-hidden px-4 md:px-[52px] py-[96px] md:py-[120px] bg-white">
       <img
         aria-hidden
-        src="/schools/stats-backdrop.svg"
+        src={cdn("/schools/stats-backdrop.svg")}
         alt=""
         className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-0 w-[1905px] min-w-[100vw] max-w-none h-[686px] mix-blend-multiply"
       />

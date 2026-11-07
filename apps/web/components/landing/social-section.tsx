@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useQuery } from "convex/react"
 import { api } from "@workspace/convex/api"
+import { cdn } from "@/lib/cdn"
 
 const instagramGradient =
   "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"
@@ -71,7 +72,7 @@ export function SocialSection() {
               <div className="flex items-center justify-center p-[2px] rounded-full w-[55px] h-[55px] shrink-0" style={{ background: instagramGradient }}>
                 <div className="relative w-[51px] h-[51px] rounded-full border-2 border-white overflow-hidden">
                   {profile?.profile_picture_url ? (
-                    <Image src={profile.profile_picture_url} alt="Profile" fill className="object-cover" unoptimized />
+                    <Image src={cdn(profile.profile_picture_url)} alt="Profile" fill className="object-cover" unoptimized />
                   ) : (
                     <Image src="/shared/logos/socials-logo.png" alt="Profile" fill className="object-cover" />
                   )}
@@ -177,7 +178,7 @@ function PostCard({
       rel="noopener noreferrer"
       className={`relative rounded-lg overflow-hidden block ${isMobile ? "w-[340px] h-[380px] flex-shrink-0" : "flex-1 h-[560px] max-w-[460px]"} hover:opacity-90 transition-opacity`}
     >
-      <Image src={imageUrl} alt="Instagram post" fill className="object-cover" unoptimized />
+      <Image src={cdn(imageUrl)} alt="Instagram post" fill className="object-cover" unoptimized />
     </a>
   )
 }

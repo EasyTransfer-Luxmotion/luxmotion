@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { cdn } from "@/lib/cdn"
 
 /**
  * Este vídeo tem 43 MB e está a meio da página: com autoPlay e sem preload
@@ -42,7 +43,7 @@ export function LisbonBanner() {
       <div className="relative w-full h-[280px] md:h-[400px] lg:h-[480px]">
         <video
           ref={videoRef}
-          src="/video/ad.mp4"
+          src={cdn("/video/ad.mp4")}
           loop
           playsInline
           muted

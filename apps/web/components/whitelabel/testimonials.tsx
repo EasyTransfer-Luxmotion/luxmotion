@@ -13,6 +13,7 @@ import {
   TRUSTPILOT_REVIEWS_URL,
   REVIEW_LINK_PROPS,
 } from "@/lib/review-links"
+import { cdn } from "@/lib/cdn"
 
 const SERIF_FONT = {
   fontFamily: "var(--font-title), 'Cormorant Garamond', serif",
@@ -122,7 +123,7 @@ function LogoPill({
       className="bg-[rgba(var(--lm-text-rgb,255,255,255),0.04)] border border-[rgba(var(--lm-text-rgb,255,255,255),0.08)] flex items-center gap-1.5 px-2.5 h-7 transition-opacity hover:opacity-70"
     >
       <Image
-        src={src}
+        src={cdn(src)}
         alt={alt}
         width={width}
         height={height}
@@ -131,7 +132,7 @@ function LogoPill({
       />
       {srcLight ? (
         <Image
-          src={srcLight}
+          src={cdn(srcLight)}
           alt=""
           width={width}
           height={height}

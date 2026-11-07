@@ -12,6 +12,7 @@ import {
   TRUSTPILOT_REVIEWS_URL,
   REVIEW_LINK_PROPS,
 } from "@/lib/review-links"
+import { cdn } from "@/lib/cdn"
 
 // Faixa de fotos de clientes/viagens reais. É uma galeria — não são avatares
 // de quem escreveu as reviews, por isso não atribui autoria a ninguém.
@@ -438,7 +439,7 @@ export function Testimonials({
               <Image src="/shared/logos/google-logo.png" alt="Google" width={150} height={51} className="h-[36px] md:h-[51px] w-auto" />
             </a>
             <a href={TRUSTPILOT_REVIEWS_URL} {...REVIEW_LINK_PROPS} aria-label="Trustpilot" className="transition-opacity hover:opacity-70">
-              <Image src="/shared/logos/trustpilot-logo-green.svg" alt="Trustpilot" width={188} height={51} className="h-[36px] md:h-[51px] w-auto" unoptimized />
+              <Image src={cdn("/shared/logos/trustpilot-logo-green.svg")} alt="Trustpilot" width={188} height={51} className="h-[36px] md:h-[51px] w-auto" unoptimized />
             </a>
           </div>
 
@@ -467,7 +468,7 @@ export function Testimonials({
                   className="relative h-[355px]"
                 >
                   <Image
-                    src={photo}
+                    src={cdn(photo)}
                     alt={`Client photo ${i + 1}`}
                     fill
                     className="object-cover"
@@ -518,7 +519,7 @@ export function Testimonials({
               {[mobilePhotoIdx, (mobilePhotoIdx + 1) % PHOTOS.length].map((idx) => (
                 <div key={idx} className="flex-1 relative h-[220px]">
                   <Image
-                    src={PHOTOS[idx]!}
+                    src={cdn(PHOTOS[idx]!)}
                     alt={`Client photo ${idx + 1}`}
                     fill
                     className="object-cover"

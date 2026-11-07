@@ -27,6 +27,7 @@ import { api } from "@workspace/convex/api"
 import type { Id } from "@workspace/convex/dataModel"
 import { toPendingExperience } from "@/lib/pending-checkout-experiences"
 import { useConvex } from "convex/react"
+import { cdn } from "@/lib/cdn"
 
 type UiPaymentMethod = "cartao" | "cash" | "multibanco" | "mbway"
 
@@ -459,7 +460,7 @@ export function PaymentStep({ onContinue }: PaymentStepProps) {
                   <div className="flex items-start gap-3">
                     <div className="w-[54px] h-[54px] rounded-[3px] overflow-hidden flex-shrink-0 -mt-1 -ml-1">
                       <Image
-                        src="/shared/extras.png"
+                        src={cdn("/shared/extras.png")}
                         alt={t("comfortConnection")}
                         width={54}
                         height={54}
@@ -512,7 +513,7 @@ export function PaymentStep({ onContinue }: PaymentStepProps) {
                 <div className="flex items-start gap-3">
                   <div className="w-[60px] h-[60px] rounded overflow-hidden flex-shrink-0">
                     <Image
-                      src="/shared/extras.png"
+                      src={cdn("/shared/extras.png")}
                       alt={t("comfortConnection")}
                       width={60}
                       height={60}

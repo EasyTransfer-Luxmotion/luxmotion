@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl"
 import { useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@workspace/ui/lib/utils"
 import { GooglePlacesInput, type GooglePlaceValue } from "@/components/ui/google-places-input"
+import { cdn } from "@/lib/cdn"
 
 const TRUST_BADGES: { icon: LucideIcon; key: string }[] = [
   { icon: ShieldCheck, key: "safe" },
@@ -66,8 +67,8 @@ export function ToursHero() {
       {/* Vídeo de fundo, silenciado e em loop. O poster mantém o enquadramento
           anterior enquanto o vídeo não pinta o primeiro frame. */}
       <video
-        src="/video/tours-hero.mp4"
-        poster="/video/tours-hero-poster.webp"
+        src={cdn("/video/tours-hero.mp4")}
+        poster={cdn("/video/tours-hero-poster.webp")}
         autoPlay
         muted
         loop

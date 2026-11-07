@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { useSwipe } from "@/hooks/use-swipe"
 import { cn } from "@workspace/ui/lib/utils"
+import { cdn } from "@/lib/cdn"
 
 const SERIF_FONT = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
 const SANS_FONT = { fontFamily: "var(--font-sans), system-ui, sans-serif" } as const
@@ -128,7 +129,7 @@ function TiltCard({
                só o põe a andar quando está à vista, por isso as cópias do
                carrossel que estão fora do ecrã não gastam nada. */
             <video
-              src={video}
+              src={cdn(video)}
               autoPlay
               muted
               loop
@@ -139,7 +140,7 @@ function TiltCard({
             />
           ) : (
           <Image
-            src={src}
+            src={cdn(src)}
             alt={alt}
             fill
             /* O cartão é retrato e há fotos horizontais: com object-cover corta-se

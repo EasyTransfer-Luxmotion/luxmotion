@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { cdn } from "@/lib/cdn"
 
 export function FleetCta() {
   const t = useTranslations("fleetPage")
@@ -11,7 +12,10 @@ export function FleetCta() {
     <section className="py-[40px] md:py-[64px] px-4 md:px-8 lg:px-[60px] xl:px-[100px]">
       <div className="max-w-7xl mx-auto">
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0e4659] to-[#1a6b85] p-8 md:p-12 lg:p-16 flex flex-col items-center gap-6 text-center">
-          <div className="absolute inset-0 bg-[url('/fleet/tesla-bridge.webp')] bg-cover bg-center opacity-10" />
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-10"
+            style={{ backgroundImage: `url('${cdn("/fleet/tesla-bridge.webp")}')` }}
+          />
 
           <div className="relative z-10 flex flex-col items-center gap-6">
             <h2 className="text-[28px] md:text-[40px] font-bold text-white leading-[1.2]">
