@@ -1,9 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
-import { ConvexReactClient } from 'convex/react'
-import { ConvexProviderWithClerk } from 'convex/react-clerk'
-import { useAuth } from '@clerk/nextjs'
+import { ConvexProvider, ConvexReactClient } from 'convex/react'
 
 if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
   throw new Error('Missing NEXT_PUBLIC_CONVEX_URL in your .env file')
@@ -11,10 +9,10 @@ if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL.replace(/\/+$/, ''))
 
+/**
+ * Sem sessão: o site só chama funções públicas do Convex. O admin, que precisa
+ * de sessão, vive no dashboard.
+ */
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
-  return (
-    <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-      {children}
-    </ConvexProviderWithClerk>
-  )
+  return <ConvexProvider client={convex}>{children}</ConvexProvider>
 }

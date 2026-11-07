@@ -14,10 +14,8 @@ const convex = new ConvexReactClient(
 /**
  * O cliente Convex das páginas públicas, sem autenticação.
  *
- * O outro provider usa o ConvexProviderWithClerk, e por isso obrigava o
- * ClerkProvider — o SDK de autenticação inteiro — a ser carregado por cada
- * visitante anónimo do site. Nenhuma query pública precisa de sessão: as que
- * precisam vivem no /admin, que tem a sua própria raiz e continua com o Clerk.
+ * Nenhuma query pública precisa de sessão. As que precisam são do admin, que
+ * vive no dashboard — o site não carrega SDK de autenticação nenhum.
  */
 export function ConvexPublicProvider({ children }: { children: ReactNode }) {
   return <ConvexProvider client={convex}>{children}</ConvexProvider>

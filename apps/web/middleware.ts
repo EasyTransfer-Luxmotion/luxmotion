@@ -1,23 +1,17 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import createIntlMiddleware from 'next-intl/middleware';
 import { routing } from './i18n/routing';
 
-const isAdminRoute = createRouteMatcher(['/admin(.*)']);
-const isPublicAdminRoute = createRouteMatcher(['/admin/sign-in(.*)']);
+/* O admin saiu do site: vive no dashboard, num repositório e num serviço
+   próprios. Um /admin antigo (favoritos, links em emails velhos) segue para lá,
+   para o mesmo ecrã: /admin/orders -> <dashboard>/orders. */
+const ADMIN = /^\/admin(?=\/|$)/;
+const DASHBOARD_URL = process.env.DASHBOARD_URL?.replace(/\/+$/, '') || null;
 
 /* As rotas que ficaram fora do segmento de idioma: mantêm os endereços antigos
    porque são o destino de retorno dos gateways de pagamento, ou são internas.
    O middleware do next-intl não lhes toca. */
-const isUnprefixedRoute = createRouteMatcher([
-  '/admin(.*)',
-  '/checkout(.*)',
-  '/payment(.*)',
-  '/preview-site(.*)',
-  '/partnership-preview(.*)',
-  '/checkout-preview(.*)',
-  '/api(.*)',
-]);
+const SEM_IDIOMA = /^\/(?:checkout|payment|preview-site|partnership-preview|checkout-preview|api)(?=\/|$)/;
 
 const intlMiddleware = createIntlMiddleware(routing);
 
@@ -37,32 +31,19 @@ const STATIC_FILE = new RegExp(
   "i",
 );
 
-export default clerkMiddleware(async (auth, req) => {
-  if (isAdminRoute(req) && !isPublicAdminRoute(req)) {
-    const { userId } = await auth();
-    // Send signed-out admins to the in-house /admin/sign-in page — not Clerk's
-    // hosted Account Portal, which auth.protect() falls back to in production
-    // when NEXT_PUBLIC_CLERK_SIGN_IN_URL isn't set in the environment.
-    if (!userId) {
-      const signInUrl = new URL('/admin/sign-in', req.nextUrl);
-      /* Caminho relativo, não `req.url`. Atrás do proxy do Railway o `req.url`
-         é o endereço interno do contentor — `https://localhost:8080/admin` —
-         e ia inteiro para dentro do parâmetro. A página de entrada descartava-o
-         por ser de outra origem e mandava toda a gente para `/admin`, perdendo
-         a página que a pessoa tinha pedido. */
-      signInUrl.searchParams.set(
-        'redirect_url',
-        req.nextUrl.pathname + req.nextUrl.search,
-      );
-      return NextResponse.redirect(signInUrl);
-    }
+export default function middleware(req: NextRequest) {
+  const { pathname, search } = req.nextUrl;
+
+  if (ADMIN.test(pathname)) {
+    if (!DASHBOARD_URL) return new NextResponse(null, { status: 404 });
+    const destino = pathname.replace(ADMIN, '') || '/';
+    return NextResponse.redirect(`${DASHBOARD_URL}${destino}${search}`, 308);
   }
 
-  const { pathname } = req.nextUrl;
   /* O /sitemap.xml e o /robots.txt entram aqui pela regra dos ficheiros: são
      servidos por rotas de metadata do Next, mas para o Google são ficheiros e
      um redirect para /en/sitemap.xml deixava-o sem sitemap. */
-  if (STATIC_FILE.test(pathname) || isUnprefixedRoute(req)) {
+  if (STATIC_FILE.test(pathname) || SEM_IDIOMA.test(pathname)) {
     return NextResponse.next();
   }
 
@@ -70,7 +51,7 @@ export default clerkMiddleware(async (auth, req) => {
   // idioma certo: /tours passa a /en/tours, ou a /pt/tours para quem já tinha
   // escolhido português.
   return intlMiddleware(req);
-});
+}
 
 export const config = {
   matcher: [
