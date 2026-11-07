@@ -44,8 +44,16 @@ export default clerkMiddleware(async (auth, req) => {
     // hosted Account Portal, which auth.protect() falls back to in production
     // when NEXT_PUBLIC_CLERK_SIGN_IN_URL isn't set in the environment.
     if (!userId) {
-      const signInUrl = new URL('/admin/sign-in', req.url);
-      signInUrl.searchParams.set('redirect_url', req.url);
+      const signInUrl = new URL('/admin/sign-in', req.nextUrl);
+      /* Caminho relativo, não `req.url`. Atrás do proxy do Railway o `req.url`
+         é o endereço interno do contentor — `https://localhost:8080/admin` —
+         e ia inteiro para dentro do parâmetro. A página de entrada descartava-o
+         por ser de outra origem e mandava toda a gente para `/admin`, perdendo
+         a página que a pessoa tinha pedido. */
+      signInUrl.searchParams.set(
+        'redirect_url',
+        req.nextUrl.pathname + req.nextUrl.search,
+      );
       return NextResponse.redirect(signInUrl);
     }
   }
