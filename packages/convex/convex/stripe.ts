@@ -1,6 +1,5 @@
 import { v } from "convex/values";
-import { action } from "./_generated/server";
-import { exigirAdmin } from "./lib/admin";
+import { internalAction } from "./_generated/server";
 
 /*
  * Stripe integration (replaces ifthenpay.ts).
@@ -34,7 +33,12 @@ const METHOD_TO_STRIPE: Record<string, string> = {
  * left orders stuck "pending"). One session covers the whole booking total (incl. the
  * return leg); the completion webhook cascades to the related order.
  */
-export const createCheckoutSession = action({
+/**
+ * Interna: recebe o valor a cobrar de quem a chama, por isso só o servidor a
+ * pode chamar — depois de ele próprio ter calculado esse valor. Pública, era
+ * uma forma de criar uma sessão de 1 € para uma encomenda de 300 €.
+ */
+export const createCheckoutSession = internalAction({
   args: {
     kind: v.union(v.literal("transfer"), v.literal("tour")),
     // Optional: when omitted, the Stripe page shows all online methods and the customer picks.
@@ -49,12 +53,9 @@ export const createCheckoutSession = action({
     cancelUrl: v.string(),
   },
   handler: async (
-    ctx,
+    _ctx,
     args,
   ): Promise<{ checkoutUrl: string; sessionId: string; paymentIntentId: string | null }> => {
-    // Recebe o valor a cobrar de quem chama: aberta, era uma forma de criar
-    // uma sessão de pagamento de 1 € para uma encomenda de 300 €.
-    await exigirAdmin(ctx);
     // Offer all online methods on the Stripe page unless a specific one is requested.
     const methods: string[] = args.method
       ? [METHOD_TO_STRIPE[args.method]!]

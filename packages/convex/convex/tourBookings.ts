@@ -469,8 +469,7 @@ export const startPaymentAction = action({
       throw new Error("successUrl and cancelUrl are required for Stripe payment");
     }
 
-    const stripeApi = api as any;
-    const session: any = await ctx.runAction(stripeApi.stripe.createCheckoutSession, {
+    const session: any = await ctx.runAction(internal.stripe.createCheckoutSession, {
       kind: "tour",
       method: args.method, // "ccard" | "mbway" | "mb"
       orderNumber: bookingNumber,

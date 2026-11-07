@@ -1154,11 +1154,8 @@ export const startPaymentAction = action({
       throw new Error("successUrl and cancelUrl are required for Stripe payment");
     }
 
-    // `api as any` porque o codegen (que adiciona `stripe` aos tipos gerados) não corre
-    // aqui — mesmo padrão que o ficheiro já usava para o `ifthenpayApi`.
-    const stripeApi = api as any;
     try {
-      const result: any = await ctx.runAction(stripeApi.stripe.createCheckoutSession, {
+      const result: any = await ctx.runAction(internal.stripe.createCheckoutSession, {
         kind: "transfer",
         // Sem método específico → o Stripe mostra cartão + MB WAY + Multibanco na página dele.
         orderNumber,
