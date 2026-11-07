@@ -3,20 +3,27 @@ import { internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 
-// Centralizado na API EasyTransfer (via Supabase Edge Function -> /webhooks/nova-reserva).
-// N8N removido do circuito de reservas (era um ponto de falha sem retry).
-const ORDER_WEBHOOK_URL =
-  process.env.EASYTRANSFER_ORDER_WEBHOOK_URL ??
-  "https://vmtcugydsqkbfzuyajxh.supabase.co/functions/v1/webhook-nova-reserva";
+/*
+ * Destinos de cada ambiente, só por variável. Até 2026-11-07 cada um tinha o
+ * endereço de produção como valor por omissão: development e staging, que não
+ * têm estas variáveis, mandavam as reservas e os leads de teste para a
+ * operação a sério — e os receptores não pedem autenticação nenhuma.
+ *
+ * Sem a variável, não se envia, e fica dito no log.
+ */
+function destino(variavel: string): string | null {
+  return process.env[variavel]?.trim() || null;
+}
 
-const LEAD_WEBHOOK_URL =
-  process.env.EASYTRANSFER_LEAD_WEBHOOK_URL ??
-  "https://webhooks.easytransferericeira.com/webhook/novo_lead";
+// API EasyTransfer (Supabase Edge Function -> /webhooks/nova-reserva).
+const ORDER_WEBHOOK_URL = destino("EASYTRANSFER_ORDER_WEBHOOK_URL");
+const LEAD_WEBHOOK_URL = destino("EASYTRANSFER_LEAD_WEBHOOK_URL");
+// Pedidos não-transfer (tour/casamento/corporate/escola) -> confirmação por email.
+const PEDIDO_WEBHOOK_URL = destino("EASYTRANSFER_PEDIDO_WEBHOOK_URL");
 
-// Pedidos nao-transfer (tour/casamento/corporate/escola) -> confirmacao por email.
-const PEDIDO_WEBHOOK_URL =
-  process.env.EASYTRANSFER_PEDIDO_WEBHOOK_URL ??
-  "https://vmtcugydsqkbfzuyajxh.supabase.co/functions/v1/webhook-pedido";
+function semDestino(variavel: string, oQue: string): void {
+  console.log(`[Webhook] ${oQue} não enviado: ${variavel} não está definida neste ambiente.`);
+}
 
 /**
  * Internal action: envia um pedido nao-transfer para a API EasyTransfer, que
@@ -30,6 +37,7 @@ export const sendPedido = internalAction({
     dados: v.optional(v.any()),
   },
   handler: async (_ctx, args): Promise<void> => {
+    if (!PEDIDO_WEBHOOK_URL) return semDestino("EASYTRANSFER_PEDIDO_WEBHOOK_URL", `Pedido ${args.tipo}`);
     try {
       const res = await fetch(PEDIDO_WEBHOOK_URL, {
         method: "POST",
@@ -105,6 +113,11 @@ export const sendOrderPayload = internalAction({
     });
     for (const o of tourOrders) {
       orders.push(o);
+    }
+
+    // Antes das novas tentativas: sem destino não há nada a repetir.
+    if (!ORDER_WEBHOOK_URL) {
+      return semDestino("EASYTRANSFER_ORDER_WEBHOOK_URL", `Reserva (${orders.length} encomenda/s)`);
     }
 
     const body = JSON.stringify({ orders });
@@ -210,6 +223,7 @@ export const sendLeadPayload = internalAction({
     }),
   },
   handler: async (ctx, args): Promise<void> => {
+    if (!LEAD_WEBHOOK_URL) return semDestino("EASYTRANSFER_LEAD_WEBHOOK_URL", `Lead ${args.lead.reference}`);
     const body = JSON.stringify(args.lead);
     console.log("[Webhook] Lead: enviando para", LEAD_WEBHOOK_URL, "|", args.lead.reference);
     try {

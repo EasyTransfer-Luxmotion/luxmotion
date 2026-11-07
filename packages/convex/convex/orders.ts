@@ -7,9 +7,11 @@ import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { resolveReferral } from "./lib/referral";
 import { exigirAdmin } from "./lib/admin";
 
-const ORDER_WEBHOOK_URL =
-  process.env.EASYTRANSFER_ORDER_WEBHOOK_URL ??
-  "https://webhooks.easytransferericeira.com/webhook/73c31c3b-49ad-47f9-b8fa-40e8e7369a36";
+/* Reservas de transfer pagas em dinheiro -> n8n. Só por variável, e com nome
+   próprio: usava o mesmo nome do destino de `webhooks.ts`, com outro endereço
+   por omissão, e definir um mudava o outro. Sem a variável não se envia —
+   development e staging mandavam as reservas de teste para a operação. */
+const ORDER_CASH_WEBHOOK_URL = process.env.EASYTRANSFER_ORDER_CASH_WEBHOOK_URL?.trim() || null;
 
 const amadeusFlightInfoValidator = v.object({
   carrier: v.optional(v.string()),
@@ -1124,10 +1126,14 @@ export const startPaymentAction = action({
       }
       const tourOrds = await ctx.runQuery(internal.orders.getByTransferOrderId, { transferOrderId: args.orderId });
       for (const o of tourOrds) ordersList.push(o);
+      if (!ORDER_CASH_WEBHOOK_URL) {
+        console.log("[Orders] Reserva em dinheiro não enviada: EASYTRANSFER_ORDER_CASH_WEBHOOK_URL não está definida neste ambiente.");
+        return { success: true };
+      }
       const body = JSON.stringify({ orders: ordersList });
-      console.log("[Orders] ENVIO WEBHOOK — POST para:", ORDER_WEBHOOK_URL, "| orders:", ordersList.length);
+      console.log("[Orders] ENVIO WEBHOOK — POST para:", ORDER_CASH_WEBHOOK_URL, "| orders:", ordersList.length);
       try {
-        const res = await fetch(ORDER_WEBHOOK_URL, {
+        const res = await fetch(ORDER_CASH_WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body,
