@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { estaNoBunny } from "./lib/imagens";
 import { TABELAS } from "./lib/tabelasImagens";
@@ -116,5 +117,16 @@ export const contarPorMigrar = internalQuery({
       resultado[tabela] = { documentos, referencias: refs.size };
     }
     return resultado;
+  },
+});
+
+/**
+ * Lança a migração em segundo plano e devolve logo. As corridas encadeiam-se
+ * sozinhas; acompanha-se pelo log (`[migrar] …`) e por `contarPorMigrar`.
+ */
+export const agendarMigracao = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await ctx.scheduler.runAfter(0, internal.imagensBunny.migrar, {});
   },
 });

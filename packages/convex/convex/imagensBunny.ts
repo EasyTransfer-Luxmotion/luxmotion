@@ -89,10 +89,14 @@ async function tipoReal(ficheiro: Blob): Promise<string> {
  * e todas as referências passam a apontar para a mesma cópia.
  */
 export const migrar = internalAction({
-  args: {},
-  handler: async (ctx) => {
+  args: { corrida: v.optional(v.number()) },
+  handler: async (ctx, { corrida = 1 }) => {
     const inicio = Date.now();
-    const ORCAMENTO_MS = 8 * 60 * 1000;
+    // Verificado antes de CADA ficheiro, não de cada documento: um tour com a
+    // galeria cheia de vídeos leva minutos sozinho, e a primeira corrida em
+    // produção passou os 10 minutos das actions a meio de um.
+    const ORCAMENTO_MS = 6 * 60 * 1000;
+    const MAX_CORRIDAS = 30;
     const copiados = new Map<string, string>();
     const relatorio: Record<string, { documentos: number; trocados: number }> = {};
     const emFalta: string[] = [];
@@ -110,12 +114,19 @@ export const migrar = internalAction({
         } = await ctx.runQuery(internal.migracaoBunny.listarPorMigrar, { tabela, cursor });
 
         for (const doc of pagina.documentos) {
-          if (Date.now() - inicio > ORCAMENTO_MS) {
-            terminado = false;
-            break tabelas;
-          }
           const mapa: Record<string, string> = {};
           for (const ref of doc.refs) {
+            if (Date.now() - inicio > ORCAMENTO_MS) {
+              terminado = false;
+              // Grava o que já foi copiado deste documento antes de parar; o
+              // resto fica para a corrida seguinte.
+              if (Object.keys(mapa).length > 0) {
+                await ctx.runMutation(internal.migracaoBunny.trocarReferencias, { tabela, id: doc.id, mapa });
+                relatorio[tabela].documentos++;
+                relatorio[tabela].trocados += Object.keys(mapa).length;
+              }
+              break tabelas;
+            }
             if (!copiados.has(ref)) {
               const id = ref as Id<"_storage">;
               const ficheiro = await ctx.storage.get(id).catch(() => null);
@@ -150,7 +161,8 @@ export const migrar = internalAction({
       }
     }
 
-    return {
+    const resumo = {
+      corrida,
       terminado,
       ficheirosCopiados: copiados.size,
       porTabela: Object.fromEntries(Object.entries(relatorio).filter(([, r]) => r.documentos > 0)),
@@ -158,6 +170,17 @@ export const migrar = internalAction({
       recusados,
       segundos: Math.round((Date.now() - inicio) / 1000),
     };
+    // Fica no log do Convex: é por aí que se acompanha uma migração que corre
+    // sozinha, sem ninguém com uma ligação aberta à espera.
+    console.log(`[migrar] ${JSON.stringify(resumo)}`);
+
+    // Continua sozinha em vez de depender de quem a lançou ter a ligação
+    // aberta: a primeira vez em produção a CLI desistiu e a action seguiu.
+    // O tecto evita um ciclo sem fim se uma corrida nunca conseguir avançar.
+    if (!terminado && corrida < MAX_CORRIDAS) {
+      await ctx.scheduler.runAfter(0, internal.imagensBunny.migrar, { corrida: corrida + 1 });
+    }
+    return resumo;
   },
 });
 
