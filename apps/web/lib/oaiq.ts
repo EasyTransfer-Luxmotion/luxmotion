@@ -21,8 +21,10 @@ declare global {
   }
 }
 
-export const OPENAI_PIXEL_ID =
-  process.env.NEXT_PUBLIC_OPENAI_PIXEL_ID || "NiXDfgy1G93cgyambT8Kt2"
+/* Só por variável, definida só em produção. Com o id escrito aqui como valor
+   por omissão, development e staging mandavam as visitas e os pedidos de teste
+   para as estatísticas dos anúncios — a mesma armadilha dos webhooks. */
+export const OPENAI_PIXEL_ID = process.env.NEXT_PUBLIC_OPENAI_PIXEL_ID?.trim() || null
 
 /**
  * Um pedido de orçamento que já está guardado do nosso lado.
