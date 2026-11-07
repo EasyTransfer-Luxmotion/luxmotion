@@ -12,6 +12,7 @@ import {
   urlCdn,
 } from "./lib/bunny";
 import { TABELAS } from "./lib/tabelasImagens";
+import { exigirAdmin } from "./lib/admin";
 
 /*
  * Runtime de Node por causa da memória: o admin aceita vídeos, e o ficheiro
@@ -27,16 +28,13 @@ import { TABELAS } from "./lib/tabelasImagens";
  * upload continua a entrar pelo `generateUploadUrl` de sempre, e esta action
  * faz a passagem e apaga a cópia temporária.
  *
- * Exige sessão: sem isto, qualquer pessoa com o URL do Convex podia alojar
- * ficheiros na nossa CDN.
+ * Só para a equipa (`exigirAdmin`): sem isto, qualquer pessoa com o URL do
+ * Convex podia alojar ficheiros na nossa CDN.
  */
 export const publicar = action({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, { storageId }): Promise<{ caminho: string; url: string | null }> => {
-    const identidade = await ctx.auth.getUserIdentity();
-    if (!identidade) {
-      throw new ConvexError("É preciso ter sessão iniciada para publicar imagens.");
-    }
+    await exigirAdmin(ctx);
 
     const ficheiro = await ctx.storage.get(storageId);
     if (!ficheiro) throw new ConvexError("O ficheiro carregado já não existe.");

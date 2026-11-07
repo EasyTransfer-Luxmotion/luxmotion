@@ -1,9 +1,11 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { exigirAdmin } from "./lib/admin";
 
 export const listByTour = query({
   args: { tourId: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const schedules = await ctx.db
       .query("tourSchedules")
       .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
@@ -16,6 +18,7 @@ export const listByTour = query({
 export const getById = query({
   args: { id: v.id("tourSchedules") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await ctx.db.get(args.id);
   },
 });
@@ -139,6 +142,7 @@ export const getExceptions = query({
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const exceptions = await ctx.db
       .query("tourScheduleExceptions")
       .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
@@ -173,6 +177,7 @@ export const create = mutation({
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.tourId);
     if (!tour) throw new Error("Tour not found");
 
@@ -204,6 +209,7 @@ export const update = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Schedule not found");
@@ -220,6 +226,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("tourSchedules") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const schedule = await ctx.db.get(args.id);
     if (!schedule) throw new Error("Schedule not found");
 
@@ -244,6 +251,7 @@ export const remove = mutation({
 export const toggleActive = mutation({
   args: { id: v.id("tourSchedules") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const schedule = await ctx.db.get(args.id);
     if (!schedule) throw new Error("Schedule not found");
 
@@ -275,6 +283,7 @@ export const addException = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.tourId);
     if (!tour) throw new Error("Tour not found");
 
@@ -295,6 +304,7 @@ export const addException = mutation({
 export const removeException = mutation({
   args: { id: v.id("tourScheduleExceptions") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const exception = await ctx.db.get(args.id);
     if (!exception) throw new Error("Exception not found");
 
@@ -310,6 +320,7 @@ export const cancelTourDate = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.tourId);
     if (!tour) throw new Error("Tour not found");
 
@@ -336,6 +347,7 @@ export const rescheduleTourDate = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.tourId);
     if (!tour) throw new Error("Tour not found");
 

@@ -3,6 +3,7 @@ import { query, mutation } from "./_generated/server";
 import { resolveReferral } from "./lib/referral";
 import { enfileirarLead } from "./lib/pipedriveFila";
 import { avisarPedido } from "./lib/avisoPedido";
+import { exigirAdmin } from "./lib/admin";
 
 export const submit = mutation({
   args: {
@@ -31,6 +32,7 @@ export const submit = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const submissions = await ctx.db
       .query("contactSubmissions")
       .withIndex("by_created")
@@ -49,6 +51,7 @@ export const setStatus = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.patch(args.id, { status: args.status });
   },
 });
@@ -56,6 +59,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("contactSubmissions") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.delete(args.id);
   },
 });

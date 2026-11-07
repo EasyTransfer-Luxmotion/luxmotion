@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 /**
  * Biblioteca de imagens dos extras: carrega-se o ficheiro uma vez e depois
@@ -32,6 +33,7 @@ type ItemDaBiblioteca = {
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const registadas = await ctx.db.query("addonImages").collect();
     const extras = await ctx.db.query("tourAddons").collect();
 
@@ -83,6 +85,7 @@ export const add = mutation({
     label: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const existente = await ctx.db
       .query("addonImages")
       .withIndex("by_storage", (q) => q.eq("storageId", args.storageId))
@@ -109,6 +112,7 @@ export const rename = mutation({
     label: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.patch(args.id, { label: args.label });
     return args.id;
   },
@@ -127,6 +131,7 @@ export const rename = mutation({
 export const remove = mutation({
   args: { storageId: vImagem },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const linha = await ctx.db
       .query("addonImages")
       .withIndex("by_storage", (q) => q.eq("storageId", args.storageId))
@@ -160,6 +165,7 @@ export const remove = mutation({
 export const listMissing = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const extras = await ctx.db.query("tourAddons").collect();
 
     // O mesmo ficheiro aparece em dezenas de extras; sem cache era um getUrl
@@ -203,6 +209,7 @@ export const assign = mutation({
     label: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const agora = Date.now();
     for (const id of args.addonIds) {
       await ctx.db.patch(id, { imageId: args.storageId, updatedAt: agora });
@@ -232,6 +239,7 @@ export const assign = mutation({
 export const usedBy = query({
   args: { storageId: vImagem },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const extras = await ctx.db.query("tourAddons").collect();
     const usados = extras.filter((a) => a.imageId === args.storageId);
 
@@ -257,6 +265,7 @@ export const usedBy = query({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });

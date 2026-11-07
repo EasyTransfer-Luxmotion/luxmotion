@@ -3,6 +3,7 @@ import { internalMutation, mutation, action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { getDepartureArrivalFromBooking, buildOrderFromTourBooking } from "./tourBookings";
+import { exigirAdmin } from "./lib/admin";
 
 export const updatePaymentStatus = internalMutation({
   args: {
@@ -272,6 +273,7 @@ export const testPaymentSuccess = mutation({
     orderId: v.id("orders"),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const order = await ctx.db.get(args.orderId);
     if (!order) {
       throw new Error("Order not found");

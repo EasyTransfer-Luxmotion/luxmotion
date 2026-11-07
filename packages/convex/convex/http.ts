@@ -422,7 +422,7 @@ http.route({
       }
       
       // Buscar apenas pedidos do dia atual (sem paginação)
-      const orders = await ctx.runQuery(api.orders.getTodayOrders, {});
+      const orders = await ctx.runQuery(internal.orders.getTodayOrders, {});
 
       console.log("[HTTP] GET /orders - Today's orders:", { 
         count: orders.length,

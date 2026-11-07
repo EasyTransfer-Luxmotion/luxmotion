@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
+import { exigirAdmin } from "./lib/admin";
 
 /*
  * Stripe integration (replaces ifthenpay.ts).
@@ -48,9 +49,12 @@ export const createCheckoutSession = action({
     cancelUrl: v.string(),
   },
   handler: async (
-    _ctx,
+    ctx,
     args,
   ): Promise<{ checkoutUrl: string; sessionId: string; paymentIntentId: string | null }> => {
+    // Recebe o valor a cobrar de quem chama: aberta, era uma forma de criar
+    // uma sessão de pagamento de 1 € para uma encomenda de 300 €.
+    await exigirAdmin(ctx);
     // Offer all online methods on the Stripe page unless a specific one is requested.
     const methods: string[] = args.method
       ? [METHOD_TO_STRIPE[args.method]!]

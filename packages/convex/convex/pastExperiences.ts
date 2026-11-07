@@ -2,10 +2,12 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const experiences = await ctx.db.query("pastExperiences").collect();
 
     const withUrls = await Promise.all(
@@ -24,6 +26,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
+    await exigirAdmin(ctx);
     let rows = await ctx.db.query("pastExperiences").collect();
 
     rows = applySearch(rows, a.search, [(r) => r.title, (r) => r.location]);
@@ -89,6 +92,7 @@ export const create = mutation({
     status: v.union(v.literal("draft"), v.literal("published")),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const now = Date.now();
     return await ctx.db.insert("pastExperiences", {
       ...args,
@@ -118,6 +122,7 @@ export const update = mutation({
     status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Experience not found");
@@ -134,6 +139,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("pastExperiences") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const experience = await ctx.db.get(args.id);
     if (!experience) throw new Error("Experience not found");
 
@@ -149,6 +155,7 @@ export const remove = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });

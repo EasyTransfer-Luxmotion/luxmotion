@@ -6,6 +6,7 @@ import { generateSlug } from "./lib/utils";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
 import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 export const list = query({
   args: {},
@@ -55,6 +56,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
+    await exigirAdmin(ctx);
     const tours = await ctx.db.query("tours").collect();
 
     // Default ordering mirrors `list`: newest first.
@@ -649,6 +651,7 @@ export const getTranslation = query({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const translation = await ctx.db
       .query("tourTranslations")
       .withIndex("by_tour_locale", (q) =>
@@ -663,6 +666,7 @@ export const getTranslation = query({
 export const getAvailableLanguages = query({
   args: { tourId: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.tourId);
     if (!tour) return [];
 
@@ -678,6 +682,7 @@ export const getAvailableLanguages = query({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -685,6 +690,7 @@ export const generateUploadUrl = mutation({
 export const getStorageUrl = query({
   args: { storageId: vImagem },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await urlDaImagem(ctx, args.storageId);
   },
 });
@@ -798,6 +804,7 @@ export const create = mutation({
     maxPassengers: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     if (args.isFeatured) {
       const featuredCount = await ctx.db
         .query("tours")
@@ -948,6 +955,7 @@ export const update = mutation({
     maxPassengers: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Tour not found");
@@ -987,6 +995,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.id);
     if (!tour) throw new Error("Tour not found");
 
@@ -1090,6 +1099,7 @@ export const remove = mutation({
 export const publish = mutation({
   args: { id: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.id);
     if (!tour) throw new Error("Tour not found");
 
@@ -1107,6 +1117,7 @@ export const publish = mutation({
 export const unpublish = mutation({
   args: { id: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.id);
     if (!tour) throw new Error("Tour not found");
 
@@ -1122,6 +1133,7 @@ export const unpublish = mutation({
 export const countFeatured = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const featured = await ctx.db
       .query("tours")
       .withIndex("by_featured", (q) => q.eq("isFeatured", true))
@@ -1133,6 +1145,7 @@ export const countFeatured = query({
 export const toggleFeatured = mutation({
   args: { id: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.id);
     if (!tour) throw new Error("Tour not found");
 
@@ -1158,6 +1171,7 @@ export const toggleFeatured = mutation({
 export const toggleBestseller = mutation({
   args: { id: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.id);
     if (!tour) throw new Error("Tour not found");
 
@@ -1185,6 +1199,7 @@ export const upsertTranslation = mutation({
     cancellationPolicy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.tourId);
     if (!tour) throw new Error("Tour not found");
 
@@ -1242,6 +1257,7 @@ export const removeTranslation = mutation({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const translation = await ctx.db
       .query("tourTranslations")
       .withIndex("by_tour_locale", (q) =>
@@ -1259,6 +1275,7 @@ export const removeTranslation = mutation({
 export const updateRating = mutation({
   args: { tourId: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const reviews = await ctx.db
       .query("tourReviews")
       .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 export const listByTour = query({
   args: { tourId: v.id("tours") },
@@ -36,6 +37,7 @@ export const listByTour = query({
 export const getById = query({
   args: { id: v.id("tourStops") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const stop = await ctx.db.get(args.id);
     if (!stop) return null;
 
@@ -62,6 +64,7 @@ export const getStopTranslation = query({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const translation = await ctx.db
       .query("tourStopTranslations")
       .withIndex("by_stop_locale", (q) =>
@@ -87,6 +90,7 @@ export const create = mutation({
     lng: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.tourId);
     if (!tour) throw new Error("Tour not found");
 
@@ -125,6 +129,7 @@ export const update = mutation({
     lng: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Tour stop not found");
@@ -141,6 +146,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("tourStops") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const stop = await ctx.db.get(args.id);
     if (!stop) throw new Error("Tour stop not found");
 
@@ -183,6 +189,7 @@ export const reorder = mutation({
     stopIds: v.array(v.id("tourStops")),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tour = await ctx.db.get(args.tourId);
     if (!tour) throw new Error("Tour not found");
 
@@ -210,6 +217,7 @@ export const upsertTranslation = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const stop = await ctx.db.get(args.stopId);
     if (!stop) throw new Error("Tour stop not found");
 
@@ -256,6 +264,7 @@ export const removeTranslation = mutation({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const translation = await ctx.db
       .query("tourStopTranslations")
       .withIndex("by_stop_locale", (q) =>
@@ -273,6 +282,7 @@ export const removeTranslation = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });

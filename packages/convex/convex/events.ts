@@ -6,6 +6,7 @@ import { generateSlug } from "./lib/utils";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
 import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 export const list = query({
   args: {},
@@ -48,6 +49,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
+    await exigirAdmin(ctx);
     const events = await ctx.db.query("events").collect();
 
     // Default ordering mirrors `list`: newest first.
@@ -344,6 +346,7 @@ export const getTranslation = query({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const translation = await ctx.db
       .query("eventTranslations")
       .withIndex("by_event_locale", (q) =>
@@ -430,6 +433,7 @@ export const listNearCoordinates = query({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -437,6 +441,7 @@ export const generateUploadUrl = mutation({
 export const getStorageUrl = query({
   args: { storageId: vImagem },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await urlDaImagem(ctx, args.storageId);
   },
 });
@@ -488,6 +493,7 @@ export const create = mutation({
     confirmationHours: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     if (args.isFeatured) {
       const featuredCount = await ctx.db
         .query("events")
@@ -574,6 +580,7 @@ export const update = mutation({
     confirmationHours: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Event not found");
@@ -613,6 +620,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const event = await ctx.db.get(args.id);
     if (!event) throw new Error("Event not found");
 
@@ -677,6 +685,7 @@ export const remove = mutation({
 export const publish = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const event = await ctx.db.get(args.id);
     if (!event) throw new Error("Event not found");
 
@@ -694,6 +703,7 @@ export const publish = mutation({
 export const unpublish = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const event = await ctx.db.get(args.id);
     if (!event) throw new Error("Event not found");
 
@@ -709,6 +719,7 @@ export const unpublish = mutation({
 export const cancel = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const event = await ctx.db.get(args.id);
     if (!event) throw new Error("Event not found");
 
@@ -724,6 +735,7 @@ export const cancel = mutation({
 export const countFeatured = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const featured = await ctx.db
       .query("events")
       .withIndex("by_featured", (q) => q.eq("isFeatured", true))
@@ -735,6 +747,7 @@ export const countFeatured = query({
 export const toggleFeatured = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const event = await ctx.db.get(args.id);
     if (!event) throw new Error("Event not found");
 
@@ -770,6 +783,7 @@ export const upsertTranslation = mutation({
     seoDescription: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
 
@@ -823,6 +837,7 @@ export const removeTranslation = mutation({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const translation = await ctx.db
       .query("eventTranslations")
       .withIndex("by_event_locale", (q) =>
@@ -840,6 +855,7 @@ export const removeTranslation = mutation({
 export const updateRating = mutation({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const reviews = await ctx.db
       .query("tourReviews")
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
@@ -877,6 +893,7 @@ export const updateRating = mutation({
 export const backfillPrivatePrice = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const eventos = await ctx.db.query("events").collect();
     let copiados = 0;
     let semOrigem = 0;
@@ -905,6 +922,7 @@ export const backfillPrivatePrice = mutation({
 export const dropLegacyPrices = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const eventos = await ctx.db.query("events").collect();
 
     const porCopiar = eventos.filter(

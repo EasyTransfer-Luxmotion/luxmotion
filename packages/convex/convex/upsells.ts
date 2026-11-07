@@ -6,6 +6,7 @@ import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
 import { siteSettingsDefaults } from "./siteSettings";
 import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 /* Extras oferecidos a meio do checkout de um transfer: paragens curtas no
    trajecto e experiências no destino. Ver o comentário das tabelas no schema
@@ -158,6 +159,7 @@ export const listForDestination = query({
 export const listStopsPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
+    await exigirAdmin(ctx);
     const all = await ctx.db.query("upsellStops").collect();
     let rows = [...all].sort((x, y) => x.order - y.order);
 
@@ -196,6 +198,7 @@ export const listStopsPaged = query({
 export const getStop = query({
   args: { id: v.id("upsellStops") },
   handler: async (ctx, { id }) => {
+    await exigirAdmin(ctx);
     const row = await ctx.db.get(id);
     if (!row) return null;
     return {
@@ -224,6 +227,7 @@ const stopFields = {
 export const createStop = mutation({
   args: stopFields,
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const now = Date.now();
     // Novo entra no fim da lista, para o admin não ter de reordenar tudo.
     const last = await ctx.db.query("upsellStops").collect();
@@ -256,6 +260,7 @@ export const updateStop = mutation({
     order: v.optional(v.number()),
   },
   handler: async (ctx, { id, ...patch }) => {
+    await exigirAdmin(ctx);
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Upsell stop not found");
     if (
@@ -273,6 +278,7 @@ export const updateStop = mutation({
 export const removeStop = mutation({
   args: { id: v.id("upsellStops") },
   handler: async (ctx, { id }) => {
+    await exigirAdmin(ctx);
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Upsell stop not found");
     if (row.imageId) await apagarImagem(ctx, row.imageId);
@@ -287,6 +293,7 @@ export const removeStop = mutation({
 export const listExperiencesPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
+    await exigirAdmin(ctx);
     const all = await ctx.db.query("upsellExperiences").collect();
     let rows = [...all].sort((x, y) => x.order - y.order);
 
@@ -327,6 +334,7 @@ export const listExperiencesPaged = query({
 export const getExperience = query({
   args: { id: v.id("upsellExperiences") },
   handler: async (ctx, { id }) => {
+    await exigirAdmin(ctx);
     const row = await ctx.db.get(id);
     if (!row) return null;
     return {
@@ -359,6 +367,7 @@ const experienceFields = {
 export const createExperience = mutation({
   args: experienceFields,
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const now = Date.now();
     const last = await ctx.db.query("upsellExperiences").collect();
     const order =
@@ -396,6 +405,7 @@ export const updateExperience = mutation({
     order: v.optional(v.number()),
   },
   handler: async (ctx, { id, ...patch }) => {
+    await exigirAdmin(ctx);
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Upsell experience not found");
     if (
@@ -413,6 +423,7 @@ export const updateExperience = mutation({
 export const removeExperience = mutation({
   args: { id: v.id("upsellExperiences") },
   handler: async (ctx, { id }) => {
+    await exigirAdmin(ctx);
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Upsell experience not found");
     if (row.imageId) await apagarImagem(ctx, row.imageId);

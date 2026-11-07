@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { exigirAdmin } from "./lib/admin";
 
 const SETTINGS_KEY = "global";
 
@@ -48,6 +49,7 @@ export const upsert = mutation({
     checkoutBookedTodayMax: v.number(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const allValues = [
       args.trustpilotReviewCount,
       args.heroDailyTravelersMin,

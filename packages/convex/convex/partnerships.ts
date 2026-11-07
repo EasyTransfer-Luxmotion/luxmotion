@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { urlDaImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 const landingTemplateValidator = v.optional(
   v.union(
@@ -28,6 +29,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
+    await exigirAdmin(ctx);
     let rows = await ctx.db.query("partnerships").collect();
 
     rows = applySearch(rows, a.search, [(r) => r.name, (r) => r.slug]);
@@ -73,6 +75,7 @@ export const getBySlug = query({
 export const getById = query({
   args: { id: v.id("partnerships") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const partnership = await ctx.db.get(args.id);
     if (!partnership) return null;
     return {
@@ -130,6 +133,7 @@ export const create = mutation({
     landingTemplate: landingTemplateValidator,
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     validarSlug(args.slug);
     const existing = await ctx.db
       .query("partnerships")
@@ -155,6 +159,7 @@ export const update = mutation({
     landingTemplate: v.optional(landingTemplateValidator),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...data } = args;
     /* Também na edição: uma parceria criada bem podia ser estragada depois. */
     if (data.slug !== undefined) validarSlug(data.slug);
@@ -165,6 +170,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("partnerships") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.delete(args.id);
   },
 });
@@ -176,6 +182,7 @@ export const remove = mutation({
 export const getLeadStats = query({
   args: { partnershipId: v.id("partnerships") },
   handler: async (ctx, { partnershipId }) => {
+    await exigirAdmin(ctx);
     const at = (r: any): number => r.createdAt ?? r._creationTime;
     const mineOf = (rows: any[]) =>
       rows.filter((r) => r.partnershipId === partnershipId);

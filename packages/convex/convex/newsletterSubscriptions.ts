@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { enfileirarLead } from "./lib/pipedriveFila";
+import { exigirAdmin } from "./lib/admin";
 
 export const subscribe = mutation({
   args: {
@@ -30,6 +31,7 @@ export const subscribe = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const subs = await ctx.db
       .query("newsletterSubscriptions")
       .withIndex("by_created")

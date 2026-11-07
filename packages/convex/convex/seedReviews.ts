@@ -1,4 +1,5 @@
 import { mutation } from "./_generated/server";
+import { exigirAdmin } from "./lib/admin";
 
 const REVIEW_POOL = [
   { author: "Sarah M.", rating: 5, text: "Absolutely incredible experience! Our guide was so knowledgeable and passionate about the area. Every stop felt carefully curated and we discovered hidden gems we never would have found on our own. Highly recommend!" },
@@ -21,6 +22,7 @@ const REVIEW_POOL = [
 export const seedReviews = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const tours = await ctx.db.query("tours").collect();
 
     if (tours.length === 0) {
@@ -80,6 +82,7 @@ export const seedReviews = mutation({
 export const removeHighlightsFromTours = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const tours = await ctx.db.query("tours").collect();
     let fixed = 0;
     for (const tour of tours) {

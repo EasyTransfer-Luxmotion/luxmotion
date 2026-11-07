@@ -2,6 +2,7 @@ import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import { enfileirarLead } from "./lib/pipedriveFila"
 import { avisarPedido } from "./lib/avisoPedido"
+import { exigirAdmin } from "./lib/admin";
 
 const languageEntry = v.object({
   code: v.string(),
@@ -100,6 +101,7 @@ export const submit = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const applications = await ctx.db
       .query("driverApplications")
       .withIndex("by_created")
@@ -111,6 +113,7 @@ export const list = query({
 export const get = query({
   args: { id: v.id("driverApplications") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const application = await ctx.db.get(args.id)
     if (!application) return null
 
@@ -151,6 +154,7 @@ export const setStatus = mutation({
     status: statusValidator,
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.patch(args.id, {
       status: args.status,
       reviewedAt: Date.now(),
@@ -164,6 +168,7 @@ export const setInternalNotes = mutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.patch(args.id, { internalNotes: args.notes })
   },
 })
@@ -171,6 +176,7 @@ export const setInternalNotes = mutation({
 export const remove = mutation({
   args: { id: v.id("driverApplications") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.delete(args.id)
   },
 })

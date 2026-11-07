@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server"
 import { resolveReferral } from "./lib/referral"
 import { enfileirarLead } from "./lib/pipedriveFila"
 import { avisarPedido } from "./lib/avisoPedido"
+import { exigirAdmin } from "./lib/admin";
 
 const statusValidator = v.union(
   v.literal("new"),
@@ -42,6 +43,7 @@ export const submit = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const rows = await ctx.db
       .query("contactQuotes")
       .withIndex("by_created")
@@ -53,6 +55,7 @@ export const list = query({
 export const get = query({
   args: { id: v.id("contactQuotes") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await ctx.db.get(args.id)
   },
 })
@@ -60,6 +63,7 @@ export const get = query({
 export const setStatus = mutation({
   args: { id: v.id("contactQuotes"), status: statusValidator },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.patch(args.id, { status: args.status })
   },
 })
@@ -67,6 +71,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("contactQuotes") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.delete(args.id)
   },
 })

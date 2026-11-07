@@ -672,7 +672,7 @@ export const enviarReservaPaga = internalAction({
       const volta = await ctx.runQuery(api.orders.getById, { orderId: principal.relatedOrderId });
       if (volta) encomendas.push(volta);
     }
-    const upsells = await ctx.runQuery(api.orders.getByTransferOrderId, { transferOrderId: args.orderId });
+    const upsells = await ctx.runQuery(internal.orders.getByTransferOrderId, { transferOrderId: args.orderId });
     for (const o of upsells) encomendas.push(o);
 
     const negocio = mapearReservaPaga(encomendas);

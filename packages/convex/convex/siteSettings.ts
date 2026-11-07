@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { exigirAdmin } from "./lib/admin";
 
 // Single global settings row, keyed like marketingStats.
 const SETTINGS_KEY = "global";
@@ -79,6 +80,7 @@ export const upsert = mutation({
     checkoutUpsellRadiusKm: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     if (
       args.minAdvanceBookingHours !== undefined &&
       (!Number.isFinite(args.minAdvanceBookingHours) ||

@@ -1,9 +1,11 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { exigirAdmin } from "./lib/admin";
 
 export const listByTour = query({
   args: { tourId: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const reviews = await ctx.db
       .query("tourReviews")
       .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
@@ -16,6 +18,7 @@ export const listByTour = query({
 export const listByEvent = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const reviews = await ctx.db
       .query("tourReviews")
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
@@ -28,6 +31,7 @@ export const listByEvent = query({
 export const listApprovedByTour = query({
   args: { tourId: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const reviews = await ctx.db
       .query("tourReviews")
       .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
@@ -56,6 +60,7 @@ export const listApprovedByEvent = query({
 export const listPending = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const reviews = await ctx.db
       .query("tourReviews")
       .withIndex("by_approved", (q) => q.eq("isApproved", false))
@@ -91,6 +96,7 @@ export const listPending = query({
 export const listApproved = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const reviews = await ctx.db
       .query("tourReviews")
       .withIndex("by_approved", (q) => q.eq("isApproved", true))
@@ -163,6 +169,7 @@ export const listFeatured = query({
 export const getById = query({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await ctx.db.get(args.id);
   },
 });
@@ -180,6 +187,7 @@ export const create = mutation({
     isApproved: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     if (!args.tourId && !args.eventId) {
       throw new Error("Either tourId or eventId must be provided");
     }
@@ -258,6 +266,7 @@ export const submit = mutation({
 export const approve = mutation({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const review = await ctx.db.get(args.id);
     if (!review) throw new Error("Review not found");
 
@@ -278,6 +287,7 @@ export const approve = mutation({
 export const reject = mutation({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const review = await ctx.db.get(args.id);
     if (!review) throw new Error("Review not found");
 
@@ -301,6 +311,7 @@ export const reject = mutation({
 export const remove = mutation({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const review = await ctx.db.get(args.id);
     if (!review) throw new Error("Review not found");
 
@@ -324,6 +335,7 @@ export const remove = mutation({
 export const toggleFeatured = mutation({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const review = await ctx.db.get(args.id);
     if (!review) throw new Error("Review not found");
     if (!review.isApproved) throw new Error("Only approved reviews can be featured");
@@ -353,6 +365,7 @@ export const update = mutation({
     createdAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...data } = args;
     const review = await ctx.db.get(id);
     if (!review) throw new Error("Review not found");

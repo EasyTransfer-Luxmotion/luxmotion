@@ -1,10 +1,11 @@
 import { v } from "convex/values";
 import { isNightDeparture } from "./lib/pricing";
-import { mutation, query, action, internalMutation } from "./_generated/server";
+import { mutation, query, action, internalMutation, internalQuery } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { resolveReferral } from "./lib/referral";
+import { exigirAdmin } from "./lib/admin";
 
 const ORDER_WEBHOOK_URL =
   process.env.EASYTRANSFER_ORDER_WEBHOOK_URL ??
@@ -539,7 +540,7 @@ export const registContactInformation = mutation({
   },
 });
 
-export const startPayment = mutation({
+export const startPayment = internalMutation({
   args: {
     orderId: v.id("orders"),
     method: v.union(
@@ -763,7 +764,7 @@ export const setPendingCheckoutExperiences = mutation({
   },
 });
 
-export const getByTransferOrderId = query({
+export const getByTransferOrderId = internalQuery({
   args: { transferOrderId: v.id("orders") },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -780,7 +781,7 @@ export const getByTransferOrderId = query({
  * Query para buscar apenas pedidos do dia atual (sem paginação)
  * Usado pelo endpoint HTTP protegido
  */
-export const getTodayOrders = query({
+export const getTodayOrders = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
@@ -836,6 +837,7 @@ export const listOrders = query({
     cursor: v.optional(v.string()), // Cursor baseado em _id da última ordem
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const effectiveStatus = args.onlyPaid ? "paid" : args.status;
     
     let query = ctx.db.query("orders");
@@ -917,6 +919,7 @@ export const getPendingMbwayPayments = query({
     since: v.number(), // timestamp em milissegundos
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await ctx.db
       .query("orders")
       .withIndex("by_payment_status", (q) => q.eq("paymentStatus", "pending"))
@@ -1076,7 +1079,7 @@ export const startPaymentAction = action({
       email: args.email,
     });
 
-    await ctx.runMutation(api.orders.startPayment, paymentUpdates);
+    await ctx.runMutation(internal.orders.startPayment, paymentUpdates);
 
     // 4. Se for round trip, também atualizar ordem de retorno
     if (isRoundTrip && returnOrder) {
@@ -1101,7 +1104,7 @@ export const startPaymentAction = action({
         selectedCheckoutAddons: args.selectedCheckoutAddons,
       };
 
-      await ctx.runMutation(api.orders.startPayment, returnPaymentUpdates);
+      await ctx.runMutation(internal.orders.startPayment, returnPaymentUpdates);
     }
 
     const isCash = args.method === "cash" || (typeof args.method === "string" && args.method.toLowerCase() === "cash");
@@ -1119,7 +1122,7 @@ export const startPaymentAction = action({
         const returnOrd = await ctx.runQuery(api.orders.getById, { orderId: outboundOrder.relatedOrderId });
         if (returnOrd) ordersList.push(returnOrd);
       }
-      const tourOrds = await ctx.runQuery(api.orders.getByTransferOrderId, { transferOrderId: args.orderId });
+      const tourOrds = await ctx.runQuery(internal.orders.getByTransferOrderId, { transferOrderId: args.orderId });
       for (const o of tourOrds) ordersList.push(o);
       const body = JSON.stringify({ orders: ordersList });
       console.log("[Orders] ENVIO WEBHOOK — POST para:", ORDER_WEBHOOK_URL, "| orders:", ordersList.length);
@@ -1171,7 +1174,7 @@ export const startPaymentAction = action({
 
       // Guardar a referência Stripe (paridade com paymentRequestId + reconciliação).
       // O webhook faz o match pelo orderNumber no metadata, por isso isto é só informativo.
-      await ctx.runMutation(api.orders.updatePaymentReferences, {
+      await ctx.runMutation(internal.orders.updatePaymentReferences, {
         orderId: args.orderId,
         paymentEntity: undefined,
         paymentReference: undefined,
@@ -1186,7 +1189,7 @@ export const startPaymentAction = action({
       };
     } catch (error: any) {
       // Se a criação da sessão falhar, marcar como failed.
-      await ctx.runMutation(api.orders.updatePaymentStatus, {
+      await ctx.runMutation(internal.orders.updatePaymentStatus, {
         orderId: args.orderId,
         paymentStatus: "failed",
       });
@@ -1202,7 +1205,7 @@ export const startPaymentAction = action({
 /**
  * Mutation para atualizar referências de pagamento na ordem
  */
-export const updatePaymentReferences = mutation({
+export const updatePaymentReferences = internalMutation({
   args: {
     orderId: v.id("orders"),
     paymentEntity: v.optional(v.string()),
@@ -1228,7 +1231,7 @@ export const updatePaymentReferences = mutation({
 /**
  * Mutation helper para atualizar status de pagamento
  */
-export const updatePaymentStatus = mutation({
+export const updatePaymentStatus = internalMutation({
   args: {
     orderId: v.id("orders"),
     paymentStatus: v.union(
@@ -1263,6 +1266,7 @@ export const updatePaymentStatus = mutation({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
+    await exigirAdmin(ctx);
     // Newest first by default — most recent orders are what the admin acts on.
     const all = await ctx.db.query("orders").order("desc").collect();
 
@@ -1349,6 +1353,7 @@ export const adminUpdateOrderStatus = action({
     ctx,
     { orderId, status },
   ): Promise<{ success: boolean; triggered: boolean }> => {
+    await exigirAdmin(ctx);
     const order = await ctx.runQuery(api.orders.getById, { orderId });
     if (!order) throw new Error("Order not found");
 
@@ -1508,7 +1513,7 @@ export const cleanupDeprecatedFields = internalMutation({
 /**
  * Query to get all order IDs (for migration)
  */
-export const getAllOrderIds = query({
+export const getAllOrderIds = internalQuery({
   args: {},
   handler: async (ctx): Promise<Array<Id<"orders">>> => {
     const orders = await ctx.db.query("orders").collect();
@@ -1532,8 +1537,9 @@ export const cleanupAllDeprecatedFields = action({
       error?: string;
     }>;
   }> => {
+    await exigirAdmin(ctx);
     // Get all order IDs
-    const orderIds: Array<Id<"orders">> = await ctx.runQuery(api.orders.getAllOrderIds);
+    const orderIds: Array<Id<"orders">> = await ctx.runQuery(internal.orders.getAllOrderIds);
     
     const results: Array<{
       orderId: Id<"orders">;

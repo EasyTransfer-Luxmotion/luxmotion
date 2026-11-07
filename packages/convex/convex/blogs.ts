@@ -1,8 +1,9 @@
-import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { v, type ObjectType } from "convex/values";
+import { query, mutation, internalMutation, type MutationCtx } from "./_generated/server";
 import { generateSlug, calculateReadTime } from "./lib/utils";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 export const list = query({
   args: {},
@@ -40,6 +41,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
+    await exigirAdmin(ctx);
     const blogs = await ctx.db.query("blogs").collect();
 
     // Enrich with availableLanguages (needed for the Languages column) — cheap
@@ -255,6 +257,7 @@ export const getTranslation = query({
     locale: v.string()
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const translation = await ctx.db
       .query("blogTranslations")
       .withIndex("by_blog_locale", (q) =>
@@ -269,6 +272,7 @@ export const getTranslation = query({
 export const getAvailableLanguages = query({
   args: { blogId: v.id("blogs") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const blog = await ctx.db.get(args.blogId);
     if (!blog) return [];
 
@@ -281,8 +285,7 @@ export const getAvailableLanguages = query({
   },
 });
 
-export const create = mutation({
-  args: {
+const argscriarBlog = {
     title: v.string(),
     excerpt: v.string(),
     content: v.any(),
@@ -308,8 +311,9 @@ export const create = mutation({
     faq: v.optional(
       v.array(v.object({ question: v.string(), answer: v.string() })),
     ),
-  },
-  handler: async (ctx, args) => {
+  };
+
+async function criarBlog(ctx: MutationCtx, args: ObjectType<typeof argscriarBlog>) {
     if (args.isFeatured) {
       const featuredCount = await ctx.db
         .query("blogs")
@@ -356,11 +360,23 @@ export const create = mutation({
     });
 
     return blogId;
+  }
+
+export const create = mutation({
+  args: argscriarBlog,
+  handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
+    return await criarBlog(ctx, args);
   },
 });
 
-export const update = mutation({
-  args: {
+/** A mesma coisa, para a automação do blog — corre agendada, sem sessão. */
+export const createInterno = internalMutation({
+  args: argscriarBlog,
+  handler: (ctx, args) => criarBlog(ctx, args),
+});
+
+const argsatualizarBlog = {
     id: v.id("blogs"),
     title: v.optional(v.string()),
     excerpt: v.optional(v.string()),
@@ -387,8 +403,9 @@ export const update = mutation({
     faq: v.optional(
       v.array(v.object({ question: v.string(), answer: v.string() })),
     ),
-  },
-  handler: async (ctx, args) => {
+  };
+
+async function atualizarBlog(ctx: MutationCtx, args: ObjectType<typeof argsatualizarBlog>) {
     const { id, isService: isServiceArg, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Blog not found");
@@ -434,12 +451,26 @@ export const update = mutation({
     });
 
     return id;
+  }
+
+export const update = mutation({
+  args: argsatualizarBlog,
+  handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
+    return await atualizarBlog(ctx, args);
   },
+});
+
+/** A mesma coisa, para a automação do blog — corre agendada, sem sessão. */
+export const updateInterno = internalMutation({
+  args: argsatualizarBlog,
+  handler: (ctx, args) => atualizarBlog(ctx, args),
 });
 
 export const remove = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const blog = await ctx.db.get(args.id);
     if (!blog) throw new Error("Blog not found");
 
@@ -472,6 +503,7 @@ export const remove = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -479,6 +511,7 @@ export const generateUploadUrl = mutation({
 export const getStorageUrl = query({
   args: { storageId: vImagem },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await urlDaImagem(ctx, args.storageId);
   },
 });
@@ -486,6 +519,7 @@ export const getStorageUrl = query({
 export const getImageUrl = mutation({
   args: { storageId: vImagem },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await urlDaImagem(ctx, args.storageId);
   },
 });
@@ -493,6 +527,7 @@ export const getImageUrl = mutation({
 export const countFeatured = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const featured = await ctx.db
       .query("blogs")
       .withIndex("by_featured", (q) => q.eq("isFeatured", true))
@@ -504,6 +539,7 @@ export const countFeatured = query({
 export const listServices = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const blogs = await ctx.db
       .query("blogs")
       .withIndex("by_service", (q) => q.eq("isService", true))
@@ -538,6 +574,7 @@ export const listServices = query({
 export const countServices = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const services = await ctx.db
       .query("blogs")
       .withIndex("by_service", (q) => q.eq("isService", true))
@@ -549,6 +586,7 @@ export const countServices = query({
 export const toggleFeatured = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const blog = await ctx.db.get(args.id);
     if (!blog) throw new Error("Blog not found");
 
@@ -574,6 +612,7 @@ export const toggleFeatured = mutation({
 export const publish = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const blog = await ctx.db.get(args.id);
     if (!blog) throw new Error("Blog not found");
 
@@ -591,6 +630,7 @@ export const publish = mutation({
 export const unpublish = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const blog = await ctx.db.get(args.id);
     if (!blog) throw new Error("Blog not found");
 
@@ -603,8 +643,7 @@ export const unpublish = mutation({
   },
 });
 
-export const upsertTranslation = mutation({
-  args: {
+const argsgravarTraducaoBlog = {
     blogId: v.id("blogs"),
     locale: v.string(),
     title: v.string(),
@@ -612,8 +651,9 @@ export const upsertTranslation = mutation({
     content: v.any(),
     seoTitle: v.optional(v.string()),
     seoDescription: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
+  };
+
+async function gravarTraducaoBlog(ctx: MutationCtx, args: ObjectType<typeof argsgravarTraducaoBlog>) {
     const blog = await ctx.db.get(args.blogId);
     if (!blog) throw new Error("Blog not found");
 
@@ -654,7 +694,20 @@ export const upsertTranslation = mutation({
     });
 
     return translationId;
+  }
+
+export const upsertTranslation = mutation({
+  args: argsgravarTraducaoBlog,
+  handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
+    return await gravarTraducaoBlog(ctx, args);
   },
+});
+
+/** A mesma coisa, para a automação do blog — corre agendada, sem sessão. */
+export const upsertTranslationInterno = internalMutation({
+  args: argsgravarTraducaoBlog,
+  handler: (ctx, args) => gravarTraducaoBlog(ctx, args),
 });
 
 export const removeTranslation = mutation({
@@ -663,6 +716,7 @@ export const removeTranslation = mutation({
     locale: v.string()
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const translation = await ctx.db
       .query("blogTranslations")
       .withIndex("by_blog_locale", (q) =>

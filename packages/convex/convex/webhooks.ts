@@ -100,7 +100,7 @@ export const sendOrderPayload = internalAction({
       }
     }
     // Incluir orders dos tours/experiências do upsell (checkout transfer + tours)
-    const tourOrders = await ctx.runQuery(api.orders.getByTransferOrderId, {
+    const tourOrders = await ctx.runQuery(internal.orders.getByTransferOrderId, {
       transferOrderId: args.orderId,
     });
     for (const o of tourOrders) {
@@ -176,7 +176,7 @@ export const sendLeadPayloadFromOrder = internalAction({
 export const sendLeadPayloadFromTourBooking = internalAction({
   args: { bookingNumber: v.string() },
   handler: async (ctx, args): Promise<void> => {
-    const booking = await ctx.runQuery(api.tourBookings.getByBookingNumber, {
+    const booking = await ctx.runQuery(internal.tourBookings.getByBookingNumber, {
       bookingNumber: args.bookingNumber,
     });
     if (!booking) {

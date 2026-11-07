@@ -5,6 +5,7 @@ import type { QueryCtx } from "./_generated/server"
 import type { Doc } from "./_generated/dataModel"
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination"
 import { CORPORATE_LANGUAGES, corporateOriginalLanguage, localizeCorporateExperience } from "./lib/corporateExperienceTranslations"
+import { exigirAdmin } from "./lib/admin";
 
 const durationValidator = v.union(
   v.literal("halfDay"),
@@ -57,6 +58,7 @@ function validateLanguage(locale: string) {
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const all = await ctx.db.query("corporateExperiences").collect()
     const withUrls = await Promise.all(all.map((e) => resolveUrls(ctx, e)))
     return withUrls.sort((a, b) => a.sortOrder - b.sortOrder || b.createdAt - a.createdAt)
@@ -66,6 +68,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
+    await exigirAdmin(ctx);
     let rows = await ctx.db.query("corporateExperiences").collect()
 
     rows = applySearch(rows, a.search, [
@@ -110,6 +113,7 @@ export const listPublished = query({
 export const get = query({
   args: { id: v.id("corporateExperiences") },
   handler: async (ctx, { id }) => {
+    await exigirAdmin(ctx);
     const exp = await ctx.db.get(id)
     if (!exp) return null
     return await resolveUrls(ctx, exp)
@@ -139,6 +143,7 @@ export const create = mutation({
     sortOrder: v.number(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const originalLanguage = corporateOriginalLanguage(args)
     validateLanguage(originalLanguage)
     const now = Date.now()
@@ -175,6 +180,7 @@ export const update = mutation({
     sortOrder: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...data } = args
     const existing = await ctx.db.get(id)
     if (!existing) throw new Error("Experience not found")
@@ -196,6 +202,7 @@ export const setStatus = mutation({
     status: statusValidator,
   },
   handler: async (ctx, { id, status }) => {
+    await exigirAdmin(ctx);
     await ctx.db.patch(id, { status, updatedAt: Date.now() })
   },
 })
@@ -203,6 +210,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("corporateExperiences") },
   handler: async (ctx, { id }) => {
+    await exigirAdmin(ctx);
     const exp = await ctx.db.get(id)
     if (!exp) throw new Error("Experience not found")
     if (exp.coverImageId) {
@@ -225,10 +233,13 @@ export const remove = mutation({
 
 export const getTranslation = query({
   args: { experienceId: v.id("corporateExperiences"), locale: v.string() },
-  handler: async (ctx, { experienceId, locale }) => ctx.db
-    .query("corporateExperienceTranslations")
-    .withIndex("by_experience_locale", (q) => q.eq("experienceId", experienceId).eq("locale", locale))
-    .first(),
+  handler: async (ctx, { experienceId, locale }) => {
+    await exigirAdmin(ctx)
+    return await ctx.db
+      .query("corporateExperienceTranslations")
+      .withIndex("by_experience_locale", (q) => q.eq("experienceId", experienceId).eq("locale", locale))
+      .first()
+  },
 })
 
 export const upsertTranslation = mutation({
@@ -248,6 +259,7 @@ export const upsertTranslation = mutation({
     whatsIncluded: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const experience = await ctx.db.get(args.experienceId)
     if (!experience) throw new Error("Experience not found")
     validateLanguage(args.locale)
@@ -269,6 +281,7 @@ export const upsertTranslation = mutation({
 export const removeTranslation = mutation({
   args: { experienceId: v.id("corporateExperiences"), locale: v.string() },
   handler: async (ctx, { experienceId, locale }) => {
+    await exigirAdmin(ctx);
     const translation = await ctx.db.query("corporateExperienceTranslations")
       .withIndex("by_experience_locale", (q) => q.eq("experienceId", experienceId).eq("locale", locale)).first()
     if (!translation) throw new Error("Translation not found")
@@ -280,6 +293,7 @@ export const removeTranslation = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     return await ctx.storage.generateUploadUrl()
   },
 })

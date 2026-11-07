@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, action } from "./_generated/server";
+import { exigirAdmin } from "./lib/admin";
 
 // Cache para o token OAuth (em produção, considere usar uma tabela no Convex)
 interface TokenCache {
@@ -413,6 +414,7 @@ export const lookupFlight = query({
     departureDate: v.string(), // formato: yyyy-MM-dd
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     try {
       const depDate = normalizeDepartureDateInput(args.departureDate);
 

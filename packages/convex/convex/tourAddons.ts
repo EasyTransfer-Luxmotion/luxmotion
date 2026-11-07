@@ -1,10 +1,12 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 export const listByTour = query({
   args: { tourId: v.id("tours") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const addons = await ctx.db
       .query("tourAddons")
       .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
@@ -30,6 +32,7 @@ export const listByTour = query({
 export const listByEvent = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const addons = await ctx.db
       .query("tourAddons")
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
@@ -58,6 +61,7 @@ export const getTranslation = query({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await ctx.db
       .query("tourAddonTranslations")
       .withIndex("by_addon_locale", (q) =>
@@ -82,6 +86,7 @@ export const create = mutation({
     status: v.union(v.literal("draft"), v.literal("published")),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const now = Date.now();
     return await ctx.db.insert("tourAddons", {
       ...args,
@@ -106,6 +111,7 @@ export const update = mutation({
     status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Addon not found");
@@ -128,6 +134,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("tourAddons") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const addon = await ctx.db.get(args.id);
     if (!addon) throw new Error("Addon not found");
 
@@ -171,6 +178,7 @@ export const upsertTranslation = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const addon = await ctx.db.get(args.addonId);
     if (!addon) throw new Error("Addon not found");
 

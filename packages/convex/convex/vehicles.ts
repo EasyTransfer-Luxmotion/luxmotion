@@ -5,10 +5,12 @@ import { siteSettingsDefaults } from "./siteSettings";
 import { mutation, query } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const vehicles = await ctx.db
       .query("vehicles")
       .withIndex("by_order")
@@ -35,6 +37,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
+    await exigirAdmin(ctx);
     const vehicles = await ctx.db.query("vehicles").withIndex("by_order").collect();
 
     // Enrich with partnershipName (needed for search/filter) — cheap db.get per row.
@@ -188,6 +191,7 @@ export const listQuoted = query({
 export const getById = query({
   args: { id: v.id("vehicles") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const vehicle = await ctx.db.get(args.id);
     if (!vehicle) return null;
 
@@ -208,6 +212,7 @@ export const getById = query({
 export const getUpgradeFor = query({
   args: { vehicleId: v.id("vehicles") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const upgrade = await ctx.db
       .query("vehicles")
       .withIndex("by_upgrade_from", (q) =>
@@ -254,6 +259,7 @@ export const create = mutation({
     upgradeFromVehicleId: v.optional(v.id("vehicles")),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await ctx.db.insert("vehicles", args);
   },
 });
@@ -290,6 +296,7 @@ export const update = mutation({
     upgradeFromVehicleId: v.optional(v.id("vehicles")),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     
@@ -304,6 +311,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("vehicles") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const existing = await ctx.db.get(args.id);
     if (existing?.imageId) {
       await apagarImagem(ctx, existing.imageId);
@@ -315,6 +323,7 @@ export const remove = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });

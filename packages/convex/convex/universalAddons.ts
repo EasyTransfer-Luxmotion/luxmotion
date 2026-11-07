@@ -3,6 +3,7 @@ import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { urlDaImagem, vImagem } from "./lib/imagens";
+import { exigirAdmin } from "./lib/admin";
 
 /**
  * Extras universais: definidos uma vez e mostrados em todos os tours ou eventos
@@ -18,6 +19,7 @@ const ambito = v.union(
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const linhas = await ctx.db.query("universalAddons").collect();
     return await Promise.all(
       linhas
@@ -40,6 +42,7 @@ export const listForOwner = query({
     eventId: v.optional(v.id("events")),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const dono = args.tourId
       ? await ctx.db.get(args.tourId)
       : args.eventId
@@ -89,6 +92,7 @@ export const create = mutation({
     status: v.union(v.literal("draft"), v.literal("published")),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const agora = Date.now();
     const quantos = (await ctx.db.query("universalAddons").collect()).length;
     return await ctx.db.insert("universalAddons", {
@@ -118,6 +122,7 @@ export const update = mutation({
     status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { id, ...dados } = args;
     const existente = await ctx.db.get(id);
     if (!existente) throw new Error("Universal addon not found");
@@ -140,6 +145,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("universalAddons") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const tours = await ctx.db.query("tours").collect();
     for (const t of tours) {
       if (!t.disabledUniversalAddons?.includes(args.id)) continue;
@@ -168,6 +174,7 @@ export const setDisabled = mutation({
     disabled: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const id = args.tourId ?? args.eventId;
     if (!id) throw new Error("Missing tourId or eventId");
 
@@ -185,6 +192,7 @@ export const setDisabled = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -247,6 +255,7 @@ async function agruparRepetidos(ctx: {
 export const previewMigration = query({
   args: {},
   handler: async (ctx): Promise<Grupo[]> => {
+    await exigirAdmin(ctx);
     const { toursNormais, toursUltra, eventos, porTitulo } = await agruparRepetidos(
       ctx as never,
     );
@@ -294,6 +303,7 @@ export const previewMigration = query({
 export const migrateGroups = mutation({
   args: { titles: v.array(v.string()) },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     const { toursNormais, toursUltra, eventos, porTitulo } = await agruparRepetidos(
       ctx as never,
     );

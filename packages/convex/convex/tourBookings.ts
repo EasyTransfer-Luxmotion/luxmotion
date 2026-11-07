@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, action, internalMutation, internalAction } from "./_generated/server";
+import { mutation, query, action, internalMutation, internalAction, internalQuery } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -154,14 +154,14 @@ export const updateTipAndTotal = mutation({
   },
 });
 
-export const getById = query({
+export const getById = internalQuery({
   args: { bookingId: v.id("tourBookings") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.bookingId);
   },
 });
 
-export const getByBookingNumber = query({
+export const getByBookingNumber = internalQuery({
   args: { bookingNumber: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -369,7 +369,7 @@ export const ensureOrderForPaidTourBooking = internalMutation({
   },
 });
 
-export const startPayment = mutation({
+export const startPayment = internalMutation({
   args: {
     bookingId: v.id("tourBookings"),
     method: v.union(
@@ -440,7 +440,7 @@ export const startPaymentAction = action({
     language: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<any> => {
-    const booking = await ctx.runQuery(api.tourBookings.getById, {
+    const booking = await ctx.runQuery(internal.tourBookings.getById, {
       bookingId: args.bookingId,
     });
     if (!booking) {
@@ -450,7 +450,7 @@ export const startPaymentAction = action({
     const bookingNumber = booking.bookingNumber;
 
     if (args.method === "cash") {
-      const result = await ctx.runMutation(api.tourBookings.startPayment, {
+      const result = await ctx.runMutation(internal.tourBookings.startPayment, {
         bookingId: args.bookingId,
         method: "cash",
         totalAmount: args.amount,
@@ -486,7 +486,7 @@ export const startPaymentAction = action({
     });
 
     // Guardar método + referência Stripe no booking. O webhook confirma pelo metadata.
-    await ctx.runMutation(api.tourBookings.startPayment, {
+    await ctx.runMutation(internal.tourBookings.startPayment, {
       bookingId: args.bookingId,
       method: args.method,
       totalAmount: args.amount,

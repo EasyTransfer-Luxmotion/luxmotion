@@ -1,10 +1,11 @@
-import { v } from "convex/values";
+import { v, type ObjectType } from "convex/values";
 import {
   action,
   internalAction,
   internalMutation,
   internalQuery,
   query,
+  type QueryCtx,
 } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -33,6 +34,7 @@ import {
   markdownToTiptap,
   structuralSignature,
 } from "./lib/markdownToTiptap";
+import { exigirAdmin } from "./lib/admin";
 
 /**
  * Automação de artigos de blog.
@@ -221,9 +223,9 @@ export const _pickAuthor = internalQuery({
 });
 
 /** Histórico para o painel do admin. */
-export const listRuns = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, args) => {
+const argslistarCorridas = { limit: v.optional(v.number()) };
+
+async function listarCorridas(ctx: QueryCtx, args: ObjectType<typeof argslistarCorridas>) {
     const rows = await ctx.db
       .query("blogGenerationRuns")
       .withIndex("by_started")
@@ -243,7 +245,20 @@ export const listRuns = query({
       startedAt: r.startedAt,
       finishedAt: r.finishedAt,
     }));
+  }
+
+export const listRuns = query({
+  args: argslistarCorridas,
+  handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
+    return await listarCorridas(ctx, args);
   },
+});
+
+/** A mesma coisa, para a automação do blog — corre agendada, sem sessão. */
+export const listRunsInterno = internalQuery({
+  args: argslistarCorridas,
+  handler: (ctx, args) => listarCorridas(ctx, args),
 });
 
 /** Markdown de origem, para as traduções partirem do texto e não do JSON. */
@@ -391,7 +406,7 @@ export const generateArticle = internalAction({
       const faq = blocks.FAQ ? parseFaq(blocks.FAQ) : [];
 
       // 6. Rascunho. A publicação é feita pelo _markStep no fim.
-      const blogId: Id<"blogs"> = await ctx.runMutation(api.blogs.create, {
+      const blogId: Id<"blogs"> = await ctx.runMutation(internal.blogs.createInterno, {
         title,
         excerpt: description.slice(0, 200),
         content: converted.doc,
@@ -571,7 +586,7 @@ export const generateHeroImage = internalAction({
       const blog = await ctx.runQuery(api.blogs.getById, { id: args.blogId });
       const tags = mergeTags(blog?.tags, blocks.IMAGE_TAGS);
 
-      await ctx.runMutation(api.blogs.update, {
+      await ctx.runMutation(internal.blogs.updateInterno, {
         id: args.blogId,
         heroImageId: heroId,
         heroImageAlt: clean(blocks.HERO_ALT),
@@ -654,7 +669,7 @@ export const translateBlog = internalAction({
         throw new Error("estrutura da tradução diverge do original");
       }
 
-      await ctx.runMutation(api.blogs.upsertTranslation, {
+      await ctx.runMutation(internal.blogs.upsertTranslationInterno, {
         blogId: args.blogId,
         locale: args.locale,
         title: blocks.TITLE.trim(),
@@ -696,9 +711,10 @@ export const generateNow = action({
     keepDraft: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<{ ok: boolean; error?: string }> => {
+    await exigirAdmin(ctx);
     // Esta action gasta dinheiro e o Convex não tem autenticação: recusa se já
     // houver uma geração a decorrer.
-    const runs = await ctx.runQuery(api.blogAutomation.listRuns, { limit: 5 });
+    const runs = await ctx.runQuery(internal.blogAutomation.listRunsInterno, { limit: 5 });
     const running = runs.find(
       (r) => r.status === "running" && Date.now() - r.startedAt < 30 * 60_000,
     );
@@ -730,6 +746,7 @@ export const generateNow = action({
 export const retryHeroImage = action({
   args: { blogId: v.id("blogs") },
   handler: async (ctx, args): Promise<{ ok: boolean; error?: string }> => {
+    await exigirAdmin(ctx);
     const blog = await ctx.runQuery(api.blogs.getById, { id: args.blogId });
     if (!blog) return { ok: false, error: "Artigo não encontrado." };
 

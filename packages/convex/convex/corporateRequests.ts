@@ -4,6 +4,7 @@ import { internal } from "./_generated/api"
 import { resolveReferral } from "./lib/referral"
 import { enfileirarLead } from "./lib/pipedriveFila"
 import { avisarPedido } from "./lib/avisoPedido"
+import { exigirAdmin } from "./lib/admin";
 
 const statusValidator = v.union(
   v.literal("submitted"),
@@ -60,6 +61,7 @@ export const submit = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const requests = await ctx.db
       .query("corporateRequests")
       .withIndex("by_created")
@@ -71,6 +73,7 @@ export const list = query({
 export const get = query({
   args: { id: v.id("corporateRequests") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     return await ctx.db.get(args.id)
   },
 })
@@ -81,6 +84,7 @@ export const setStatus = mutation({
     status: statusValidator,
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.patch(args.id, {
       status: args.status,
       reviewedAt: Date.now(),
@@ -94,6 +98,7 @@ export const setInternalNotes = mutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.patch(args.id, { internalNotes: args.notes })
   },
 })
@@ -101,6 +106,7 @@ export const setInternalNotes = mutation({
 export const remove = mutation({
   args: { id: v.id("corporateRequests") },
   handler: async (ctx, args) => {
+    await exigirAdmin(ctx);
     await ctx.db.delete(args.id)
   },
 })

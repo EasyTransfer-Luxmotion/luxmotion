@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalAction, internalMutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { exigirAdmin } from "./lib/admin";
 
 /**
  * O feed do Instagram do site.
@@ -73,6 +74,7 @@ export const getInstagramFeed = query({
 export const getInstagramStatus = query({
   args: {},
   handler: async (ctx) => {
+    await exigirAdmin(ctx);
     const doc = await ctx.db.query("instagramCache").first();
     if (!doc) {
       return {
