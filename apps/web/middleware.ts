@@ -37,7 +37,15 @@ export default function middleware(req: NextRequest) {
   if (ADMIN.test(pathname)) {
     if (!DASHBOARD_URL) return new NextResponse(null, { status: 404 });
     const destino = pathname.replace(ADMIN, '') || '/';
-    return NextResponse.redirect(`${DASHBOARD_URL}${destino}${search}`, 308);
+    // O regresso depois de entrar também tinha o /admin à frente, e no
+    // dashboard os ecrãs estão na raiz: /admin/orders lá não existe.
+    const params = new URLSearchParams(search);
+    const regresso = params.get('redirect_url');
+    if (regresso && ADMIN.test(regresso)) {
+      params.set('redirect_url', regresso.replace(ADMIN, '') || '/');
+    }
+    const query = params.toString();
+    return NextResponse.redirect(`${DASHBOARD_URL}${destino}${query ? `?${query}` : ''}`, 308);
   }
 
   /* O /sitemap.xml e o /robots.txt entram aqui pela regra dos ficheiros: são
