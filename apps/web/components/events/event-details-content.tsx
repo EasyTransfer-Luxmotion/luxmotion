@@ -131,7 +131,12 @@ function EventCheckoutAutoOpen({ event }: { event: any }) {
       const children = parseInt(searchParams.get("children") || "0", 10)
       const infants = parseInt(searchParams.get("infants") || "0", 10)
       const guests = adults + children + infants || 1
-      const total = event.privatePrice * guests
+      /* As mesmas regras do cartão de reserva: com opção partilhada, o preço
+         privado é o da viatura e vende-se uma vez. Aqui multiplicava-se pelas
+         pessoas — quatro pessoas pagavam quatro viaturas. O widget da página
+         inicial não deixa escolher, e mostra o preço da viatura. */
+      const temEscolha = typeof event.sharedPrice === "number" && event.sharedPrice > 0
+      const total = temEscolha ? event.privatePrice : event.privatePrice * guests
 
       setTimeout(() => {
         openCheckout(
@@ -141,6 +146,9 @@ function EventCheckoutAutoOpen({ event }: { event: any }) {
             title: event.title,
             slug: event.slug,
             price: event.privatePrice,
+            ...(temEscolha && { sharingMode: "private" as const, perVehicle: true }),
+            vehicleSeats: event.vehicle?.passengers,
+            maxPassengers: event.maxPassengers,
             currency: event.currency ?? "€",
             image: event.bannerImage,
             meetingPoint: event.meetingPoint,

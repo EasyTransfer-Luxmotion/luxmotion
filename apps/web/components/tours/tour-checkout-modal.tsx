@@ -260,6 +260,10 @@ export function TourCheckoutModal() {
 
   const basePrice = useMemo(() => {
     if (!tour || !bookingData) return 0
+    // Por viatura vende-se o carro uma vez, como no contexto e no servidor. Sem
+    // isto a base mostrada multiplicava-o pelas pessoas, e a gorjeta escolhida
+    // a seguir punha esse valor errado no total.
+    if (tour.perVehicle) return tour.price
     const guests = bookingData.adults + bookingData.children + bookingData.infants || 1
     return tour.price * guests
   }, [tour, bookingData])
@@ -340,11 +344,10 @@ export function TourCheckoutModal() {
         passengers: guests,
         selectedDate: dateStr,
         selectedTime: timeStr,
-        basePrice:
-          Math.max(0, Number(tour.price) || 0) * (tour.perVehicle ? 1 : guests),
+        // Sem valores: o preço da base e dos extras é calculado no servidor a
+        // partir do tour (convex/lib/precoTours.ts). Só vão as escolhas.
         sharingMode: tour.sharingMode,
         selectedAddons: selectedAddons?.length ? selectedAddons : undefined,
-        addonsTotal: bookingData.addonsTotal ?? undefined,
         referralSlug: readReferralCookie() ?? undefined,
       })
       const bookingNumber = (result as { bookingNumber?: string })?.bookingNumber
@@ -354,7 +357,7 @@ export function TourCheckoutModal() {
         setStep(2)
       }
     } catch (e: any) {
-      setSubmitError(e?.message || "Failed to create booking")
+      setSubmitError((typeof e?.data === "string" && e.data) || e?.message || "Failed to create booking")
     } finally {
       setIsSubmitting(false)
     }
@@ -445,7 +448,6 @@ export function TourCheckoutModal() {
         bookingId: bookingId as Id<"tourBookings">,
         tipPercent,
         tipAmount,
-        totalAmount,
       })
 
       const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
@@ -477,7 +479,7 @@ export function TourCheckoutModal() {
         throw new Error("Checkout URL not received from payment provider")
       }
     } catch (e: any) {
-      setSubmitError(e?.message || t("payment.paymentError"))
+      setSubmitError((typeof e?.data === "string" && e.data) || e?.message || t("payment.paymentError"))
     } finally {
       setIsSubmitting(false)
     }

@@ -1,9 +1,11 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query, action, internalMutation, internalAction, internalQuery } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { resolveReferral } from "./lib/referral";
+import { gorjeta, precoDaReserva } from "./lib/precoTours";
 
 function generateBookingNumber(): string {
   const t = Date.now().toString().slice(-10);
@@ -11,6 +13,35 @@ function generateBookingNumber(): string {
     .toString()
     .padStart(3, "0");
   return `TB${t}${r}`.slice(0, 15);
+}
+
+/**
+ * Uma reserva paga, concluída ou cancelada já não muda. Sem isto dava para
+ * baixar a gorjeta, ou o número de pessoas, de uma reserva que já tinha sido
+ * cobrada.
+ */
+function exigirAlteravel(booking: Doc<"tourBookings"> | null): Doc<"tourBookings"> {
+  if (!booking) throw new ConvexError("Reserva não encontrada.");
+  if (booking.status !== "draft" && booking.status !== "pending") {
+    throw new ConvexError("Esta reserva já não pode ser alterada.");
+  }
+  return booking;
+}
+
+/** O preço de uma reserva já gravada, a partir do tour ou evento de agora. */
+async function recalcular(ctx: MutationCtx, booking: Doc<"tourBookings">) {
+  const preco = await precoDaReserva(ctx, {
+    tourId: booking.tourId,
+    eventId: booking.eventId,
+    passengers: booking.passengers,
+    sharingMode: booking.sharingMode,
+    extras: (booking.selectedAddons ?? []).map((a) => ({
+      addonId: a.addonId,
+      universalAddonId: a.universalAddonId,
+    })),
+  });
+  const tipAmount = gorjeta(preco.basePrice, booking.tipPercent ?? 0, booking.tipAmount ?? 0);
+  return { ...preco, tipAmount, totalAmount: preco.basePrice + preco.addonsTotal + tipAmount };
 }
 
 export const init = mutation({
@@ -23,16 +54,18 @@ export const init = mutation({
     passengers: v.number(),
     selectedDate: v.string(),
     selectedTime: v.string(),
-    basePrice: v.number(),
+    /* Os valores monetários que o browser manda são ignorados: o preço é
+       calculado aqui. Continuam aceites para o site antigo não partir. */
+    basePrice: v.optional(v.number()),
     sharingMode: v.optional(v.union(v.literal("private"), v.literal("shared"))),
     selectedAddons: v.optional(v.array(v.object({
       addonId: v.optional(v.id("tourAddons")),
       universalAddonId: v.optional(v.id("universalAddons")),
-      title: v.string(),
-      price: v.number(),
-      pricingType: v.union(v.literal("per_person"), v.literal("flat")),
-      quantity: v.number(),
-      subtotal: v.number(),
+      title: v.optional(v.string()),
+      price: v.optional(v.number()),
+      pricingType: v.optional(v.union(v.literal("per_person"), v.literal("flat"))),
+      quantity: v.optional(v.number()),
+      subtotal: v.optional(v.number()),
     }))),
     addonsTotal: v.optional(v.number()),
     referralSlug: v.optional(v.string()),
@@ -53,7 +86,17 @@ export const init = mutation({
         .unique();
     }
 
-    const totalAmount = args.basePrice + (args.addonsTotal ?? 0);
+    const preco = await precoDaReserva(ctx, {
+      tourId: args.tourId,
+      eventId: args.eventId,
+      passengers: args.passengers,
+      sharingMode: args.sharingMode,
+      extras: (args.selectedAddons ?? []).map((a) => ({
+        addonId: a.addonId,
+        universalAddonId: a.universalAddonId,
+      })),
+    });
+    const totalAmount = preco.basePrice + preco.addonsTotal;
     const id = await ctx.db.insert("tourBookings", {
       bookingNumber,
       productType: args.productType,
@@ -64,10 +107,10 @@ export const init = mutation({
       passengers: args.passengers,
       selectedDate: args.selectedDate,
       selectedTime: args.selectedTime,
-      basePrice: args.basePrice,
+      basePrice: preco.basePrice,
       sharingMode: args.sharingMode ?? undefined,
-      selectedAddons: args.selectedAddons ?? undefined,
-      addonsTotal: args.addonsTotal ?? undefined,
+      selectedAddons: preco.selectedAddons.length ? preco.selectedAddons : undefined,
+      addonsTotal: preco.addonsTotal > 0 ? preco.addonsTotal : undefined,
       partnershipId: ref.partnershipId,
       partnershipName: ref.partnershipName,
       tipPercent: 0,
@@ -98,6 +141,16 @@ export const updateContact = mutation({
     passengers: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const booking = exigirAlteravel(await ctx.db.get(args.bookingId));
+    if (args.passengers !== undefined && args.passengers !== booking.passengers) {
+      // Numa viatura o preço não depende de quantos vão; por pessoa, depende —
+      // e mudar o número depois do preço feito era pagar 1 e levar 8.
+      const { porViatura } = await recalcular(ctx, booking);
+      if (!porViatura) throw new ConvexError("O número de pessoas não pode mudar nesta fase.");
+      if (!Number.isInteger(args.passengers) || args.passengers < 1) {
+        throw new ConvexError("Número de pessoas inválido.");
+      }
+    }
     const now = Date.now();
     await ctx.db.patch(args.bookingId, {
       customerName: args.customerName,
@@ -126,6 +179,7 @@ export const updatePickup = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    exigirAlteravel(await ctx.db.get(args.bookingId));
     const now = Date.now();
     await ctx.db.patch(args.bookingId, {
       pickup: args.pickup ?? undefined,
@@ -139,18 +193,48 @@ export const updateTipAndTotal = mutation({
   args: {
     bookingId: v.id("tourBookings"),
     tipPercent: v.number(),
+    /* Só conta no valor livre (`tipPercent` -1). Numa percentagem é calculada
+       aqui. O total que o browser manda é ignorado. */
     tipAmount: v.number(),
-    totalAmount: v.number(),
+    totalAmount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
-    await ctx.db.patch(args.bookingId, {
+    const booking = exigirAlteravel(await ctx.db.get(args.bookingId));
+    const preco = await recalcular(ctx, {
+      ...booking,
       tipPercent: args.tipPercent,
       tipAmount: args.tipAmount,
-      totalAmount: args.totalAmount,
-      updatedAt: now,
+    });
+    await ctx.db.patch(args.bookingId, {
+      basePrice: preco.basePrice,
+      addonsTotal: preco.addonsTotal > 0 ? preco.addonsTotal : undefined,
+      tipPercent: args.tipPercent,
+      tipAmount: preco.tipAmount,
+      totalAmount: preco.totalAmount,
+      updatedAt: Date.now(),
     });
     return await ctx.db.get(args.bookingId);
+  },
+});
+
+/**
+ * Recalcula o preço de uma reserva no momento de a cobrar, grava-o e devolve
+ * o total. É este o valor que vai para o pagamento — nunca o do browser.
+ */
+export const fixarPreco = internalMutation({
+  args: { bookingId: v.id("tourBookings") },
+  handler: async (ctx, { bookingId }) => {
+    const booking = exigirAlteravel(await ctx.db.get(bookingId));
+    const preco = await recalcular(ctx, booking);
+    await ctx.db.patch(bookingId, {
+      basePrice: preco.basePrice,
+      selectedAddons: preco.selectedAddons.length ? preco.selectedAddons : undefined,
+      addonsTotal: preco.addonsTotal > 0 ? preco.addonsTotal : undefined,
+      tipAmount: preco.tipAmount,
+      totalAmount: preco.totalAmount,
+      updatedAt: Date.now(),
+    });
+    return preco.totalAmount;
   },
 });
 
@@ -431,7 +515,10 @@ export const startPaymentAction = action({
       v.literal("ccard"),
       v.literal("cash")
     ),
-    amount: v.number(),
+    /* O total que o cliente viu. Não é o que se cobra — serve para recusar o
+       pagamento se o preço calculado aqui for outro, em vez de cobrar um número
+       diferente do que estava no ecrã. */
+    amount: v.optional(v.number()),
     phoneNumber: v.optional(v.string()),
     email: v.optional(v.string()),
     successUrl: v.optional(v.string()),
@@ -449,11 +536,20 @@ export const startPaymentAction = action({
 
     const bookingNumber = booking.bookingNumber;
 
+    const totalAmount: number = await ctx.runMutation(internal.tourBookings.fixarPreco, {
+      bookingId: args.bookingId,
+    });
+    if (args.amount !== undefined && Math.abs(args.amount - totalAmount) > 0.005) {
+      throw new ConvexError(
+        `O preço desta reserva é €${totalAmount.toFixed(2)}, não €${args.amount.toFixed(2)}. Recarrega a página e tenta outra vez.`,
+      );
+    }
+
     if (args.method === "cash") {
       const result = await ctx.runMutation(internal.tourBookings.startPayment, {
         bookingId: args.bookingId,
         method: "cash",
-        totalAmount: args.amount,
+        totalAmount,
       });
       if (result?.orderId) {
         await ctx.runAction(internal.webhooks.sendOrderPayload, { orderId: result.orderId });
@@ -474,7 +570,7 @@ export const startPaymentAction = action({
       method: args.method, // "ccard" | "mbway" | "mb"
       orderNumber: bookingNumber,
       orderId: args.bookingId,
-      amount: args.amount,
+      amount: totalAmount,
       description: booking.tourTitle
         ? `${booking.tourTitle} (${bookingNumber})`
         : `Easy Transfer ${bookingNumber}`,
@@ -488,7 +584,7 @@ export const startPaymentAction = action({
     await ctx.runMutation(internal.tourBookings.startPayment, {
       bookingId: args.bookingId,
       method: args.method,
-      totalAmount: args.amount,
+      totalAmount,
       paymentRequestId: session.paymentIntentId ?? session.sessionId,
     });
 
