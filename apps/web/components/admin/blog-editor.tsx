@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePublicarImagem } from "@/hooks/use-publicar-imagem";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -33,7 +34,7 @@ export function BlogEditor({
   className,
   minHeight = "300px",
 }: BlogEditorProps) {
-  const generateUploadUrl = useMutation(api.blogs.generateUploadUrl);
+  const publicarImagem = usePublicarImagem();
   const getImageUrl = useMutation(api.blogs.getImageUrl);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -97,15 +98,9 @@ export function BlogEditor({
     if (!file || !editor) return;
 
     try {
-      const postUrl = await generateUploadUrl();
-      const result = await fetch(postUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      const { storageId } = await result.json();
-      const imageUrl = await getImageUrl({ storageId });
+      // O URL da CDN fica embutido no texto do artigo, por isso tem de ser já o
+      // definitivo — não um do Convex que deixa de existir na limpeza.
+      const { url: imageUrl } = await publicarImagem(file);
 
       if (imageUrl) {
         editor.chain().focus().setImage({ src: imageUrl }).run();

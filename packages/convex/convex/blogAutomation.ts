@@ -8,6 +8,7 @@ import {
 } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { publicarNoBunny } from "./lib/bunny";
 import {
   ARTICLE_SYSTEM_PROMPT,
   BANNED_PHRASES,
@@ -545,10 +546,11 @@ export const generateHeroImage = internalAction({
         prompt: withBranding(heroPrompt),
         reference: logo,
       });
-      const heroId = await ctx.storage.store(heroBlob);
+      // Directo para o Bunny, como qualquer imagem nova do site.
+      const heroId = await publicarNoBunny(heroBlob);
 
       // A editorial não pode derrubar a capa que já está paga e guardada.
-      let editorialId: Id<"_storage"> | undefined;
+      let editorialId: string | undefined;
       const editorialPrompt = blocks.EDITORIAL_PROMPT?.trim();
       if (editorialPrompt) {
         try {
@@ -556,7 +558,7 @@ export const generateHeroImage = internalAction({
             prompt: withBranding(editorialPrompt),
             reference: logo,
           });
-          editorialId = await ctx.storage.store(editorialBlob);
+          editorialId = await publicarNoBunny(editorialBlob);
         } catch (error) {
           console.warn(
             `${LOG} imagem editorial falhou: ${error instanceof Error ? error.message : error}`,

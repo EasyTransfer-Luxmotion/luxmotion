@@ -3,9 +3,9 @@ import { withDisplayedReviewStats } from "./lib/displayedReviewStats";
 import { resolveAddons } from "./lib/addons";
 import { query, mutation } from "./_generated/server";
 import { generateSlug } from "./lib/utils";
-import { safeStorageDelete } from "./lib/storage";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 export const list = query({
   args: {},
@@ -15,12 +15,12 @@ export const list = query({
     const eventsWithUrls = await Promise.all(
       events.map(async (event) => {
         const bannerImageUrl = event.bannerImageId
-          ? await ctx.storage.getUrl(event.bannerImageId)
+          ? await urlDaImagem(ctx, event.bannerImageId)
           : null;
 
         const additionalBannerUrls = event.additionalBannerIds
           ? await Promise.all(
-              event.additionalBannerIds.map((id) => ctx.storage.getUrl(id)),
+              event.additionalBannerIds.map((id) => urlDaImagem(ctx, id)),
             )
           : [];
 
@@ -77,12 +77,12 @@ export const listPaged = query({
     const withUrls = await Promise.all(
       result.rows.map(async (event) => {
         const bannerImageUrl = event.bannerImageId
-          ? await ctx.storage.getUrl(event.bannerImageId)
+          ? await urlDaImagem(ctx, event.bannerImageId)
           : null;
 
         const additionalBannerUrls = event.additionalBannerIds
           ? await Promise.all(
-              event.additionalBannerIds.map((id) => ctx.storage.getUrl(id)),
+              event.additionalBannerIds.map((id) => urlDaImagem(ctx, id)),
             )
           : [];
 
@@ -116,7 +116,7 @@ export const listPublished = query({
     const eventsWithUrls = await Promise.all(
       events.map(async (event) => {
         const bannerImageUrl = event.bannerImageId
-          ? await ctx.storage.getUrl(event.bannerImageId)
+          ? await urlDaImagem(ctx, event.bannerImageId)
           : null;
 
         const translations = await ctx.db
@@ -157,7 +157,7 @@ export const listUpcoming = query({
     const eventsWithUrls = await Promise.all(
       upcomingEvents.map(async (event) => {
         const bannerImageUrl = event.bannerImageId
-          ? await ctx.storage.getUrl(event.bannerImageId)
+          ? await urlDaImagem(ctx, event.bannerImageId)
           : null;
 
         return withDisplayedReviewStats({
@@ -183,7 +183,7 @@ export const listByLocation = query({
     const eventsWithUrls = await Promise.all(
       publishedEvents.map(async (event) => {
         const bannerImageUrl = event.bannerImageId
-          ? await ctx.storage.getUrl(event.bannerImageId)
+          ? await urlDaImagem(ctx, event.bannerImageId)
           : null;
 
         return withDisplayedReviewStats({
@@ -211,7 +211,7 @@ export const listFeatured = query({
     const eventsWithUrls = await Promise.all(
       publishedFeatured.map(async (event) => {
         const bannerImageUrl = event.bannerImageId
-          ? await ctx.storage.getUrl(event.bannerImageId)
+          ? await urlDaImagem(ctx, event.bannerImageId)
           : null;
 
         return withDisplayedReviewStats({
@@ -236,18 +236,18 @@ export const getBySlug = query({
     if (!event) return null;
 
     const bannerImageUrl = event.bannerImageId
-      ? await ctx.storage.getUrl(event.bannerImageId)
+      ? await urlDaImagem(ctx, event.bannerImageId)
       : null;
 
     const additionalBannerUrls = event.additionalBannerIds
       ? await Promise.all(
-          event.additionalBannerIds.map((id) => ctx.storage.getUrl(id)),
+          event.additionalBannerIds.map((id) => urlDaImagem(ctx, id)),
         )
       : [];
 
     const galleryImageUrls = event.galleryImageIds
       ? await Promise.all(
-          event.galleryImageIds.map((id) => ctx.storage.getUrl(id)),
+          event.galleryImageIds.map((id) => urlDaImagem(ctx, id)),
         )
       : [];
 
@@ -304,18 +304,18 @@ export const getById = query({
     if (!event) return null;
 
     const bannerImageUrl = event.bannerImageId
-      ? await ctx.storage.getUrl(event.bannerImageId)
+      ? await urlDaImagem(ctx, event.bannerImageId)
       : null;
 
     const additionalBannerUrls = event.additionalBannerIds
       ? await Promise.all(
-          event.additionalBannerIds.map((id) => ctx.storage.getUrl(id)),
+          event.additionalBannerIds.map((id) => urlDaImagem(ctx, id)),
         )
       : [];
 
     const galleryImageUrls = event.galleryImageIds
       ? await Promise.all(
-          event.galleryImageIds.map((id) => ctx.storage.getUrl(id)),
+          event.galleryImageIds.map((id) => urlDaImagem(ctx, id)),
         )
       : [];
 
@@ -399,7 +399,7 @@ export const listNearCoordinates = query({
     const result = await Promise.all(
       eventsWithDistance.map(async ({ event, distance }) => {
         const bannerImageUrl = event.bannerImageId
-          ? await ctx.storage.getUrl(event.bannerImageId)
+          ? await urlDaImagem(ctx, event.bannerImageId)
           : null;
 
         const addons = await resolveAddons(ctx, {
@@ -435,9 +435,9 @@ export const generateUploadUrl = mutation({
 });
 
 export const getStorageUrl = query({
-  args: { storageId: v.id("_storage") },
+  args: { storageId: vImagem },
   handler: async (ctx, args) => {
-    return await ctx.storage.getUrl(args.storageId);
+    return await urlDaImagem(ctx, args.storageId);
   },
 });
 
@@ -463,9 +463,9 @@ export const create = mutation({
     privatePrice: v.number(),
     sharedPrice: v.optional(v.number()),
     currency: v.string(),
-    bannerImageId: v.optional(v.id("_storage")),
-    additionalBannerIds: v.optional(v.array(v.id("_storage"))),
-    galleryImageIds: v.optional(v.array(v.id("_storage"))),
+    bannerImageId: v.optional(vImagem),
+    additionalBannerIds: v.optional(v.array(vImagem)),
+    galleryImageIds: v.optional(v.array(vImagem)),
     included: v.optional(v.array(v.string())),
     excluded: v.optional(v.array(v.string())),
     tags: v.optional(v.array(v.string())),
@@ -549,9 +549,9 @@ export const update = mutation({
     privatePrice: v.optional(v.number()),
     sharedPrice: v.optional(v.number()),
     currency: v.optional(v.string()),
-    bannerImageId: v.optional(v.id("_storage")),
-    additionalBannerIds: v.optional(v.array(v.id("_storage"))),
-    galleryImageIds: v.optional(v.array(v.id("_storage"))),
+    bannerImageId: v.optional(vImagem),
+    additionalBannerIds: v.optional(v.array(vImagem)),
+    galleryImageIds: v.optional(v.array(vImagem)),
     included: v.optional(v.array(v.string())),
     excluded: v.optional(v.array(v.string())),
     tags: v.optional(v.array(v.string())),
@@ -639,7 +639,7 @@ export const remove = mutation({
         await ctx.db.delete(at._id);
       }
       if (addon.imageId) {
-        await safeStorageDelete(ctx, addon.imageId);
+        await apagarImagem(ctx, addon.imageId);
       }
       await ctx.db.delete(addon._id);
     }
@@ -654,18 +654,18 @@ export const remove = mutation({
     }
 
     if (event.bannerImageId) {
-      await safeStorageDelete(ctx, event.bannerImageId);
+      await apagarImagem(ctx, event.bannerImageId);
     }
 
     if (event.additionalBannerIds) {
       for (const imageId of event.additionalBannerIds) {
-        await safeStorageDelete(ctx, imageId);
+        await apagarImagem(ctx, imageId);
       }
     }
 
     if (event.galleryImageIds) {
       for (const imageId of event.galleryImageIds) {
-        await safeStorageDelete(ctx, imageId);
+        await apagarImagem(ctx, imageId);
       }
     }
 

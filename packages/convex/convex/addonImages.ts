@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 /**
  * Biblioteca de imagens dos extras: carrega-se o ficheiro uma vez e depois
@@ -11,7 +12,7 @@ import type { Id } from "./_generated/dataModel";
 type ItemDaBiblioteca = {
   /** Presente só nas imagens registadas; as herdadas dos extras não têm linha. */
   libraryId?: Id<"addonImages">;
-  storageId: Id<"_storage">;
+  storageId: string;
   label: string;
   url: string;
   createdAt: number;
@@ -44,7 +45,7 @@ export const list = query({
     }
 
     for (const img of registadas) {
-      const url = await ctx.storage.getUrl(img.storageId);
+      const url = await urlDaImagem(ctx, img.storageId);
       // Ficheiro apagado do storage: a linha fica órfã e não vale mostrá-la.
       if (!url) continue;
       porStorage.set(img.storageId, {
@@ -60,7 +61,7 @@ export const list = query({
     for (const extra of extras) {
       if (!extra.imageId) continue;
       if (porStorage.has(extra.imageId)) continue;
-      const url = await ctx.storage.getUrl(extra.imageId);
+      const url = await urlDaImagem(ctx, extra.imageId);
       if (!url) continue;
       porStorage.set(extra.imageId, {
         storageId: extra.imageId,
@@ -78,7 +79,7 @@ export const list = query({
 /** Regista um ficheiro já carregado. Idempotente por `storageId`. */
 export const add = mutation({
   args: {
-    storageId: v.id("_storage"),
+    storageId: vImagem,
     label: v.string(),
   },
   handler: async (ctx, args) => {
@@ -124,7 +125,7 @@ export const rename = mutation({
  * Devolve quantos extras ficaram sem imagem, para a página o poder dizer.
  */
 export const remove = mutation({
-  args: { storageId: v.id("_storage") },
+  args: { storageId: vImagem },
   handler: async (ctx, args) => {
     const linha = await ctx.db
       .query("addonImages")
@@ -138,7 +139,7 @@ export const remove = mutation({
       await ctx.db.patch(extra._id, { imageId: undefined, updatedAt: Date.now() });
     }
 
-    await ctx.storage.delete(args.storageId);
+    await apagarImagem(ctx, args.storageId);
 
     return { extrasAfectados: afectados.length };
   },
@@ -167,7 +168,7 @@ export const listMissing = query({
     const estaViva = async (id: string) => {
       const guardado = vivos.get(id);
       if (guardado !== undefined) return guardado;
-      const url = await ctx.storage.getUrl(id as Id<"_storage">);
+      const url = await urlDaImagem(ctx, id as string);
       vivos.set(id, url !== null);
       return url !== null;
     };
@@ -196,7 +197,7 @@ export const listMissing = query({
 /** Dá a mesma imagem a um conjunto de extras de uma vez. */
 export const assign = mutation({
   args: {
-    storageId: v.id("_storage"),
+    storageId: vImagem,
     addonIds: v.array(v.id("tourAddons")),
     /** Nome com que a imagem fica na biblioteca, se ainda não estiver lá. */
     label: v.optional(v.string()),
@@ -229,7 +230,7 @@ export const assign = mutation({
  * apagar uma imagem convém ver o que é que ela ilustra.
  */
 export const usedBy = query({
-  args: { storageId: v.id("_storage") },
+  args: { storageId: vImagem },
   handler: async (ctx, args) => {
     const extras = await ctx.db.query("tourAddons").collect();
     const usados = extras.filter((a) => a.imageId === args.storageId);

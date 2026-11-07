@@ -1,5 +1,6 @@
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import { urlDaImagem } from "./imagens";
 
 /**
  * Junta os extras próprios de um tour ou evento com os universais do seu âmbito.
@@ -102,7 +103,7 @@ export async function resolveAddons(
   return await Promise.all(
     juntos.map(async ({ doc, universal }): Promise<AddonResolvido> => {
       const imageUrl = doc.imageId
-        ? await ctx.storage.getUrl(doc.imageId)
+        ? await urlDaImagem(ctx, doc.imageId)
         : null;
 
       const base: AddonResolvido = {

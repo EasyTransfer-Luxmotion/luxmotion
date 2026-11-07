@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { usePublicarImagem } from "@/hooks/use-publicar-imagem"
 import { useEffect, useState } from "react"
 import { useMutation } from "convex/react"
 import { api } from "@workspace/convex/api"
-import type { Id } from "@workspace/convex/dataModel"
 import { CORPORATE_LANGUAGES } from "@workspace/convex/convex/lib/corporateExperienceTranslations"
 import {
   Info,
@@ -98,7 +98,7 @@ export function CorporateExperienceForm({
 }) {
   const create = useMutation(api.corporateExperiences.create)
   const update = useMutation(api.corporateExperiences.update)
-  const generateUploadUrl = useMutation(api.corporateExperiences.generateUploadUrl)
+  const publicarImagem = usePublicarImagem()
 
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -119,9 +119,9 @@ export function CorporateExperienceForm({
   const [experienceItemsText, setExperienceItemsText] = useState("")
   const [routeHighlightsText, setRouteHighlightsText] = useState("")
   const [whatsIncludedText, setWhatsIncludedText] = useState("")
-  const [coverImageId, setCoverImageId] = useState<Id<"_storage"> | undefined>()
+  const [coverImageId, setCoverImageId] = useState<string | undefined>()
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
-  const [galleryImageIds, setGalleryImageIds] = useState<Id<"_storage">[]>([])
+  const [galleryImageIds, setGalleryImageIds] = useState<string[]>([])
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([])
   const [status, setStatus] = useState<"draft" | "published">("draft")
   const [sortOrder, setSortOrder] = useState(0)
@@ -176,16 +176,9 @@ export function CorporateExperienceForm({
     }
   }, [initialData])
 
-  const uploadFile = async (file: File): Promise<Id<"_storage">> => {
-    const url = await generateUploadUrl()
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": file.type },
-      body: file,
-    })
-    if (!res.ok) throw new Error("Upload failed")
-    const { storageId } = await res.json()
-    return storageId
+  const uploadFile = async (file: File): Promise<string> => {
+    const { caminho } = await publicarImagem(file)
+    return caminho
   }
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 
 const landingTemplateValidator = v.optional(
   v.union(
@@ -17,8 +18,8 @@ export const list = query({
     return Promise.all(
       partnerships.map(async (p) => ({
         ...p,
-        logoUrl: p.logoId ? await ctx.storage.getUrl(p.logoId) : null,
-        heroImageUrl: p.heroImageId ? await ctx.storage.getUrl(p.heroImageId) : null,
+        logoUrl: p.logoId ? await urlDaImagem(ctx, p.logoId) : null,
+        heroImageUrl: p.heroImageId ? await urlDaImagem(ctx, p.heroImageId) : null,
       }))
     );
   },
@@ -45,8 +46,8 @@ export const listPaged = query({
     const withLogos = await Promise.all(
       result.rows.map(async (r) => ({
         ...r,
-        logoUrl: r.logoId ? await ctx.storage.getUrl(r.logoId) : null,
-        heroImageUrl: r.heroImageId ? await ctx.storage.getUrl(r.heroImageId) : null,
+        logoUrl: r.logoId ? await urlDaImagem(ctx, r.logoId) : null,
+        heroImageUrl: r.heroImageId ? await urlDaImagem(ctx, r.heroImageId) : null,
       })),
     );
     return { ...result, rows: withLogos };
@@ -63,8 +64,8 @@ export const getBySlug = query({
     if (!partnership) return null;
     return {
       ...partnership,
-      logoUrl: partnership.logoId ? await ctx.storage.getUrl(partnership.logoId) : null,
-      heroImageUrl: partnership.heroImageId ? await ctx.storage.getUrl(partnership.heroImageId) : null,
+      logoUrl: partnership.logoId ? await urlDaImagem(ctx, partnership.logoId) : null,
+      heroImageUrl: partnership.heroImageId ? await urlDaImagem(ctx, partnership.heroImageId) : null,
     };
   },
 });
@@ -76,8 +77,8 @@ export const getById = query({
     if (!partnership) return null;
     return {
       ...partnership,
-      logoUrl: partnership.logoId ? await ctx.storage.getUrl(partnership.logoId) : null,
-      heroImageUrl: partnership.heroImageId ? await ctx.storage.getUrl(partnership.heroImageId) : null,
+      logoUrl: partnership.logoId ? await urlDaImagem(ctx, partnership.logoId) : null,
+      heroImageUrl: partnership.heroImageId ? await urlDaImagem(ctx, partnership.heroImageId) : null,
     };
   },
 });
@@ -124,7 +125,7 @@ export const create = mutation({
     slug: v.string(),
     theme: v.any(),
     content: v.optional(v.any()),
-    logoId: v.optional(v.id("_storage")),
+    logoId: v.optional(vImagem),
     status: v.optional(v.string()),
     landingTemplate: landingTemplateValidator,
   },
@@ -148,8 +149,8 @@ export const update = mutation({
     slug: v.optional(v.string()),
     theme: v.optional(v.any()),
     content: v.optional(v.any()),
-    logoId: v.optional(v.id("_storage")),
-    heroImageId: v.optional(v.id("_storage")),
+    logoId: v.optional(vImagem),
+    heroImageId: v.optional(vImagem),
     status: v.optional(v.string()),
     landingTemplate: v.optional(landingTemplateValidator),
   },

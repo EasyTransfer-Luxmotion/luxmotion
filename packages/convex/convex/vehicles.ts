@@ -4,6 +4,7 @@ import { isNightDeparture, priceVehicle } from "./lib/pricing";
 import { siteSettingsDefaults } from "./siteSettings";
 import { mutation, query } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 export const list = query({
   args: {},
@@ -22,7 +23,7 @@ export const list = query({
         return {
         ...vehicle,
         imageUrl: vehicle.imageId 
-          ? await ctx.storage.getUrl(vehicle.imageId) 
+          ? await urlDaImagem(ctx, vehicle.imageId) 
           : null,
           partnershipName: partnership?.name || "EasyTransfer",
         };
@@ -62,7 +63,7 @@ export const listPaged = query({
     const withImages = await Promise.all(
       result.rows.map(async (r) => ({
         ...r,
-        imageUrl: r.imageId ? await ctx.storage.getUrl(r.imageId) : null,
+        imageUrl: r.imageId ? await urlDaImagem(ctx, r.imageId) : null,
       })),
     );
     return { ...result, rows: withImages };
@@ -99,7 +100,7 @@ export const listActive = query({
       sortedVehicles.map(async (vehicle) => ({
         ...vehicle,
         imageUrl: vehicle.imageId 
-          ? await ctx.storage.getUrl(vehicle.imageId) 
+          ? await urlDaImagem(ctx, vehicle.imageId) 
           : null,
       }))
     );
@@ -176,7 +177,7 @@ export const listQuoted = query({
 
         return {
           ...vehicle,
-          imageUrl: vehicle.imageId ? await ctx.storage.getUrl(vehicle.imageId) : null,
+          imageUrl: vehicle.imageId ? await urlDaImagem(ctx, vehicle.imageId) : null,
           ...pricing,
         };
       }),
@@ -193,7 +194,7 @@ export const getById = query({
     return {
       ...vehicle,
       imageUrl: vehicle.imageId 
-        ? await ctx.storage.getUrl(vehicle.imageId) 
+        ? await urlDaImagem(ctx, vehicle.imageId) 
         : null,
     };
   },
@@ -218,7 +219,7 @@ export const getUpgradeFor = query({
     return {
       ...upgrade,
       imageUrl: upgrade.imageId
-        ? await ctx.storage.getUrl(upgrade.imageId)
+        ? await urlDaImagem(ctx, upgrade.imageId)
         : null,
     };
   },
@@ -229,7 +230,7 @@ export const create = mutation({
     name: v.string(),
     translations: v.optional(catalogTranslationsValidator),
     examples: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     partnershipId: v.optional(v.id("partnerships")),
     passengers: v.number(),
     luggage: v.number(),
@@ -263,7 +264,7 @@ export const update = mutation({
     name: v.optional(v.string()),
     translations: v.optional(catalogTranslationsValidator),
     examples: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     partnershipId: v.optional(v.id("partnerships")),
     passengers: v.optional(v.number()),
     luggage: v.optional(v.number()),
@@ -293,7 +294,7 @@ export const update = mutation({
     const existing = await ctx.db.get(id);
     
     if (existing?.imageId && data.imageId && existing.imageId !== data.imageId) {
-      await ctx.storage.delete(existing.imageId);
+      await apagarImagem(ctx, existing.imageId);
     }
 
     await ctx.db.patch(id, data);
@@ -305,7 +306,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.id);
     if (existing?.imageId) {
-      await ctx.storage.delete(existing.imageId);
+      await apagarImagem(ctx, existing.imageId);
     }
     await ctx.db.delete(args.id);
   },

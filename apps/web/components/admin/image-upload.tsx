@@ -1,21 +1,20 @@
 "use client";
 
 import * as React from "react";
+import { usePublicarImagem } from "@/hooks/use-publicar-imagem";
 import { Upload, X, Loader2 } from "lucide-react";
-import { useMutation } from "convex/react";
-import { api } from "@workspace/convex/api";
 import { cn } from "@workspace/ui/lib/utils";
 
 interface ImageUploadProps {
   value?: string | null;
-  onChange: (storageId: string | undefined, previewUrl?: string | null) => void;
+  onChange: (imagem: string | undefined, previewUrl?: string | null) => void;
   disabled?: boolean;
 }
 
 export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
   const [isUploading, setIsUploading] = React.useState(false);
   const [localPreview, setLocalPreview] = React.useState<string | null>(null);
-  const generateUploadUrl = useMutation(api.blogs.generateUploadUrl);
+  const publicarImagem = usePublicarImagem();
 
   React.useEffect(() => {
     if (!value) {
@@ -33,17 +32,10 @@ export function ImageUpload({ value, onChange, disabled }: ImageUploadProps) {
       const localUrl = URL.createObjectURL(file);
       setLocalPreview(localUrl);
 
-      const postUrl = await generateUploadUrl();
-      const result = await fetch(postUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-
-      const { storageId } = await result.json();
+      const { caminho } = await publicarImagem(file);
       // Pass the local object URL too, so callers can reflect the new image in a live
       // preview immediately instead of waiting for a save + refetch.
-      onChange(storageId, localUrl);
+      onChange(caminho, localUrl);
     } catch (error) {
       console.error("Upload failed:", error);
       setLocalPreview(null);

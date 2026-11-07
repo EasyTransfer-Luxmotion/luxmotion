@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 export const list = query({
   args: {},
@@ -10,7 +11,7 @@ export const list = query({
     const withUrls = await Promise.all(
       drivers.map(async (driver) => {
         const imageUrl = driver.imageId
-          ? await ctx.storage.getUrl(driver.imageId)
+          ? await urlDaImagem(ctx, driver.imageId)
           : null;
         return { ...driver, imageUrl };
       })
@@ -40,7 +41,7 @@ export const listPaged = query({
     const withImages = await Promise.all(
       result.rows.map(async (r) => ({
         ...r,
-        imageUrl: r.imageId ? await ctx.storage.getUrl(r.imageId) : null,
+        imageUrl: r.imageId ? await urlDaImagem(ctx, r.imageId) : null,
       })),
     );
     return { ...result, rows: withImages };
@@ -58,7 +59,7 @@ export const listPublished = query({
     const withUrls = await Promise.all(
       drivers.map(async (driver) => {
         const imageUrl = driver.imageId
-          ? await ctx.storage.getUrl(driver.imageId)
+          ? await urlDaImagem(ctx, driver.imageId)
           : null;
         return { ...driver, imageUrl };
       })
@@ -78,7 +79,7 @@ export const create = mutation({
     vehicle: v.optional(v.string()),
     rating: v.optional(v.string()),
     rides: v.optional(v.number()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     status: v.union(v.literal("draft"), v.literal("published")),
     order: v.number(),
   },
@@ -103,7 +104,7 @@ export const update = mutation({
     vehicle: v.optional(v.string()),
     rating: v.optional(v.string()),
     rides: v.optional(v.number()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
     order: v.optional(v.number()),
   },
@@ -128,7 +129,7 @@ export const remove = mutation({
     if (!driver) throw new Error("Driver not found");
 
     if (driver.imageId) {
-      await ctx.storage.delete(driver.imageId);
+      await apagarImagem(ctx, driver.imageId);
     }
 
     await ctx.db.delete(args.id);

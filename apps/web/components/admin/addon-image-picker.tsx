@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { usePublicarImagem } from "@/hooks/use-publicar-imagem"
 import { useMemo } from "react"
 import { useMutation, useQueries } from "convex/react"
 import { api } from "@workspace/convex/api"
@@ -82,7 +83,7 @@ export function AddonImagePicker({
   const [previewLocal, setPreviewLocal] = React.useState<string | null>(null)
 
   const { itens, indisponivel } = useBiblioteca()
-  const gerarUrlDeUpload = useMutation(api.addonImages.generateUploadUrl)
+  const publicarImagem = usePublicarImagem()
   const registar = useMutation(api.addonImages.add)
   const renomear = useMutation(api.addonImages.rename)
 
@@ -100,21 +101,15 @@ export function AddonImagePicker({
 
       // Encolhida antes de subir: ver `lib/encolher-imagem.ts` para o porquê.
       const leve = await encolherImagem(ficheiro)
-      const url = await gerarUrlDeUpload()
-      const resposta = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": leve.type },
-        body: leve,
-      })
-      const { storageId } = await resposta.json()
+      const { caminho } = await publicarImagem(leve)
 
       // Entra na biblioteca no mesmo passo: é isso que evita o próximo upload.
       await registar({
-        storageId: storageId as Id<"_storage">,
+        storageId: caminho,
         label: addonTitle?.trim() || ficheiro.name.replace(/\.[^.]+$/, ""),
       })
 
-      onChange(storageId, local)
+      onChange(caminho, local)
       setAberto(false)
     } catch (erro) {
       console.error("Upload da imagem do extra falhou:", erro)
@@ -220,7 +215,7 @@ export function AddonImagePicker({
                               void renomear({ id: item.libraryId, label: novo })
                             } else {
                               void registar({
-                                storageId: item.storageId as Id<"_storage">,
+                                storageId: item.storageId,
                                 label: novo,
                               })
                             }

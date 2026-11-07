@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { generateSlug, calculateReadTime } from "./lib/utils";
-import { safeStorageDelete } from "./lib/storage";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 export const list = query({
   args: {},
@@ -12,11 +12,11 @@ export const list = query({
     const blogsWithUrls = await Promise.all(
       blogs.map(async (blog) => {
         const heroImageUrl = blog.heroImageId
-          ? await ctx.storage.getUrl(blog.heroImageId)
+          ? await urlDaImagem(ctx, blog.heroImageId)
           : null;
 
         const authorAvatarUrl = blog.authorAvatarId
-          ? await ctx.storage.getUrl(blog.authorAvatarId)
+          ? await urlDaImagem(ctx, blog.authorAvatarId)
           : null;
 
         const translations = await ctx.db
@@ -82,8 +82,8 @@ export const listPaged = query({
     const withUrls = await Promise.all(
       result.rows.map(async (r) => ({
         ...r,
-        heroImageUrl: r.heroImageId ? await ctx.storage.getUrl(r.heroImageId) : null,
-        authorAvatarUrl: r.authorAvatarId ? await ctx.storage.getUrl(r.authorAvatarId) : null,
+        heroImageUrl: r.heroImageId ? await urlDaImagem(ctx, r.heroImageId) : null,
+        authorAvatarUrl: r.authorAvatarId ? await urlDaImagem(ctx, r.authorAvatarId) : null,
       })),
     );
     return { ...result, rows: withUrls };
@@ -103,11 +103,11 @@ export const listPublished = query({
     const blogsWithUrls = await Promise.all(
       nonServiceBlogs.map(async (blog) => {
         const heroImageUrl = blog.heroImageId
-          ? await ctx.storage.getUrl(blog.heroImageId)
+          ? await urlDaImagem(ctx, blog.heroImageId)
           : null;
 
         const authorAvatarUrl = blog.authorAvatarId
-          ? await ctx.storage.getUrl(blog.authorAvatarId)
+          ? await urlDaImagem(ctx, blog.authorAvatarId)
           : null;
 
         const translations = await ctx.db
@@ -143,11 +143,11 @@ export const listFeatured = query({
     const blogsWithUrls = await Promise.all(
       publishedFeatured.map(async (blog) => {
         const heroImageUrl = blog.heroImageId
-          ? await ctx.storage.getUrl(blog.heroImageId)
+          ? await urlDaImagem(ctx, blog.heroImageId)
           : null;
 
         const authorAvatarUrl = blog.authorAvatarId
-          ? await ctx.storage.getUrl(blog.authorAvatarId)
+          ? await urlDaImagem(ctx, blog.authorAvatarId)
           : null;
 
         const translations = await ctx.db
@@ -179,15 +179,15 @@ export const getBySlug = query({
     if (!blog) return null;
 
     const heroImageUrl = blog.heroImageId
-      ? await ctx.storage.getUrl(blog.heroImageId)
+      ? await urlDaImagem(ctx, blog.heroImageId)
       : null;
 
     const editorialImageUrl = blog.editorialImageId
-      ? await ctx.storage.getUrl(blog.editorialImageId)
+      ? await urlDaImagem(ctx, blog.editorialImageId)
       : null;
 
     const authorAvatarUrl = blog.authorAvatarId
-      ? await ctx.storage.getUrl(blog.authorAvatarId)
+      ? await urlDaImagem(ctx, blog.authorAvatarId)
       : null;
 
     const translations = await ctx.db
@@ -213,15 +213,15 @@ export const getById = query({
     if (!blog) return null;
 
     const heroImageUrl = blog.heroImageId
-      ? await ctx.storage.getUrl(blog.heroImageId)
+      ? await urlDaImagem(ctx, blog.heroImageId)
       : null;
 
     const editorialImageUrl = blog.editorialImageId
-      ? await ctx.storage.getUrl(blog.editorialImageId)
+      ? await urlDaImagem(ctx, blog.editorialImageId)
       : null;
 
     const authorAvatarUrl = blog.authorAvatarId
-      ? await ctx.storage.getUrl(blog.authorAvatarId)
+      ? await urlDaImagem(ctx, blog.authorAvatarId)
       : null;
 
     const translations = await ctx.db
@@ -286,10 +286,10 @@ export const create = mutation({
     title: v.string(),
     excerpt: v.string(),
     content: v.any(),
-    heroImageId: v.optional(v.id("_storage")),
+    heroImageId: v.optional(vImagem),
     heroImageAlt: v.optional(v.string()),
     heroImageFilename: v.optional(v.string()),
-    editorialImageId: v.optional(v.id("_storage")),
+    editorialImageId: v.optional(vImagem),
     editorialImageAlt: v.optional(v.string()),
     editorialImageCaption: v.optional(v.string()),
     editorialImageFilename: v.optional(v.string()),
@@ -297,7 +297,7 @@ export const create = mutation({
     author: v.string(),
     authorRole: v.optional(v.string()),
     authorBio: v.optional(v.string()),
-    authorAvatarId: v.optional(v.id("_storage")),
+    authorAvatarId: v.optional(vImagem),
     originalLanguage: v.string(),
     status: v.union(v.literal("draft"), v.literal("published"), v.literal("archived")),
     isFeatured: v.boolean(),
@@ -365,10 +365,10 @@ export const update = mutation({
     title: v.optional(v.string()),
     excerpt: v.optional(v.string()),
     content: v.optional(v.any()),
-    heroImageId: v.optional(v.id("_storage")),
+    heroImageId: v.optional(vImagem),
     heroImageAlt: v.optional(v.string()),
     heroImageFilename: v.optional(v.string()),
-    editorialImageId: v.optional(v.id("_storage")),
+    editorialImageId: v.optional(vImagem),
     editorialImageAlt: v.optional(v.string()),
     editorialImageCaption: v.optional(v.string()),
     editorialImageFilename: v.optional(v.string()),
@@ -376,7 +376,7 @@ export const update = mutation({
     author: v.optional(v.string()),
     authorRole: v.optional(v.string()),
     authorBio: v.optional(v.string()),
-    authorAvatarId: v.optional(v.id("_storage")),
+    authorAvatarId: v.optional(vImagem),
     originalLanguage: v.optional(v.string()),
     status: v.optional(v.union(v.literal("draft"), v.literal("published"), v.literal("archived"))),
     isFeatured: v.optional(v.boolean()),
@@ -453,15 +453,15 @@ export const remove = mutation({
     }
 
     if (blog.heroImageId) {
-      await safeStorageDelete(ctx, blog.heroImageId);
+      await apagarImagem(ctx, blog.heroImageId);
     }
 
     if (blog.editorialImageId) {
-      await safeStorageDelete(ctx, blog.editorialImageId);
+      await apagarImagem(ctx, blog.editorialImageId);
     }
 
     if (blog.authorAvatarId) {
-      await safeStorageDelete(ctx, blog.authorAvatarId);
+      await apagarImagem(ctx, blog.authorAvatarId);
     }
 
     await ctx.db.delete(args.id);
@@ -477,16 +477,16 @@ export const generateUploadUrl = mutation({
 });
 
 export const getStorageUrl = query({
-  args: { storageId: v.id("_storage") },
+  args: { storageId: vImagem },
   handler: async (ctx, args) => {
-    return await ctx.storage.getUrl(args.storageId);
+    return await urlDaImagem(ctx, args.storageId);
   },
 });
 
 export const getImageUrl = mutation({
-  args: { storageId: v.id("_storage") },
+  args: { storageId: vImagem },
   handler: async (ctx, args) => {
-    return await ctx.storage.getUrl(args.storageId);
+    return await urlDaImagem(ctx, args.storageId);
   },
 });
 
@@ -516,11 +516,11 @@ export const listServices = query({
     const blogsWithUrls = await Promise.all(
       publishedServices.map(async (blog) => {
         const heroImageUrl = blog.heroImageId
-          ? await ctx.storage.getUrl(blog.heroImageId)
+          ? await urlDaImagem(ctx, blog.heroImageId)
           : null;
 
         const authorAvatarUrl = blog.authorAvatarId
-          ? await ctx.storage.getUrl(blog.authorAvatarId)
+          ? await urlDaImagem(ctx, blog.authorAvatarId)
           : null;
 
         return {

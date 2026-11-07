@@ -2,10 +2,10 @@ import { legacyUpsellTranslations } from "./lib/upsellTranslations";
 import { v } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { query, mutation, internalMutation } from "./_generated/server";
-import { safeStorageDelete } from "./lib/storage";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
 import { siteSettingsDefaults } from "./siteSettings";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 /* Extras oferecidos a meio do checkout de um transfer: paragens curtas no
    trajecto e experiências no destino. Ver o comentário das tabelas no schema
@@ -109,7 +109,7 @@ export const listForDestination = query({
         title: row.title,
         translations: row.translations ?? await legacyUpsellTranslations(ctx, row.title, "stops"),
         description: row.description ?? "",
-        imageUrl: row.imageId ? await ctx.storage.getUrl(row.imageId) : null,
+        imageUrl: row.imageId ? await urlDaImagem(ctx, row.imageId) : null,
         price15: row.price15 ?? null,
         price30: row.price30,
         currency: row.currency,
@@ -126,7 +126,7 @@ export const listForDestination = query({
         title: row.title,
         translations: row.translations ?? await legacyUpsellTranslations(ctx, row.title, "experiences"),
         description: row.description ?? "",
-        imageUrl: row.imageId ? await ctx.storage.getUrl(row.imageId) : null,
+        imageUrl: row.imageId ? await urlDaImagem(ctx, row.imageId) : null,
         basePrice: row.basePrice,
         pricingModel: row.pricingModel,
         currency: row.currency,
@@ -186,7 +186,7 @@ export const listStopsPaged = query({
       result.rows.map(async (row) => ({
         ...row,
         translations: row.translations ?? await legacyUpsellTranslations(ctx, row.title, "stops"),
-        imageUrl: row.imageId ? await ctx.storage.getUrl(row.imageId) : null,
+        imageUrl: row.imageId ? await urlDaImagem(ctx, row.imageId) : null,
       })),
     );
     return { ...result, rows: withUrls };
@@ -201,7 +201,7 @@ export const getStop = query({
     return {
       ...row,
       translations: row.translations ?? await legacyUpsellTranslations(ctx, row.title, "stops"),
-      imageUrl: row.imageId ? await ctx.storage.getUrl(row.imageId) : null,
+      imageUrl: row.imageId ? await urlDaImagem(ctx, row.imageId) : null,
     };
   },
 });
@@ -210,7 +210,7 @@ const stopFields = {
   title: v.string(),
   translations: v.optional(catalogTranslationsValidator),
   description: v.optional(v.string()),
-  imageId: v.optional(v.id("_storage")),
+  imageId: v.optional(vImagem),
   location: v.optional(locationValidator),
   price15: v.optional(v.number()),
   price30: v.number(),
@@ -245,7 +245,7 @@ export const updateStop = mutation({
     title: v.optional(v.string()),
     translations: v.optional(catalogTranslationsValidator),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     location: v.optional(locationValidator),
     price15: v.optional(v.number()),
     price30: v.optional(v.number()),
@@ -263,7 +263,7 @@ export const updateStop = mutation({
       existing.imageId &&
       patch.imageId !== existing.imageId
     ) {
-      await safeStorageDelete(ctx, existing.imageId);
+      await apagarImagem(ctx, existing.imageId);
     }
     await ctx.db.patch(id, { ...patch, updatedAt: Date.now() });
     return id;
@@ -275,7 +275,7 @@ export const removeStop = mutation({
   handler: async (ctx, { id }) => {
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Upsell stop not found");
-    if (row.imageId) await safeStorageDelete(ctx, row.imageId);
+    if (row.imageId) await apagarImagem(ctx, row.imageId);
     await ctx.db.delete(id);
   },
 });
@@ -317,7 +317,7 @@ export const listExperiencesPaged = query({
       result.rows.map(async (row) => ({
         ...row,
         translations: row.translations ?? await legacyUpsellTranslations(ctx, row.title, "experiences"),
-        imageUrl: row.imageId ? await ctx.storage.getUrl(row.imageId) : null,
+        imageUrl: row.imageId ? await urlDaImagem(ctx, row.imageId) : null,
       })),
     );
     return { ...result, rows: withUrls };
@@ -332,7 +332,7 @@ export const getExperience = query({
     return {
       ...row,
       translations: row.translations ?? await legacyUpsellTranslations(ctx, row.title, "experiences"),
-      imageUrl: row.imageId ? await ctx.storage.getUrl(row.imageId) : null,
+      imageUrl: row.imageId ? await urlDaImagem(ctx, row.imageId) : null,
     };
   },
 });
@@ -341,7 +341,7 @@ const experienceFields = {
   title: v.string(),
   translations: v.optional(catalogTranslationsValidator),
   description: v.optional(v.string()),
-  imageId: v.optional(v.id("_storage")),
+  imageId: v.optional(vImagem),
   location: v.optional(locationValidator),
   basePrice: v.number(),
   pricingModel: v.union(v.literal("perPerson"), v.literal("flat")),
@@ -379,7 +379,7 @@ export const updateExperience = mutation({
     title: v.optional(v.string()),
     translations: v.optional(catalogTranslationsValidator),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     location: v.optional(locationValidator),
     basePrice: v.optional(v.number()),
     pricingModel: v.optional(
@@ -403,7 +403,7 @@ export const updateExperience = mutation({
       existing.imageId &&
       patch.imageId !== existing.imageId
     ) {
-      await safeStorageDelete(ctx, existing.imageId);
+      await apagarImagem(ctx, existing.imageId);
     }
     await ctx.db.patch(id, { ...patch, updatedAt: Date.now() });
     return id;
@@ -415,7 +415,7 @@ export const removeExperience = mutation({
   handler: async (ctx, { id }) => {
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Upsell experience not found");
-    if (row.imageId) await safeStorageDelete(ctx, row.imageId);
+    if (row.imageId) await apagarImagem(ctx, row.imageId);
     await ctx.db.delete(id);
   },
 });

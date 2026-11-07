@@ -3,9 +3,9 @@ import { withDisplayedReviewStats } from "./lib/displayedReviewStats";
 import { resolveAddons } from "./lib/addons";
 import { query, mutation, internalMutation } from "./_generated/server";
 import { generateSlug } from "./lib/utils";
-import { safeStorageDelete } from "./lib/storage";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 export const list = query({
   args: {},
@@ -15,18 +15,18 @@ export const list = query({
     const toursWithUrls = await Promise.all(
       tours.map(async (tour) => {
         const bannerImageUrl = tour.bannerImageId
-          ? await ctx.storage.getUrl(tour.bannerImageId)
+          ? await urlDaImagem(ctx, tour.bannerImageId)
           : null;
 
         const additionalBannerUrls = tour.additionalBannerIds
           ? await Promise.all(
-              tour.additionalBannerIds.map((id) => ctx.storage.getUrl(id)),
+              tour.additionalBannerIds.map((id) => urlDaImagem(ctx, id)),
             )
           : [];
 
         const galleryImageUrls = tour.galleryImageIds
           ? await Promise.all(
-              tour.galleryImageIds.map((id) => ctx.storage.getUrl(id)),
+              tour.galleryImageIds.map((id) => urlDaImagem(ctx, id)),
             )
           : [];
 
@@ -81,18 +81,18 @@ export const listPaged = query({
     const withUrls = await Promise.all(
       result.rows.map(async (tour) => {
         const bannerImageUrl = tour.bannerImageId
-          ? await ctx.storage.getUrl(tour.bannerImageId)
+          ? await urlDaImagem(ctx, tour.bannerImageId)
           : null;
 
         const additionalBannerUrls = tour.additionalBannerIds
           ? await Promise.all(
-              tour.additionalBannerIds.map((id) => ctx.storage.getUrl(id)),
+              tour.additionalBannerIds.map((id) => urlDaImagem(ctx, id)),
             )
           : [];
 
         const galleryImageUrls = tour.galleryImageIds
           ? await Promise.all(
-              tour.galleryImageIds.map((id) => ctx.storage.getUrl(id)),
+              tour.galleryImageIds.map((id) => urlDaImagem(ctx, id)),
             )
           : [];
 
@@ -131,7 +131,7 @@ export const listPublished = query({
         .filter((t) => t.isUltraLuxury !== true && t.category !== "stops")
         .map(async (tour) => {
         const bannerImageUrl = tour.bannerImageId
-          ? await ctx.storage.getUrl(tour.bannerImageId)
+          ? await urlDaImagem(ctx, tour.bannerImageId)
           : null;
 
         const translations = await ctx.db
@@ -173,7 +173,7 @@ export const listByDestination = query({
     const toursWithUrls = await Promise.all(
       publishedTours.map(async (tour) => {
         const bannerImageUrl = tour.bannerImageId
-          ? await ctx.storage.getUrl(tour.bannerImageId)
+          ? await urlDaImagem(ctx, tour.bannerImageId)
           : null;
 
         return withDisplayedReviewStats({
@@ -209,7 +209,7 @@ export const listByCategory = query({
     const toursWithUrls = await Promise.all(
       publishedTours.map(async (tour) => {
         const bannerImageUrl = tour.bannerImageId
-          ? await ctx.storage.getUrl(tour.bannerImageId)
+          ? await urlDaImagem(ctx, tour.bannerImageId)
           : null;
 
         return withDisplayedReviewStats({
@@ -248,7 +248,7 @@ export const listByDestinationAndCategory = query({
     const toursWithUrls = await Promise.all(
       publishedTours.map(async (tour) => {
         const bannerImageUrl = tour.bannerImageId
-          ? await ctx.storage.getUrl(tour.bannerImageId)
+          ? await urlDaImagem(ctx, tour.bannerImageId)
           : null;
 
         return withDisplayedReviewStats({
@@ -276,7 +276,7 @@ export const listFeatured = query({
     const toursWithUrls = await Promise.all(
       publishedFeatured.map(async (tour) => {
         const bannerImageUrl = tour.bannerImageId
-          ? await ctx.storage.getUrl(tour.bannerImageId)
+          ? await urlDaImagem(ctx, tour.bannerImageId)
           : null;
 
         return withDisplayedReviewStats({
@@ -304,7 +304,7 @@ export const listBestsellers = query({
     const toursWithUrls = await Promise.all(
       publishedBestsellers.map(async (tour) => {
         const bannerImageUrl = tour.bannerImageId
-          ? await ctx.storage.getUrl(tour.bannerImageId)
+          ? await urlDaImagem(ctx, tour.bannerImageId)
           : null;
 
         return withDisplayedReviewStats({
@@ -330,7 +330,7 @@ export const listUltraLuxury = query({
         .filter((t) => t.isUltraLuxury === true)
         .map(async (tour) => {
           const bannerImageUrl = tour.bannerImageId
-            ? await ctx.storage.getUrl(tour.bannerImageId)
+            ? await urlDaImagem(ctx, tour.bannerImageId)
             : null;
 
           const translations = await ctx.db
@@ -366,12 +366,12 @@ export const getBySlug = query({
     if (!tour) return null;
 
     const bannerImageUrl = tour.bannerImageId
-      ? await ctx.storage.getUrl(tour.bannerImageId)
+      ? await urlDaImagem(ctx, tour.bannerImageId)
       : null;
 
     const additionalBannerUrls = tour.additionalBannerIds
       ? await Promise.all(
-          tour.additionalBannerIds.map((id) => ctx.storage.getUrl(id)),
+          tour.additionalBannerIds.map((id) => urlDaImagem(ctx, id)),
         )
       : [];
 
@@ -389,7 +389,7 @@ export const getBySlug = query({
 
     const galleryImageUrls = tour.galleryImageIds
       ? await Promise.all(
-          tour.galleryImageIds.map((id) => ctx.storage.getUrl(id)),
+          tour.galleryImageIds.map((id) => urlDaImagem(ctx, id)),
         )
       : [];
 
@@ -406,7 +406,7 @@ export const getBySlug = query({
     const stopsWithImages = await Promise.all(
       stops.map(async (stop) => {
         const imageUrl = stop.imageId
-          ? await ctx.storage.getUrl(stop.imageId)
+          ? await urlDaImagem(ctx, stop.imageId)
           : null;
         const stopTranslations = await ctx.db
           .query("tourStopTranslations")
@@ -437,7 +437,7 @@ export const getBySlug = query({
             stops: await Promise.all(
               day.stops.map(async (stop) => ({
                 ...stop,
-                imageUrl: stop.imageId ? await ctx.storage.getUrl(stop.imageId) : null,
+                imageUrl: stop.imageId ? await urlDaImagem(ctx, stop.imageId) : null,
               })),
             ),
           })),
@@ -489,12 +489,12 @@ export const getById = query({
     if (!tour) return null;
 
     const bannerImageUrl = tour.bannerImageId
-      ? await ctx.storage.getUrl(tour.bannerImageId)
+      ? await urlDaImagem(ctx, tour.bannerImageId)
       : null;
 
     const additionalBannerUrls = tour.additionalBannerIds
       ? await Promise.all(
-          tour.additionalBannerIds.map((id) => ctx.storage.getUrl(id)),
+          tour.additionalBannerIds.map((id) => urlDaImagem(ctx, id)),
         )
       : [];
 
@@ -512,7 +512,7 @@ export const getById = query({
 
     const galleryImageUrls = tour.galleryImageIds
       ? await Promise.all(
-          tour.galleryImageIds.map((id) => ctx.storage.getUrl(id)),
+          tour.galleryImageIds.map((id) => urlDaImagem(ctx, id)),
         )
       : [];
 
@@ -529,7 +529,7 @@ export const getById = query({
     const stopsWithImages = await Promise.all(
       stops.map(async (stop) => {
         const imageUrl = stop.imageId
-          ? await ctx.storage.getUrl(stop.imageId)
+          ? await urlDaImagem(ctx, stop.imageId)
           : null;
         return { ...stop, imageUrl };
       }),
@@ -542,7 +542,7 @@ export const getById = query({
             stops: await Promise.all(
               day.stops.map(async (stop) => ({
                 ...stop,
-                imageUrl: stop.imageId ? await ctx.storage.getUrl(stop.imageId) : null,
+                imageUrl: stop.imageId ? await urlDaImagem(ctx, stop.imageId) : null,
               })),
             ),
           })),
@@ -598,7 +598,7 @@ export const listNearCoordinates = query({
     const result = await Promise.all(
       toursWithDistance.map(async ({ tour, distance }) => {
         const bannerImageUrl = tour.bannerImageId
-          ? await ctx.storage.getUrl(tour.bannerImageId)
+          ? await urlDaImagem(ctx, tour.bannerImageId)
           : null;
 
         const addons = await resolveAddons(ctx, {
@@ -683,9 +683,9 @@ export const generateUploadUrl = mutation({
 });
 
 export const getStorageUrl = query({
-  args: { storageId: v.id("_storage") },
+  args: { storageId: vImagem },
   handler: async (ctx, args) => {
-    return await ctx.storage.getUrl(args.storageId);
+    return await urlDaImagem(ctx, args.storageId);
   },
 });
 
@@ -733,7 +733,7 @@ export const create = mutation({
               label: v.optional(v.string()),
               title: v.string(),
               description: v.optional(v.string()),
-              imageId: v.optional(v.id("_storage")),
+              imageId: v.optional(vImagem),
               lat: v.optional(v.number()),
               lng: v.optional(v.number()),
             }),
@@ -754,12 +754,12 @@ export const create = mutation({
     basePrice: v.number(),
     originalPrice: v.optional(v.number()),
     currency: v.string(),
-    bannerImageId: v.optional(v.id("_storage")),
-    additionalBannerIds: v.optional(v.array(v.id("_storage"))),
+    bannerImageId: v.optional(vImagem),
+    additionalBannerIds: v.optional(v.array(vImagem)),
     additionalBannerTypes: v.optional(
       v.array(v.union(v.literal("image"), v.literal("video"))),
     ),
-    galleryImageIds: v.optional(v.array(v.id("_storage"))),
+    galleryImageIds: v.optional(v.array(vImagem)),
 
     included: v.optional(v.array(v.string())),
     excluded: v.optional(v.array(v.string())),
@@ -881,7 +881,7 @@ export const update = mutation({
               label: v.optional(v.string()),
               title: v.string(),
               description: v.optional(v.string()),
-              imageId: v.optional(v.id("_storage")),
+              imageId: v.optional(vImagem),
               lat: v.optional(v.number()),
               lng: v.optional(v.number()),
             }),
@@ -904,12 +904,12 @@ export const update = mutation({
     basePrice: v.optional(v.number()),
     originalPrice: v.optional(v.number()),
     currency: v.optional(v.string()),
-    bannerImageId: v.optional(v.id("_storage")),
-    additionalBannerIds: v.optional(v.array(v.id("_storage"))),
+    bannerImageId: v.optional(vImagem),
+    additionalBannerIds: v.optional(v.array(vImagem)),
     additionalBannerTypes: v.optional(
       v.array(v.union(v.literal("image"), v.literal("video"))),
     ),
-    galleryImageIds: v.optional(v.array(v.id("_storage"))),
+    galleryImageIds: v.optional(v.array(vImagem)),
 
     included: v.optional(v.array(v.string())),
     excluded: v.optional(v.array(v.string())),
@@ -1015,7 +1015,7 @@ export const remove = mutation({
       }
 
       if (stop.imageId) {
-        await safeStorageDelete(ctx, stop.imageId);
+        await apagarImagem(ctx, stop.imageId);
       }
       await ctx.db.delete(stop._id);
     }
@@ -1034,7 +1034,7 @@ export const remove = mutation({
         await ctx.db.delete(at._id);
       }
       if (addon.imageId) {
-        await safeStorageDelete(ctx, addon.imageId);
+        await apagarImagem(ctx, addon.imageId);
       }
       await ctx.db.delete(addon._id);
     }
@@ -1067,18 +1067,18 @@ export const remove = mutation({
     }
 
     if (tour.bannerImageId) {
-      await safeStorageDelete(ctx, tour.bannerImageId);
+      await apagarImagem(ctx, tour.bannerImageId);
     }
 
     if (tour.additionalBannerIds) {
       for (const imageId of tour.additionalBannerIds) {
-        await safeStorageDelete(ctx, imageId);
+        await apagarImagem(ctx, imageId);
       }
     }
 
     if (tour.galleryImageIds) {
       for (const imageId of tour.galleryImageIds) {
-        await safeStorageDelete(ctx, imageId);
+        await apagarImagem(ctx, imageId);
       }
     }
 

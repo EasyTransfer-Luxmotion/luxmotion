@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 
 /**
  * Extras universais: definidos uma vez e mostrados em todos os tours ou eventos
@@ -23,7 +24,7 @@ export const list = query({
         .sort((a, b) => a.order - b.order)
         .map(async (l) => ({
           ...l,
-          imageUrl: l.imageId ? await ctx.storage.getUrl(l.imageId) : null,
+          imageUrl: l.imageId ? await urlDaImagem(ctx, l.imageId) : null,
         })),
     );
   },
@@ -67,7 +68,7 @@ export const listForOwner = query({
           pricingType: l.pricingType,
           currency: l.currency,
           status: l.status,
-          imageUrl: l.imageId ? await ctx.storage.getUrl(l.imageId) : null,
+          imageUrl: l.imageId ? await urlDaImagem(ctx, l.imageId) : null,
           disabled: desligados.has(l._id),
         })),
     );
@@ -79,7 +80,7 @@ export const create = mutation({
     title: v.string(),
     translations: v.optional(catalogTranslationsValidator),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     price: v.number(),
     pricingType: v.union(v.literal("per_person"), v.literal("flat")),
     currency: v.string(),
@@ -108,7 +109,7 @@ export const update = mutation({
     /* `null` limpa a imagem; ausente deixa como está — o mesmo contrato de
        `tourAddons.update`, e pela mesma razão: `undefined` não distingue os
        dois casos. */
-    imageId: v.optional(v.union(v.id("_storage"), v.null())),
+    imageId: v.optional(v.union(vImagem, v.null())),
     price: v.optional(v.number()),
     pricingType: v.optional(v.union(v.literal("per_person"), v.literal("flat"))),
     currency: v.optional(v.string()),

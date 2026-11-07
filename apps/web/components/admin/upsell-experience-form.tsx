@@ -42,7 +42,7 @@ export interface UpsellExperienceInitialData {
   title: string
   translations?: CatalogTranslation[]
   description?: string
-  imageId?: Id<"_storage">
+  imageId?: string
   imageUrl?: string | null
   location?: {
     title: string
@@ -76,7 +76,7 @@ export function UpsellExperienceForm({
   const [translations, setTranslations] = React.useState<CatalogTranslation[]>(initialData?.translations ?? [])
   const [title, setTitle] = React.useState(initialData?.title ?? "")
   const [description, setDescription] = React.useState(initialData?.description ?? "")
-  const [imageId, setImageId] = React.useState<Id<"_storage"> | undefined>(initialData?.imageId)
+  const [imageId, setImageId] = React.useState<string | undefined>(initialData?.imageId)
   const [imageUrl, setImageUrl] = React.useState<string | null>(initialData?.imageUrl ?? null)
   const [location, setLocation] = React.useState(initialData?.location ?? null)
   const [basePrice, setBasePrice] = React.useState(String(initialData?.basePrice ?? ""))
@@ -226,7 +226,7 @@ export function UpsellExperienceForm({
             <ImageUpload
               value={imageUrl}
               onChange={(storageId, previewUrl) => {
-                setImageId(storageId as Id<"_storage"> | undefined)
+                setImageId(storageId as string | undefined)
                 setImageUrl(previewUrl ?? null)
               }}
             />

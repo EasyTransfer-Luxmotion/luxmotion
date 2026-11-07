@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 export const listByTour = query({
   args: { tourId: v.id("tours") },
@@ -14,7 +15,7 @@ export const listByTour = query({
     return await Promise.all(
       sorted.map(async (addon) => {
         const imageUrl = addon.imageId
-          ? await ctx.storage.getUrl(addon.imageId)
+          ? await urlDaImagem(ctx, addon.imageId)
           : null;
         const translations = await ctx.db
           .query("tourAddonTranslations")
@@ -39,7 +40,7 @@ export const listByEvent = query({
     return await Promise.all(
       sorted.map(async (addon) => {
         const imageUrl = addon.imageId
-          ? await ctx.storage.getUrl(addon.imageId)
+          ? await urlDaImagem(ctx, addon.imageId)
           : null;
         const translations = await ctx.db
           .query("tourAddonTranslations")
@@ -72,7 +73,7 @@ export const create = mutation({
     eventId: v.optional(v.id("events")),
     title: v.string(),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     price: v.number(),
     pricingType: v.union(v.literal("per_person"), v.literal("flat")),
     currency: v.string(),
@@ -97,7 +98,7 @@ export const update = mutation({
     description: v.optional(v.string()),
     /* `null` limpa a imagem; ausente deixa como está. Sem o `null` não havia
        maneira de tirar uma imagem: `undefined` é indistinguível de "não mexas". */
-    imageId: v.optional(v.union(v.id("_storage"), v.null())),
+    imageId: v.optional(v.union(vImagem, v.null())),
     price: v.optional(v.number()),
     pricingType: v.optional(v.union(v.literal("per_person"), v.literal("flat"))),
     currency: v.optional(v.string()),
@@ -153,7 +154,7 @@ export const remove = mutation({
         .first();
 
       if (!usadaPorOutro && !naBiblioteca) {
-        await ctx.storage.delete(addon.imageId);
+        await apagarImagem(ctx, addon.imageId);
       }
     }
 

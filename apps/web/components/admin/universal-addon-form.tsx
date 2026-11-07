@@ -98,7 +98,7 @@ export function UniversalAddonForm({
           /* `null` limpa, ausente deixa como está: só se envia quando a imagem
              foi mexida neste formulário. */
           ...(imagem.storageId !== null || imagem.url === null
-            ? { imageId: (imagem.storageId as Id<"_storage"> | null) ?? null }
+            ? { imageId: (imagem.storageId as string | null) ?? null }
             : {}),
         })
         toast.success("Extra universal actualizado.")
@@ -113,7 +113,7 @@ export function UniversalAddonForm({
           originalLanguage: "pt",
           scopes,
           status,
-          imageId: (imagem.storageId as Id<"_storage">) ?? undefined,
+          imageId: (imagem.storageId) ?? undefined,
         })
         toast.success("Extra universal criado.")
       }

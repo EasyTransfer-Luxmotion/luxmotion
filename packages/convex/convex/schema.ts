@@ -345,7 +345,7 @@ export default defineSchema({
     // Modelos concretos desta classe, ex. "Renault Clio, Fiat Tipo". Mostrado
     // a seguir ao nome para o cliente saber que carro esperar.
     examples: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(v.string()),
     partnershipId: v.optional(v.id("partnerships")),
     passengers: v.number(),
     luggage: v.number(),
@@ -380,8 +380,8 @@ export default defineSchema({
     slug: v.string(),
     theme: v.any(),
     content: v.optional(v.any()),
-    logoId: v.optional(v.id("_storage")),
-    heroImageId: v.optional(v.id("_storage")),
+    logoId: v.optional(v.string()),
+    heroImageId: v.optional(v.string()),
     status: v.optional(v.string()),
     contactEmail: v.optional(v.string()),
     createdAt: v.optional(v.number()),
@@ -438,7 +438,7 @@ export default defineSchema({
     slug: v.string(),
     excerpt: v.string(),
     content: v.any(),
-    heroImageId: v.optional(v.id("_storage")),
+    heroImageId: v.optional(v.string()),
     /* Metadata das duas imagens geradas pela automação. O alt é o que vai para
        o atributo do <img>; o filename não é usado pelo storage do Convex (que
        serve por id), fica registado para quando as imagens saírem para um CDN
@@ -446,7 +446,7 @@ export default defineSchema({
     heroImageAlt: v.optional(v.string()),
     heroImageFilename: v.optional(v.string()),
     /** Segunda imagem, inserida no corpo do artigo. */
-    editorialImageId: v.optional(v.id("_storage")),
+    editorialImageId: v.optional(v.string()),
     editorialImageAlt: v.optional(v.string()),
     editorialImageCaption: v.optional(v.string()),
     editorialImageFilename: v.optional(v.string()),
@@ -454,7 +454,7 @@ export default defineSchema({
     author: v.string(),
     authorRole: v.optional(v.string()),
     authorBio: v.optional(v.string()),
-    authorAvatarId: v.optional(v.id("_storage")),
+    authorAvatarId: v.optional(v.string()),
     originalLanguage: v.string(),
     status: v.union(
       v.literal("draft"),
@@ -578,7 +578,7 @@ export default defineSchema({
               label: v.optional(v.string()),
               title: v.string(),
               description: v.optional(v.string()),
-              imageId: v.optional(v.id("_storage")),
+              imageId: v.optional(v.string()),
               lat: v.optional(v.number()),
               lng: v.optional(v.number()),
             }),
@@ -599,12 +599,12 @@ export default defineSchema({
     basePrice: v.number(),
     originalPrice: v.optional(v.number()),
     currency: v.string(),
-    bannerImageId: v.optional(v.id("_storage")),
-    additionalBannerIds: v.optional(v.array(v.id("_storage"))),
+    bannerImageId: v.optional(v.string()),
+    additionalBannerIds: v.optional(v.array(v.string())),
     additionalBannerTypes: v.optional(
       v.array(v.union(v.literal("image"), v.literal("video"))),
     ),
-    galleryImageIds: v.optional(v.array(v.id("_storage"))),
+    galleryImageIds: v.optional(v.array(v.string())),
 
     included: v.optional(v.array(v.string())),
     excluded: v.optional(v.array(v.string())),
@@ -680,7 +680,7 @@ export default defineSchema({
     time: v.string(),
     title: v.string(),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(v.string()),
     showImage: v.boolean(),
     address: v.optional(v.string()),
     placeId: v.optional(v.string()),
@@ -778,9 +778,9 @@ export default defineSchema({
     basePrice: v.optional(v.number()),
     originalPrice: v.optional(v.number()),
     currency: v.string(),
-    bannerImageId: v.optional(v.id("_storage")),
-    additionalBannerIds: v.optional(v.array(v.id("_storage"))),
-    galleryImageIds: v.optional(v.array(v.id("_storage"))),
+    bannerImageId: v.optional(v.string()),
+    additionalBannerIds: v.optional(v.array(v.string())),
+    galleryImageIds: v.optional(v.array(v.string())),
 
     included: v.optional(v.array(v.string())),
     excluded: v.optional(v.array(v.string())),
@@ -1049,8 +1049,8 @@ export default defineSchema({
     ),
     routeHighlights: v.array(v.string()),
     whatsIncluded: v.array(v.string()),
-    coverImageId: v.optional(v.id("_storage")),
-    galleryImageIds: v.array(v.id("_storage")),
+    coverImageId: v.optional(v.string()),
+    galleryImageIds: v.array(v.string()),
     status: v.union(v.literal("draft"), v.literal("published")),
     sortOrder: v.number(),
     createdAt: v.number(),
@@ -1279,7 +1279,7 @@ export default defineSchema({
     vehicle: v.optional(v.string()),
     rating: v.optional(v.string()),
     rides: v.optional(v.number()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(v.string()),
     status: v.union(v.literal("draft"), v.literal("published")),
     order: v.number(),
     createdAt: v.number(),
@@ -1292,7 +1292,7 @@ export default defineSchema({
     name: v.string(),
     role: v.string(),
     bio: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(v.string()),
     status: v.union(v.literal("draft"), v.literal("published")),
     order: v.number(),
     createdAt: v.number(),
@@ -1312,7 +1312,7 @@ export default defineSchema({
       v.literal("privateTours"),
     ),
     tags: v.optional(v.array(v.string())),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(v.string()),
     // Destino do clique na foto, no mosaico do /about-us. Sem isto a foto não
     // é clicável, que é como se comportou até agora.
     linkUrl: v.optional(v.string()),
@@ -1347,7 +1347,7 @@ export default defineSchema({
     eventId: v.optional(v.id("events")),
     title: v.string(),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(v.string()),
     price: v.number(),
     pricingType: v.union(v.literal("per_person"), v.literal("flat")),
     currency: v.string(),
@@ -1374,7 +1374,7 @@ export default defineSchema({
     title: v.string(),
     translations: v.optional(catalogTranslationsValidator),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(v.string()),
     price: v.number(),
     pricingType: v.union(v.literal("per_person"), v.literal("flat")),
     currency: v.string(),
@@ -1404,7 +1404,7 @@ export default defineSchema({
      usam. A biblioteca é um catálogo do que já está carregado, não o dono do
      ficheiro. */
   addonImages: defineTable({
-    storageId: v.id("_storage"),
+    storageId: v.string(),
     label: v.string(),
     createdAt: v.number(),
   })
@@ -1430,7 +1430,7 @@ export default defineSchema({
     title: v.string(),
     translations: v.optional(catalogTranslationsValidator),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(v.string()),
     location: v.optional(
       v.object({
         title: v.string(),
@@ -1462,7 +1462,7 @@ export default defineSchema({
     title: v.string(),
     translations: v.optional(catalogTranslationsValidator),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(v.string()),
     location: v.optional(
       v.object({
         title: v.string(),

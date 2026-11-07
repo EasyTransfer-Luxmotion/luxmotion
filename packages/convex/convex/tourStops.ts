@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 export const listByTour = query({
   args: { tourId: v.id("tours") },
@@ -12,7 +13,7 @@ export const listByTour = query({
     const stopsWithUrls = await Promise.all(
       stops.map(async (stop) => {
         const imageUrl = stop.imageId
-          ? await ctx.storage.getUrl(stop.imageId)
+          ? await urlDaImagem(ctx, stop.imageId)
           : null;
 
         const translations = await ctx.db
@@ -39,7 +40,7 @@ export const getById = query({
     if (!stop) return null;
 
     const imageUrl = stop.imageId
-      ? await ctx.storage.getUrl(stop.imageId)
+      ? await urlDaImagem(ctx, stop.imageId)
       : null;
 
     const translations = await ctx.db
@@ -78,7 +79,7 @@ export const create = mutation({
     time: v.string(),
     title: v.string(),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     showImage: v.boolean(),
     address: v.optional(v.string()),
     placeId: v.optional(v.string()),
@@ -116,7 +117,7 @@ export const update = mutation({
     time: v.optional(v.string()),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     showImage: v.optional(v.boolean()),
     address: v.optional(v.string()),
     placeId: v.optional(v.string()),
@@ -153,7 +154,7 @@ export const remove = mutation({
     }
 
     if (stop.imageId) {
-      await ctx.storage.delete(stop.imageId);
+      await apagarImagem(ctx, stop.imageId);
     }
 
     await ctx.db.delete(args.id);

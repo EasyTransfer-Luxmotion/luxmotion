@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 export const list = query({
   args: {},
@@ -10,7 +11,7 @@ export const list = query({
     const withUrls = await Promise.all(
       members.map(async (member) => {
         const imageUrl = member.imageId
-          ? await ctx.storage.getUrl(member.imageId)
+          ? await urlDaImagem(ctx, member.imageId)
           : null;
         return { ...member, imageUrl };
       })
@@ -45,7 +46,7 @@ export const listPaged = query({
     const withUrls = await Promise.all(
       result.rows.map(async (r) => ({
         ...r,
-        imageUrl: r.imageId ? await ctx.storage.getUrl(r.imageId) : null,
+        imageUrl: r.imageId ? await urlDaImagem(ctx, r.imageId) : null,
       })),
     );
     return { ...result, rows: withUrls };
@@ -63,7 +64,7 @@ export const listPublished = query({
     const withUrls = await Promise.all(
       members.map(async (member) => {
         const imageUrl = member.imageId
-          ? await ctx.storage.getUrl(member.imageId)
+          ? await urlDaImagem(ctx, member.imageId)
           : null;
         return { ...member, imageUrl };
       })
@@ -78,7 +79,7 @@ export const create = mutation({
     name: v.string(),
     role: v.string(),
     bio: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     status: v.union(v.literal("draft"), v.literal("published")),
     order: v.number(),
   },
@@ -98,7 +99,7 @@ export const update = mutation({
     name: v.optional(v.string()),
     role: v.optional(v.string()),
     bio: v.optional(v.string()),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
     order: v.optional(v.number()),
   },
@@ -123,7 +124,7 @@ export const remove = mutation({
     if (!member) throw new Error("Team member not found");
 
     if (member.imageId) {
-      await ctx.storage.delete(member.imageId);
+      await apagarImagem(ctx, member.imageId);
     }
 
     await ctx.db.delete(args.id);

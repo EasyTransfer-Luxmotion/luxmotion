@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { usePublicarImagem } from "@/hooks/use-publicar-imagem"
 import { useMemo } from "react"
 import { useMutation, useQueries } from "convex/react"
 import type { RequestForQueries } from "convex/react"
@@ -106,8 +107,8 @@ function BlocoSemImagem({
 }: {
   grupos: GrupoSemImagem[]
   biblioteca: ItemDaBiblioteca[]
-  onEscolher: (grupo: GrupoSemImagem, storageId: Id<"_storage">) => Promise<void>
-  onCarregar: (ficheiro: File, nome?: string) => Promise<Id<"_storage">>
+  onEscolher: (grupo: GrupoSemImagem, storageId: string) => Promise<void>
+  onCarregar: (ficheiro: File, nome?: string) => Promise<string>
 }) {
   const [lista, setLista] = React.useState(false)
   const [aberto, setAberto] = React.useState<GrupoSemImagem | null>(null)
@@ -200,7 +201,7 @@ function BlocoSemImagem({
                     onClick={async () => {
                       const g = aberto
                       setAberto(null)
-                      if (g) await onEscolher(g, item.storageId as Id<"_storage">)
+                      if (g) await onEscolher(g, item.storageId)
                     }}
                     className="overflow-hidden rounded-md border-2 border-transparent transition-colors hover:border-primary"
                   >
@@ -283,7 +284,7 @@ function PainelDeDetalhe({
         ? {
             usos: {
               query: api.addonImages.usedBy,
-              args: { storageId: item.storageId as Id<"_storage"> },
+              args: { storageId: item.storageId },
             },
           }
         : {}) as RequestForQueries,
@@ -386,7 +387,7 @@ function PainelDeDetalhe({
 export default function AdminAddonImagesPage() {
   const { itens, semImagem, aCarregar, indisponivel } = useBiblioteca()
 
-  const gerarUrlDeUpload = useMutation(api.addonImages.generateUploadUrl)
+  const publicarImagem = usePublicarImagem()
   const registar = useMutation(api.addonImages.add)
   const renomear = useMutation(api.addonImages.rename)
   const remover = useMutation(api.addonImages.remove)
@@ -396,23 +397,17 @@ export default function AdminAddonImagesPage() {
   const [aApagar, setAApagar] = React.useState<ItemDaBiblioteca | null>(null)
   const [detalhe, setDetalhe] = React.useState<ItemDaBiblioteca | null>(null)
 
-  /** Sobe um ficheiro e devolve o `storageId`, já registado na biblioteca. */
+  /** Sobe um ficheiro para o Bunny e devolve o caminho, já registado na biblioteca. */
   const subirUm = async (ficheiro: File, nome?: string) => {
     // Encolhida antes de subir: ver `lib/encolher-imagem.ts` para o porquê.
     const leve = await encolherImagem(ficheiro)
-    const url = await gerarUrlDeUpload()
-    const resposta = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": leve.type },
-      body: leve,
-    })
-    const { storageId } = await resposta.json()
+    const { caminho } = await publicarImagem(leve)
     await registar({
-      storageId: storageId as Id<"_storage">,
+      storageId: caminho,
       // Nome do ficheiro sem extensão: é o melhor palpite, e edita-se depois.
       label: nome?.trim() || ficheiro.name.replace(/\.[^.]+$/, ""),
     })
-    return storageId as Id<"_storage">
+    return caminho
   }
 
   const carregar = async (ficheiros: FileList) => {
@@ -447,7 +442,7 @@ export default function AdminAddonImagesPage() {
     if (!alvo) return
     setAApagar(null)
     try {
-      const r = await remover({ storageId: alvo.storageId as Id<"_storage"> })
+      const r = await remover({ storageId: alvo.storageId })
       const n = r?.extrasAfectados ?? 0
       toast.success(
         n > 0
@@ -462,7 +457,7 @@ export default function AdminAddonImagesPage() {
 
   const darImagemAoGrupo = async (
     grupo: GrupoSemImagem,
-    storageId: Id<"_storage">,
+    storageId: string,
   ) => {
     try {
       const r = await atribuir({
@@ -532,7 +527,7 @@ export default function AdminAddonImagesPage() {
     if (item.libraryId) {
       void renomear({ id: item.libraryId, label: novo })
     } else {
-      void registar({ storageId: item.storageId as Id<"_storage">, label: novo })
+      void registar({ storageId: item.storageId, label: novo })
     }
   }
 

@@ -115,7 +115,7 @@ function AddonCard({
               onUpdate(
                 addon._id,
                 "imageId",
-                storageId as Id<"_storage"> | null,
+                storageId as string | null,
               )
             }
             disabled={isSaving}

@@ -1,9 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { usePublicarImagem } from "@/hooks/use-publicar-imagem"
 import { Upload, X, Loader2, Plus } from "lucide-react"
-import { useMutation } from "convex/react"
-import { api } from "@workspace/convex/api"
 import { cn } from "@workspace/ui/lib/utils"
 
 interface ImageItem {
@@ -28,7 +27,7 @@ export function MultiImageUpload({
   label,
 }: MultiImageUploadProps) {
   const [isUploading, setIsUploading] = React.useState(false)
-  const generateUploadUrl = useMutation(api.blogs.generateUploadUrl)
+  const publicarImagem = usePublicarImagem()
 
   const onUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
@@ -47,15 +46,8 @@ export function MultiImageUpload({
       for (const file of filesToUpload) {
         const localUrl = URL.createObjectURL(file)
 
-        const postUrl = await generateUploadUrl()
-        const result = await fetch(postUrl, {
-          method: "POST",
-          headers: { "Content-Type": file.type },
-          body: file,
-        })
-
-        const { storageId } = await result.json()
-        uploadedItems.push({ id: storageId, url: localUrl, isLocal: true })
+        const { caminho } = await publicarImagem(file)
+        uploadedItems.push({ id: caminho, url: localUrl, isLocal: true })
       }
 
       onChange([...value, ...uploadedItems])

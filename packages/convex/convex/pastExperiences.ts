@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 
 export const list = query({
   args: {},
@@ -10,7 +11,7 @@ export const list = query({
     const withUrls = await Promise.all(
       experiences.map(async (exp) => {
         const imageUrl = exp.imageId
-          ? await ctx.storage.getUrl(exp.imageId)
+          ? await urlDaImagem(ctx, exp.imageId)
           : null;
         return { ...exp, imageUrl };
       })
@@ -43,7 +44,7 @@ export const listPaged = query({
     const withImages = await Promise.all(
       result.rows.map(async (r) => ({
         ...r,
-        imageUrl: r.imageId ? await ctx.storage.getUrl(r.imageId) : null,
+        imageUrl: r.imageId ? await urlDaImagem(ctx, r.imageId) : null,
       })),
     );
     return { ...result, rows: withImages };
@@ -61,7 +62,7 @@ export const listPublished = query({
     const withUrls = await Promise.all(
       experiences.map(async (exp) => {
         const imageUrl = exp.imageId
-          ? await ctx.storage.getUrl(exp.imageId)
+          ? await urlDaImagem(ctx, exp.imageId)
           : null;
         return { ...exp, imageUrl };
       })
@@ -83,7 +84,7 @@ export const create = mutation({
       v.literal("privateTours")
     ),
     tags: v.optional(v.array(v.string())),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     linkUrl: v.optional(v.string()),
     status: v.union(v.literal("draft"), v.literal("published")),
   },
@@ -112,7 +113,7 @@ export const update = mutation({
       )
     ),
     tags: v.optional(v.array(v.string())),
-    imageId: v.optional(v.id("_storage")),
+    imageId: v.optional(vImagem),
     linkUrl: v.optional(v.string()),
     status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
   },
@@ -137,7 +138,7 @@ export const remove = mutation({
     if (!experience) throw new Error("Experience not found");
 
     if (experience.imageId) {
-      await ctx.storage.delete(experience.imageId);
+      await apagarImagem(ctx, experience.imageId);
     }
 
     await ctx.db.delete(args.id);

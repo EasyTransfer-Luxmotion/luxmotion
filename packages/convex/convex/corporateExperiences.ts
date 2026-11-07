@@ -1,3 +1,4 @@
+import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import type { QueryCtx } from "./_generated/server"
@@ -30,10 +31,10 @@ async function resolveUrls(
   locale?: string,
 ) {
   const coverImageUrl = exp.coverImageId
-    ? await ctx.storage.getUrl(exp.coverImageId)
+    ? await urlDaImagem(ctx, exp.coverImageId)
     : null
   const galleryImageUrls = await Promise.all(
-    (exp.galleryImageIds ?? []).map((id) => ctx.storage.getUrl(id)),
+    (exp.galleryImageIds ?? []).map((id) => urlDaImagem(ctx, id)),
   )
   const translations = await ctx.db.query("corporateExperienceTranslations")
     .withIndex("by_experience", (q) => q.eq("experienceId", exp._id)).collect()
@@ -132,8 +133,8 @@ export const create = mutation({
     experienceItems: v.array(experienceItemValidator),
     routeHighlights: v.array(v.string()),
     whatsIncluded: v.array(v.string()),
-    coverImageId: v.optional(v.id("_storage")),
-    galleryImageIds: v.array(v.id("_storage")),
+    coverImageId: v.optional(vImagem),
+    galleryImageIds: v.array(vImagem),
     status: statusValidator,
     sortOrder: v.number(),
   },
@@ -168,8 +169,8 @@ export const update = mutation({
     experienceItems: v.optional(v.array(experienceItemValidator)),
     routeHighlights: v.optional(v.array(v.string())),
     whatsIncluded: v.optional(v.array(v.string())),
-    coverImageId: v.optional(v.id("_storage")),
-    galleryImageIds: v.optional(v.array(v.id("_storage"))),
+    coverImageId: v.optional(vImagem),
+    galleryImageIds: v.optional(v.array(vImagem)),
     status: v.optional(statusValidator),
     sortOrder: v.optional(v.number()),
   },
@@ -206,12 +207,12 @@ export const remove = mutation({
     if (!exp) throw new Error("Experience not found")
     if (exp.coverImageId) {
       try {
-        await ctx.storage.delete(exp.coverImageId)
+        await apagarImagem(ctx, exp.coverImageId)
       } catch {}
     }
     for (const gid of exp.galleryImageIds ?? []) {
       try {
-        await ctx.storage.delete(gid)
+        await apagarImagem(ctx, gid)
       } catch {}
     }
     const translations = await ctx.db.query("corporateExperienceTranslations")
