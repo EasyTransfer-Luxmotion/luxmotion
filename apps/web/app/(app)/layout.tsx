@@ -3,32 +3,16 @@ import { Providers } from "@/components/providers";
 import { getLocale, getMessages, getTimeZone } from "next-intl/server";
 import { ConvexClientProvider } from "@/components/providers/convex-client-provider";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Poppins, Geist_Mono, Cormorant_Garamond, Montserrat } from "next/font/google";
+import { cormorantTitle, geistMono, montserrat, poppinsSans } from "@/app/fonts"
 import type { Metadata } from "next";
 
-const fontSans = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-sans",
-});
+const fontSans = poppinsSans;
 
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-});
+const fontMono = geistMono;
 
-const fontMontserrat = Montserrat({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-montserrat",
-});
+const fontMontserrat = montserrat;
 
-const fontTitle = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  style: ["normal", "italic"],
-  variable: "--font-title",
-});
+const fontTitle = cormorantTitle;
 
 /* Nada disto é para indexar: o admin, o checkout e o pagamento não são páginas
    de pesquisa, e as de pré-visualização muito menos. */

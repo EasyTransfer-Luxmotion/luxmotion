@@ -1,4 +1,4 @@
-import { Inter, Cormorant_Garamond } from "next/font/google";
+import { cormorantTitle, interSans } from "@/app/fonts"
 
 import "@workspace/ui/globals.css";
 import { GoogleMapsProvider } from "@/components/providers/google-maps-provider";
@@ -7,18 +7,9 @@ import { Suspense } from "react";
 import { OpenAIPixel } from "@/components/analytics/openai-pixel";
 import { CaptureAdSource } from "@/components/analytics/capture-ad-source";
 
-const fontSans = Inter({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-sans",
-});
+const fontSans = interSans;
 
-const fontTitle = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  style: ["normal", "italic"],
-  variable: "--font-title",
-});
+const fontTitle = cormorantTitle;
 
 export const metadata = createNoIndexMetadata("Checkout");
 

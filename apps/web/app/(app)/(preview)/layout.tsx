@@ -2,18 +2,12 @@ import "@workspace/ui/globals.css"
 import { Providers } from "@/components/providers"
 import { getLocale, getMessages, getTimeZone } from "next-intl/server"
 import { ConvexClientProvider } from "@/components/providers/convex-client-provider"
-import { Inter, Geist_Mono } from "next/font/google"
+import { geistMono, interSans } from "@/app/fonts"
 import { createNoIndexMetadata } from "@/lib/seo"
 
-const fontSans = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-})
+const fontSans = interSans
 
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-})
+const fontMono = geistMono
 
 export const metadata = createNoIndexMetadata("Preview")
 

@@ -1,4 +1,4 @@
-import { Montserrat } from "next/font/google"
+import { montserratSans } from "@/app/fonts"
 import { Suspense } from "react"
 
 import "@workspace/ui/globals.css"
@@ -7,11 +7,7 @@ import { TourCheckoutProvider } from "@/components/tours/tour-checkout-context"
 import { TourCheckoutModal } from "@/components/tours/tour-checkout-modal"
 import { TourCheckoutReturnHandler } from "@/components/tours/tour-checkout-return-handler"
 
-const fontSans = Montserrat({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-sans",
-})
+const fontSans = montserratSans
 
 
 export default function RootLayout({

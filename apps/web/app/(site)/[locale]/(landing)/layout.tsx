@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google"
+import { interSans } from "@/app/fonts"
 
 import { Suspense } from "react"
 import "@workspace/ui/globals.css"
@@ -9,11 +9,7 @@ import { TourCheckoutReturnHandler } from "@/components/tours/tour-checkout-retu
 import { WhatsAppFloat } from "@/components/new-landing-page/whatsapp-float"
 import { PromoBar } from "@/components/new-landing-page/promo-bar"
 
-const fontSans = Inter({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-sans",
-})
+const fontSans = interSans
 
 export default function RootLayout({
     children,
