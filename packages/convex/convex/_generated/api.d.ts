@@ -50,6 +50,7 @@ import type * as lib_upsellTranslations from "../lib/upsellTranslations.js";
 import type * as lib_utils from "../lib/utils.js";
 import type * as marketingStats from "../marketingStats.js";
 import type * as migracaoBunny from "../migracaoBunny.js";
+import type * as migracaoTextoBunny from "../migracaoTextoBunny.js";
 import type * as newsletterSubscriptions from "../newsletterSubscriptions.js";
 import type * as orders from "../orders.js";
 import type * as partnerApplications from "../partnerApplications.js";
@@ -126,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   "lib/utils": typeof lib_utils;
   marketingStats: typeof marketingStats;
   migracaoBunny: typeof migracaoBunny;
+  migracaoTextoBunny: typeof migracaoTextoBunny;
   newsletterSubscriptions: typeof newsletterSubscriptions;
   orders: typeof orders;
   partnerApplications: typeof partnerApplications;

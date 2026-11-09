@@ -15,6 +15,17 @@ const SEM_IDIOMA = /^\/(?:checkout|payment|preview-site|partnership-preview|chec
 
 const intlMiddleware = createIntlMiddleware(routing);
 
+/* Staging e development servem o mesmo conteúdo que produção, em domínios
+   públicos, e saíam com "index, follow": para o Google eram cópias do site a
+   concorrer com ele. Fora do Railway (máquina local) a variável não existe. */
+const AMBIENTE = process.env.RAILWAY_ENVIRONMENT_NAME;
+const FORA_DO_GOOGLE = Boolean(AMBIENTE && AMBIENTE !== 'production');
+
+function marcar(res: NextResponse): NextResponse {
+  if (FORA_DO_GOOGLE) res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  return res;
+}
+
 /**
  * Ficheiros servidos de public/, que não são páginas e não levam idioma.
  *
@@ -52,13 +63,13 @@ export default function middleware(req: NextRequest) {
      servidos por rotas de metadata do Next, mas para o Google são ficheiros e
      um redirect para /en/sitemap.xml deixava-o sem sitemap. */
   if (STATIC_FILE.test(pathname) || SEM_IDIOMA.test(pathname)) {
-    return NextResponse.next();
+    return marcar(NextResponse.next());
   }
 
   // É aqui que os endereços antigos, sem prefixo, são reencaminhados para o
   // idioma certo: /tours passa a /en/tours, ou a /pt/tours para quem já tinha
   // escolhido português.
-  return intlMiddleware(req);
+  return marcar(intlMiddleware(req));
 }
 
 export const config = {
