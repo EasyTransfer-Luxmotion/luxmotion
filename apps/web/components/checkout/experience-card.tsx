@@ -97,9 +97,9 @@ export function ExperienceCard({
               "absolute left-3 top-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.8px]",
               (tag === "mostPopular" || tag === "ultraLuxury") &&
                 "bg-[var(--ck-accent,#c9a96e)] text-[#0d0d0d]",
-              /* Os eventos distinguem-se por cor, não por hierarquia: não são
-                 "melhores" do que um tour, são outra coisa. */
-              tag === "event" && "bg-[#7c3aed] text-white",
+              /* O texto identifica o evento; a cor segue a mesma identidade
+                 das restantes experiências. */
+              tag === "event" && "bg-[var(--ck-accent,#c9a96e)] text-[#0d0d0d]",
               tag === "recommended" &&
                 "border border-[var(--ck-accent,#c9a96e)] bg-[rgba(13,13,13,0.72)] text-[var(--ck-accent,#c9a96e)]",
             )}
