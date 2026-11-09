@@ -59,6 +59,7 @@ import type * as partnerships from "../partnerships.js";
 import type * as pastExperiences from "../pastExperiences.js";
 import type * as payments from "../payments.js";
 import type * as pipedrive from "../pipedrive.js";
+import type * as recompressao from "../recompressao.js";
 import type * as schoolQuoteSubmissions from "../schoolQuoteSubmissions.js";
 import type * as seedReviews from "../seedReviews.js";
 import type * as siteSettings from "../siteSettings.js";
@@ -136,6 +137,7 @@ declare const fullApi: ApiFromModules<{
   pastExperiences: typeof pastExperiences;
   payments: typeof payments;
   pipedrive: typeof pipedrive;
+  recompressao: typeof recompressao;
   schoolQuoteSubmissions: typeof schoolQuoteSubmissions;
   seedReviews: typeof seedReviews;
   siteSettings: typeof siteSettings;
