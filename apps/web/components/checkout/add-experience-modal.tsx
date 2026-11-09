@@ -555,6 +555,7 @@ function ModalContent({
               {extras.map((extra) => (
                 <div key={extra.id} className="flex items-center gap-3">
                   <Checkbox
+                    appearance="luxmotion"
                     id={extra.id}
                     checked={selectedExtras.includes(extra.id)}
                     onCheckedChange={() => handleExtraToggle(extra.id)}

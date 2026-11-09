@@ -300,9 +300,6 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
   const isQuote = variant === "quote"
 
   const dark = darkProp ?? isNewWidget
-  // All public pickers use the current ivory/gold palette in light mode,
-  // including the default field inside the checkout experience modal.
-  const gold = !dark
 
   const pickerContent = (
     <div className={cn("p-4 overflow-y-auto", isMobile && "px-0")}>
@@ -380,11 +377,11 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
                 isPast
                   ? dark ? "text-[rgba(255,255,255,0.15)] cursor-not-allowed" : "text-[#d1d5db] cursor-not-allowed"
                   : isDateSelected(item.date)
-                  ? dark ? "bg-[#C9A96E] text-[#0D0D0D] font-semibold" : gold ? "bg-[#a08248] text-white font-semibold" : "bg-[#27c7ff] text-white font-semibold"
+                  ? dark ? "bg-[#C9A96E] text-[#0D0D0D] font-semibold" : "bg-[#a08248] text-white font-semibold"
                   : isDateToday(item.date)
-                  ? dark ? "text-[#C9A96E] font-semibold hover:bg-[rgba(255,255,255,0.08)]" : gold ? "text-[#a08248] font-semibold hover:bg-[rgba(168,131,58,0.08)]" : "text-[#27c7ff] font-semibold hover:bg-[#f3f4f6]"
+                  ? dark ? "text-[#C9A96E] font-semibold hover:bg-[rgba(255,255,255,0.08)]" : "text-[#a08248] font-semibold hover:bg-[rgba(168,131,58,0.08)]"
                   : item.isCurrentMonth
-                  ? dark ? "text-white hover:bg-[rgba(255,255,255,0.08)]" : gold ? "text-[#1a1612] hover:bg-[rgba(168,131,58,0.06)]" : "text-[#222222] hover:bg-[#f3f4f6]"
+                  ? dark ? "text-white hover:bg-[rgba(255,255,255,0.08)]" : "text-[#1a1612] hover:bg-[rgba(168,131,58,0.06)]"
                   : dark ? "text-[rgba(255,255,255,0.25)] hover:bg-[rgba(255,255,255,0.05)]" : "text-[#d1d5db] hover:bg-[#f3f4f6]"
               }`}
             >
@@ -408,12 +405,10 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
             isQuote ? "rounded-none" : "rounded-lg",
             dark
               ? "border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.25)]"
-              : gold
-              ? "border-[rgba(154,117,53,0.22)] bg-[#faf7f2] hover:border-[#a08248]"
-              : "border-[#e0e0e0] bg-white hover:border-[#bfbfbf]"
+              : "border-[rgba(154,117,53,0.22)] bg-[#faf7f2] hover:border-[#a08248]"
           )}
         >
-          <Clock className={cn("w-5 h-5 flex-shrink-0", dark ? "text-[#C9A96E]" : gold ? "text-[#a08248]" : "text-[#27c7ff]")} />
+          <Clock className={cn("w-5 h-5 flex-shrink-0", dark ? "text-[#C9A96E]" : "text-[#a08248]")} />
           <div className="flex items-center flex-1 ml-2">
             <span className={cn("text-[15px]", dark ? "text-white" : "text-[#222222]")}>
               {String(hours).padStart(2, "0")}:{String(minutes).padStart(2, "0")}
@@ -436,9 +431,7 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
             isQuote ? "rounded-none uppercase tracking-[1.1px] text-[14px]" : "rounded-xl",
             dark
               ? "bg-[#C9A96E] text-[#0D0D0D] active:brightness-90"
-              : gold
-              ? "bg-[#a08248] text-white active:bg-[#8a6f3c]"
-              : "bg-[#29C5F6] text-white active:bg-[#20aadd] shadow-lg shadow-[#29C5F6]/20"
+              : "bg-[#a08248] text-white active:bg-[#8a6f3c]"
           )}
         >
           Confirm
@@ -500,7 +493,7 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
           className="w-5 h-5 flex-shrink-0 calendar-arrow-icon"
           role="img"
           aria-label="Calendar arrow right"
-          style={{ color: "var(--theme-hero-booking-icon, #27C7FF)" }}
+          style={{ color: "var(--ck-accent, #a08248)" }}
         />
       ) : (
         <CalendarIcon className="w-5 h-5 flex-shrink-0 text-[#bfbfbf]" strokeWidth={2.5} />
@@ -557,14 +550,12 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
         className={cn(
           "p-0 shadow-lg max-h-[var(--radix-popover-content-available-height)] overflow-y-auto transition-all duration-300 ease-out",
           showClockPicker
-            ? cn("w-[328px] border-0", dark ? "bg-transparent rounded-none" : gold ? "bg-[#faf7f2] rounded-none" : "bg-[#e9f9ff] rounded-[28px]")
+            ? cn("w-[328px] border-0", dark ? "bg-transparent rounded-none" : "bg-[#faf7f2] rounded-none")
             : cn(
                 "w-[280px]",
                 dark
                   ? "bg-[#1e1d1b] border-[rgba(255,255,255,0.12)] rounded-none"
-                  : gold
-                  ? "bg-white border-[rgba(154,117,53,0.22)] rounded-none"
-                  : "bg-white border-[#e0e0e0] rounded-xl"
+                  : "bg-white border-[rgba(154,117,53,0.22)] rounded-none"
               )
         )}
         align="start"

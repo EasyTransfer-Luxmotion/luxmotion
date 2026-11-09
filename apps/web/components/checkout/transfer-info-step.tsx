@@ -906,6 +906,7 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
           className="flex items-center gap-2 cursor-pointer mb-4 bg-[var(--ck-surface,#1a1918)] border border-[rgba(var(--ck-text-rgb,255,255,255),0.06)] px-3 py-2.5"
         >
           <Checkbox
+            appearance="luxmotion"
             id="book-return"
             checked={transfer.bookReturn}
             onCheckedChange={(checked: boolean) => updateTransfer({ bookReturn: checked })}
@@ -1221,6 +1222,7 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
         <div className="mt-6">
           <label htmlFor="terms" className="flex items-center gap-3 cursor-pointer bg-[var(--ck-surface,#1a1918)] border border-[rgba(var(--ck-text-rgb,255,255,255),0.06)] px-4 py-3">
             <Checkbox
+              appearance="luxmotion"
               id="terms"
               checked={transfer.acceptTerms}
               onCheckedChange={(checked: boolean) => updateTransfer({ acceptTerms: checked })}
