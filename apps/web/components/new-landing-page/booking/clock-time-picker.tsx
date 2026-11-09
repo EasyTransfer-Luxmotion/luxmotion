@@ -10,6 +10,8 @@ interface ClockTimePickerProps {
   onConfirm?: () => void
   minTime?: { hours: number; minutes: number }
   headline?: string
+  /** Explicit theme for popovers rendered outside the page's theme container. */
+  dark?: boolean
 }
 
 type SelectionMode = "hours" | "minutes"
@@ -21,7 +23,7 @@ const NUMBER_RADIUS = 104
 
 const GOLD = "var(--lm-accent,#C9A96E)"
 const BG = "var(--lm-surface,#1e1d1b)"
-const SURFACE = "#2a2825"
+const SURFACE = "var(--lm-clock-face,#2a2825)"
 const TEXT_MUTED = "#808080"
 
 function getAngleForHour(hour: number): number {
@@ -62,6 +64,7 @@ export function ClockTimePicker({
   onConfirm,
   minTime,
   headline = "SELECT TIME",
+  dark,
 }: ClockTimePickerProps) {
   const [selectionMode, setSelectionMode] = React.useState<SelectionMode>("hours")
   const [inputMode, setInputMode] = React.useState<InputMode>("dial")
@@ -285,7 +288,18 @@ export function ClockTimePicker({
   const selectedValue = selectionMode === "hours" ? displayHour : value.minutes
 
   return (
-    <div className="flex flex-col items-center w-full overflow-hidden border border-[rgba(var(--lm-text-rgb,255,255,255),0.08)]" style={{ backgroundColor: BG }}>
+    <div className="flex flex-col items-center w-full overflow-hidden border border-[rgba(var(--lm-text-rgb,255,255,255),0.08)]" style={{
+      backgroundColor: BG,
+      ...(dark === undefined ? {} : {
+        "--lm-surface": dark ? "#1e1d1b" : "#faf7f2",
+        "--lm-text": dark ? "#f7f4ef" : "#1c1b18",
+        "--lm-text-rgb": dark ? "247,244,239" : "28,27,24",
+        "--lm-muted": dark ? "#999" : "#696969",
+        "--lm-accent": dark ? "#C9A96E" : "#a08248",
+        "--lm-accent-rgb": dark ? "201,169,110" : "160,130,72",
+        "--lm-clock-face": dark ? "#2a2825" : "rgba(160,130,72,0.12)",
+      }),
+    } as React.CSSProperties}>
       <div className="w-full pt-5 px-6 shrink-0">
         <p
           className="text-[12px] uppercase tracking-[2px] font-semibold"

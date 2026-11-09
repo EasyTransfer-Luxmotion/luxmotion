@@ -485,6 +485,7 @@ function ModalContent({
                 bookingDeadlineHours={bookingDeadlineHours}
                 isLoading={availabilityLoading}
                 onMonthChange={onMonthChange}
+                light={checkoutTheme === "light"}
               />
             ) : (
               <DateTimePicker

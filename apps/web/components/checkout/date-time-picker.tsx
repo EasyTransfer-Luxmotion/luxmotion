@@ -8,8 +8,7 @@ import Image from "next/image"
 import { useIsMobile } from "@/hooks/use-is-mobile"
 import { MobileDrawer } from "../ui/mobile-drawer"
 import { cn } from "@workspace/ui/lib/utils"
-import { ClockTimePicker } from "@/components/ui/clock-time-picker"
-import { ClockTimePicker as ClockTimePickerDark } from "@/components/new-landing-page/booking/clock-time-picker"
+import { ClockTimePicker } from "@/components/new-landing-page/booking/clock-time-picker"
 import { useMinAdvanceBookingHours } from "@/hooks/use-min-advance-hours"
 import { clampDateTime } from "@/lib/event-date-time"
 
@@ -301,8 +300,9 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
   const isQuote = variant === "quote"
 
   const dark = darkProp ?? isNewWidget
-  // Ivory/gold light palette: the quote variant, or the homepage widget in light mode.
-  const gold = isQuote || (isNewWidget && !dark)
+  // All public pickers use the current ivory/gold palette in light mode,
+  // including the default field inside the checkout experience modal.
+  const gold = !dark
 
   const pickerContent = (
     <div className={cn("p-4 overflow-y-auto", isMobile && "px-0")}>
@@ -447,17 +447,15 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
     </div>
   )
 
-  const ClockComponent = dark ? ClockTimePickerDark : ClockTimePicker
-
   const clockPickerContent = (
-    <ClockComponent
+    <ClockTimePicker
+      dark={dark}
       value={{ hours, minutes }}
       onChange={(time) => handleTimeChange(time.hours, time.minutes)}
       onCancel={() => setShowClockPicker(false)}
       onConfirm={() => setShowClockPicker(false)}
       minTime={isSelectedDateMinDay() ? { hours: minDateTime.getHours(), minutes: minDateTime.getMinutes() } : undefined}
       headline="Select time"
-      {...(gold && !dark ? { luxmotion: true } : {})}
     />
   )
 
@@ -479,7 +477,7 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
             `w-full h-12 px-4 border flex items-center gap-3 transition-all focus:outline-none focus:ring-2 ${
               dark
                 ? "border-[rgba(255,255,255,0.12)] bg-[#1e1d1b] hover:border-[rgba(255,255,255,0.3)] focus:ring-[#C9A96E] focus:border-[#C9A96E]"
-                : "border-[#e0e0e0] bg-white hover:border-[#bfbfbf] focus:ring-[#27c7ff] focus:border-[#27c7ff]"
+                : "border-[rgba(154,117,53,0.22)] bg-white hover:border-[#a08248] focus:ring-[#a08248] focus:border-[#a08248]"
             } ${
               date
                 ? dark ? "text-white" : "text-[#222222]"
