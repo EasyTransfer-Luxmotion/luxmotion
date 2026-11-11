@@ -39,7 +39,7 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
   const minAdvanceHours = useMinAdvanceBookingHours()
 
   const [mounted, setMounted] = useState(false)
-  const [tripType, setTripType] = useState<TripType>("roundTrip")
+  const [tripType, setTripType] = useState<TripType>("oneWay")
   const [fromLocation, setFromLocation] = useState<LocationState>({ text: "", placeId: null, lat: null, lng: null })
   const [destinations, setDestinations] = useState<LocationState[]>([{ text: "", placeId: null, lat: null, lng: null }])
   const [showPassengersDropdown, setShowPassengersDropdown] = useState(false)
@@ -148,8 +148,8 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
   }
 
   const tripTypes: { key: TripType; label: string }[] = [
-    { key: "roundTrip", label: t("tripTypes.roundTrip") },
     { key: "oneWay", label: t("tripTypes.oneWay") },
+    { key: "roundTrip", label: t("tripTypes.roundTrip") },
     { key: "events", label: t("tripTypes.events") },
     { key: "tours", label: t("tripTypes.tours") },
   ]

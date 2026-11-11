@@ -148,7 +148,7 @@ export interface CheckoutState {
 
 const initialTransferState: TransferState = {
   transferType: "ida",
-  bookReturn: true,
+  bookReturn: false,
   departureDate: undefined,
   returnDate: undefined,
   fromLocation: "",
