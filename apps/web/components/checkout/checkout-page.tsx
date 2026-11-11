@@ -18,12 +18,13 @@ import { CheckoutThemeProvider, useCheckoutTheme } from "@/components/checkout/c
 import { isAirportPickup } from "@/lib/airport"
 import { useRouteDistance } from "@/hooks/use-route-distance"
 import { useNearbyTours } from "@/hooks/use-nearby-tours"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ArrowRight } from "lucide-react"
 import { initOrder, toBackendLocation, formatLocalDateTime } from "@/lib/orders"
 import { readReferralCookie } from "@/lib/referral"
 import { useConvex } from "convex/react"
-import { useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useCheckoutPaymentOutcome } from "@/hooks/use-checkout-payment-outcome"
 import { useTranslations } from "next-intl"
 import { readAdSourceCookie, readOppref } from "@/lib/ad-source"
 import { MeasureOrderCreated } from "@/components/analytics/measure-order-created"
@@ -41,7 +42,10 @@ export function CheckoutPage({ logoUrl }: { logoUrl?: string | null } = {}) {
 function CheckoutPageContent({ logoUrl }: { logoUrl?: string | null }) {
   const convex = useConvex()
   const searchParams = useSearchParams()
-  const { state, setStep, setSelectedVehicle, setShowTransferForm, setOrder, updateDistance, setUpgradeMode, submitCheckout, setNearbyTours } = useCheckout()
+  const pathname = usePathname()
+  const router = useRouter()
+  const handledPaymentReturn = useRef<string | null>(null)
+  const { state, isHydrated, setStep, setSelectedVehicle, setShowTransferForm, setOrder, updateDistance, setUpgradeMode, setNearbyTours } = useCheckout()
   const { theme } = useCheckoutTheme()
   const { currentStep, direction, selectedVehicle, showTransferForm, transfer, distance: storedDistance, orderId, upgradeMode, hasNearbyTours, nearbyToursLoaded } = state
 
@@ -49,25 +53,35 @@ function CheckoutPageContent({ logoUrl }: { logoUrl?: string | null }) {
   const [upgradeCandidate, setUpgradeCandidate] = useState<Vehicle | null>(null)
   const [upgradeOfferSeen, setUpgradeOfferSeen] = useState(false)
 
+  const paymentOutcome = useCheckoutPaymentOutcome(orderId)
+  const bookingConfirmed = paymentOutcome === "paid" || paymentOutcome === "cash"
   const confirmationStep = hasNearbyTours ? 5 : 4
   const passengerStep = hasNearbyTours ? 3 : 2
   const paymentStep = hasNearbyTours ? 4 : 3
   const experiencesStep = 2
 
-  // Returning from Stripe: ?success=true → confirmation (finalize the order); ?success=false
-  // (decline / cancel / ← back on the Stripe page) → the failure screen. No submitCheckout on
-  // failure — the payment didn't go through, so there's nothing to finalize; ConfirmationModal
-  // reads ?success=false and renders the "payment rejected" state.
+  // A gateway return opens a result view. Only the server status can confirm payment.
   useEffect(() => {
-    const success = searchParams?.get("success")
-    if (currentStep === confirmationStep) return
-    if (success === "true") {
-      submitCheckout()
-      setStep(confirmationStep)
-    } else if (success === "false") {
+    if (!isHydrated) return
+    const result = searchParams?.get("success") ?? null
+    if (result === null) {
+      handledPaymentReturn.current = null
+      return
+    }
+    const returnKey = `${result}:${confirmationStep}`
+    if ((result === "true" || result === "false") && handledPaymentReturn.current !== returnKey) {
+      handledPaymentReturn.current = returnKey
       setStep(confirmationStep)
     }
-  }, [searchParams, currentStep, setStep, submitCheckout, confirmationStep])
+  }, [searchParams, setStep, confirmationStep, isHydrated])
+
+  const handleReturnToPayment = () => {
+    const params = new URLSearchParams(searchParams?.toString())
+    params.delete("success")
+    const query = params.toString()
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false })
+    setStep(paymentStep)
+  }
 
   const { distance: calculatedDistance, duration: calculatedDuration, isCalculating: isCalculatingDistance, error: routeError } = useRouteDistance({
     from: { lat: transfer.fromLat, lng: transfer.fromLng },
@@ -212,7 +226,10 @@ function CheckoutPageContent({ logoUrl }: { logoUrl?: string | null }) {
     // already-completed step. Forward progression happens exclusively via the
     // Continue button (which validates the current step), so the client can't
     // skip ahead to Payment/Confirmation. A placed order (confirmation) is locked.
-    if (currentStep === confirmationStep) return
+    if (currentStep === confirmationStep) {
+      if (!bookingConfirmed && newStep === paymentStep) handleReturnToPayment()
+      return
+    }
     if (newStep < currentStep) setStep(newStep)
   }
 
@@ -289,7 +306,7 @@ function CheckoutPageContent({ logoUrl }: { logoUrl?: string | null }) {
       <MeasureOrderCreated orderNumber={orderId ? String(orderId) : null} />
       <CheckoutHeader
         logoUrl={logoUrl}
-        currentStep={currentStep}
+        currentStep={currentStep === confirmationStep && !bookingConfirmed ? paymentStep : currentStep}
         onStepClick={handleStepChange}
         allowStepSkip={DEV_ALLOW_STEP_SKIP}
         hasNearbyTours={hasNearbyTours}
@@ -342,7 +359,7 @@ function CheckoutPageContent({ logoUrl }: { logoUrl?: string | null }) {
           )}
 
           {currentStep === confirmationStep && (
-            <ConfirmationModal />
+            <ConfirmationModal onRetry={handleReturnToPayment} />
           )}
         </div>
       </main>

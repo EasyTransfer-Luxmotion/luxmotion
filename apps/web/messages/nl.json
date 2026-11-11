@@ -926,6 +926,7 @@
     "priorityPickup": "Prioriteitsafhaling"
   },
   "confirmation": {
+    "paymentRejectedSubtext": "De boeking is niet bevestigd. Je kunt teruggaan naar de betaling om het opnieuw te proberen of een andere betaalmethode te kiezen.",
     "title": "Boekingsbevestiging",
     "thankYou": "Bedankt voor uw boeking 🤝!",
     "emailWhatsapp": "U ontvangt binnenkort een e-mail en een WhatsApp-bericht met een samenvatting van uw boeking.",
@@ -937,7 +938,6 @@
     "paymentDone": "Betaling voltooid",
     "bookingDone": "Boeking voltooid",
     "backToHome": "TERUG NAAR STARTPAGINA",
-    "waitingPayment": "Wachten op bevestiging van MB Way-betaling...",
     "eyebrow": "Boeking gemaakt",
     "headingLine1": "Uw reis",
     "headingLine2": "wacht",
@@ -954,7 +954,16 @@
     "support247": {
       "title": "24/7 Ondersteuning",
       "desc": "Iets nodig? Ons team is de klok rond bereikbaar via telefoon, WhatsApp of e-mail."
-    }
+    },
+    "paymentIncomplete": "Betaling niet voltooid",
+    "notConfirmed": "Boeking niet bevestigd",
+    "pendingHeading": "Wachten op betaling",
+    "pendingSubtext": "De betaling is nog niet bevestigd. De boeking is niet bevestigd. Deze pagina wordt automatisch bijgewerkt zodra we het betalingsresultaat ontvangen.",
+    "unverifiedHeading": "Betaling kon niet worden gecontroleerd",
+    "unverifiedSubtext": "We konden de betaling voor deze boeking niet controleren. Ga terug naar de betaling om de status te bekijken voordat je het opnieuw probeert.",
+    "returnToPayment": "Terug naar betaling",
+    "payOnArrival": "Betaling aan de chauffeur",
+    "waitingPayment": "Wachten op betalingsbevestiging…"
   },
   "exclusive": "Exclusief",
   "tours": {

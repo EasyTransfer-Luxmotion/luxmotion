@@ -267,6 +267,7 @@ function isPageReload(): boolean {
 }
 
 interface CheckoutContextValue {
+  isHydrated: boolean
   state: CheckoutState
   setStep: (step: number) => void
   setSelectedVehicle: (vehicle: Vehicle | null) => void
@@ -493,6 +494,7 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value: CheckoutContextValue = {
+    isHydrated,
     state: {
       ...state,
       selectedVehicle: state.selectedVehicle ? localizeVehicle(state.selectedVehicle, locale) : null,

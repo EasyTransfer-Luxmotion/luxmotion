@@ -926,6 +926,7 @@
     "priorityPickup": "Priority Pick-up"
   },
   "confirmation": {
+    "paymentRejectedSubtext": "Die Buchung ist nicht bestätigt. Sie können zur Zahlung zurückkehren, es erneut versuchen oder eine andere Zahlungsmethode wählen.",
     "title": "Buchungsbestätigung",
     "thankYou": "Vielen Dank für Ihre Buchung 🤝!",
     "emailWhatsapp": "Sie erhalten in Kürze eine E-Mail und eine WhatsApp-Nachricht mit einer Zusammenfassung Ihrer Buchung.",
@@ -937,7 +938,6 @@
     "paymentDone": "Zahlung erledigt",
     "bookingDone": "Buchung erledigt",
     "backToHome": "ZURÜCK ZUR STARTSEITE",
-    "waitingPayment": "Warten auf Bestätigung der MB Way-Zahlung...",
     "eyebrow": "Buchung erstellt",
     "headingLine1": "Ihre Reise",
     "headingLine2": "wartet",
@@ -954,7 +954,16 @@
     "support247": {
       "title": "24/7 Support",
       "desc": "Brauchen Sie etwas? Unser Team ist rund um die Uhr per Anruf, WhatsApp oder E-Mail erreichbar."
-    }
+    },
+    "paymentIncomplete": "Zahlung nicht abgeschlossen",
+    "notConfirmed": "Buchung nicht bestätigt",
+    "pendingHeading": "Zahlung ausstehend",
+    "pendingSubtext": "Die Zahlung wurde noch nicht bestätigt. Die Buchung ist nicht bestätigt. Diese Seite wird automatisch aktualisiert, sobald das Zahlungsergebnis vorliegt.",
+    "unverifiedHeading": "Zahlung konnte nicht überprüft werden",
+    "unverifiedSubtext": "Wir konnten die Zahlung für diese Buchung nicht überprüfen. Kehren Sie zur Zahlung zurück und prüfen Sie den Status, bevor Sie es erneut versuchen.",
+    "returnToPayment": "Zurück zur Zahlung",
+    "payOnArrival": "Zahlung beim Fahrer",
+    "waitingPayment": "Zahlungsbestätigung ausstehend…"
   },
   "exclusive": "Exklusiv",
   "tours": {

@@ -926,6 +926,7 @@
     "priorityPickup": "Recogida Prioritaria"
   },
   "confirmation": {
+    "paymentRejectedSubtext": "La reserva no está confirmada. Puedes volver al pago para intentarlo de nuevo o elegir otro método.",
     "title": "Confirmación de reserva",
     "thankYou": "¡Gracias por tu reserva 🤝!",
     "emailWhatsapp": "Recibirás pronto un correo electrónico y un mensaje de WhatsApp con un resumen de tu reserva.",
@@ -937,7 +938,6 @@
     "paymentDone": "Pago realizado",
     "bookingDone": "Reserva realizada",
     "backToHome": "VOLVER A INICIO",
-    "waitingPayment": "Esperando confirmación del pago MB Way...",
     "eyebrow": "Reserva realizada",
     "headingLine1": "Tu viaje",
     "headingLine2": "espera",
@@ -954,7 +954,16 @@
     "support247": {
       "title": "Soporte 24/7",
       "desc": "¿Necesitas algo? Nuestro equipo está disponible todo el día por llamada, WhatsApp o email."
-    }
+    },
+    "paymentIncomplete": "Pago no completado",
+    "notConfirmed": "Reserva no confirmada",
+    "pendingHeading": "Esperando el pago",
+    "pendingSubtext": "El pago aún no se ha confirmado. La reserva no está confirmada. Esta página se actualizará automáticamente cuando recibamos el resultado del pago.",
+    "unverifiedHeading": "No se pudo verificar el pago",
+    "unverifiedSubtext": "No pudimos verificar el pago de esta reserva. Vuelve al pago para consultar su estado antes de intentarlo de nuevo.",
+    "returnToPayment": "Volver al pago",
+    "payOnArrival": "Pago al conductor",
+    "waitingPayment": "Esperando la confirmación del pago…"
   },
   "exclusive": "Exclusivo",
   "tours": {

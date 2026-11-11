@@ -937,7 +937,6 @@
     "paymentDone": "Pagamento feito",
     "bookingDone": "Reserva feita",
     "backToHome": "VOLTAR PARA PÁGINA INICIAL",
-    "waitingPayment": "Aguardando confirmação do pagamento MB Way...",
     "paymentRejected": "Pagamento rejeitado",
     "paymentRejectedSubtext": "A reserva não foi confirmada. Pode tentar novamente ou escolher outro método.",
     "eyebrow": "Reserva feita",
@@ -956,7 +955,16 @@
     "support247": {
       "title": "Suporte 24/7",
       "desc": "Precisa de algo? A nossa equipa está disponível 24 horas via chamada, WhatsApp ou email."
-    }
+    },
+    "paymentIncomplete": "Pagamento não concluído",
+    "notConfirmed": "Reserva não confirmada",
+    "pendingHeading": "A aguardar pagamento",
+    "pendingSubtext": "O pagamento ainda não foi confirmado. A reserva não está confirmada. Esta página será atualizada automaticamente quando recebermos o resultado do pagamento.",
+    "unverifiedHeading": "Não foi possível verificar o pagamento",
+    "unverifiedSubtext": "Não conseguimos verificar o pagamento desta reserva. Volta ao pagamento para consultar o estado antes de tentares novamente.",
+    "returnToPayment": "Voltar ao pagamento",
+    "payOnArrival": "Pagamento ao motorista",
+    "waitingPayment": "A aguardar confirmação do pagamento…"
   },
   "exclusive": "Exclusivo",
   "tours": {

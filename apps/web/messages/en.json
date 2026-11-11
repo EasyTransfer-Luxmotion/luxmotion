@@ -937,7 +937,6 @@
     "paymentDone": "Payment done",
     "bookingDone": "Booking done",
     "backToHome": "BACK TO HOME PAGE",
-    "waitingPayment": "Waiting for MB Way payment confirmation...",
     "paymentRejected": "Payment rejected",
     "paymentRejectedSubtext": "The booking was not confirmed. You can try again or choose another method.",
     "eyebrow": "Booking made",
@@ -956,7 +955,16 @@
     "support247": {
       "title": "24/7 Support",
       "desc": "Need anything? Our team is available around the clock via call, WhatsApp, or email."
-    }
+    },
+    "paymentIncomplete": "Payment not completed",
+    "notConfirmed": "Booking not confirmed",
+    "pendingHeading": "Awaiting payment",
+    "pendingSubtext": "Your payment has not yet been confirmed. Your booking is not confirmed. This page will update automatically when we receive the payment result.",
+    "unverifiedHeading": "Payment could not be verified",
+    "unverifiedSubtext": "We could not verify the payment for this booking. Return to payment to review its status before trying again.",
+    "returnToPayment": "Return to payment",
+    "payOnArrival": "Payment to the driver",
+    "waitingPayment": "Awaiting payment confirmation…"
   },
   "exclusive": "Exclusive",
   "tours": {
