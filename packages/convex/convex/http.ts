@@ -1,3 +1,4 @@
+import { stripeCheckoutPaymentStatus } from "./lib/stripe-checkout";
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
@@ -211,15 +212,7 @@ http.route({
     const orderNumber: string | undefined = meta.orderNumber;
     const kind: string | undefined = meta.kind;
 
-    let paymentStatus: "completed" | "failed" | null = null;
-    if (type === "checkout.session.completed") {
-      // Cards complete here ("paid"); async methods land here "unpaid" → still pending.
-      paymentStatus = session.payment_status === "paid" ? "completed" : null;
-    } else if (type === "checkout.session.async_payment_succeeded") {
-      paymentStatus = "completed";
-    } else if (type === "checkout.session.async_payment_failed" || type === "checkout.session.expired") {
-      paymentStatus = "failed";
-    }
+    const paymentStatus = stripeCheckoutPaymentStatus(type, session.payment_status);
 
     // Nothing actionable (or async still pending) — ack so Stripe doesn't retry.
     if (!paymentStatus) return new Response("ignored", { status: 200 });
@@ -234,17 +227,17 @@ http.route({
       typeof session.amount_total === "number" ? session.amount_total / 100 : undefined;
 
     try {
+      // Resolve the actual method for both tours and transfers, including new dynamic methods.
+      const usedMethod = paymentStatus === "completed"
+        ? (paymentIntentId ? await getUsedMethod(paymentIntentId) : "stripe")
+        : undefined;
       if (kind === "tour" || orderNumber.startsWith("TB")) {
         await ctx.runAction(internal.tourBookings.completeTourBookingPayment, {
           bookingNumber: orderNumber,
           paymentStatus,
+          paymentMethod: usedMethod,
         });
       } else {
-        // On success, learn which method the customer actually used on Stripe and record it.
-        const usedMethod =
-          paymentStatus === "completed" && paymentIntentId
-            ? await getUsedMethod(paymentIntentId)
-            : undefined;
         const result = await ctx.runMutation(internal.payments.updatePaymentStatus, {
           orderNumber,
           paymentStatus,

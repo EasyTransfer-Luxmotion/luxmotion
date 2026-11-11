@@ -22,9 +22,7 @@ export const updatePaymentStatus = internalMutation({
     amount: v.optional(v.number()),
     paymentDateTime: v.optional(v.string()), // ISO string
     metadata: v.optional(v.any()),
-    paymentMethod: v.optional(
-      v.union(v.literal("mbway"), v.literal("mb"), v.literal("ccard"), v.literal("cash")),
-    ),
+    paymentMethod: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     let order = null;
@@ -32,7 +30,7 @@ export const updatePaymentStatus = internalMutation({
     if (args.orderId) {
       if (args.orderId.startsWith("j")) {
         try {
-          order = await ctx.db.get(args.orderId as any);
+          order = await ctx.db.get(args.orderId as Id<"orders">);
         } catch {
         }
       }
@@ -92,7 +90,7 @@ export const updatePaymentStatus = internalMutation({
       updates.status = "paid";
 
       const orderAmount = (order as any).totalAmount || (order as any).price || 0;
-      const orderPaymentMethod = (order as any).paymentMethod || "unknown";
+      const orderPaymentMethod = args.paymentMethod ?? order.paymentMethod ?? "unknown";
       await ctx.db.insert("transactions", {
         amount: args.amount || orderAmount,
         bookingId: order._id,
@@ -109,6 +107,7 @@ export const updatePaymentStatus = internalMutation({
           await ctx.db.patch(relatedOrderId, {
             paymentStatus: "completed",
             status: "paid",
+            ...(args.paymentMethod ? { paymentMethod: args.paymentMethod } : {}),
             updatedAt: Date.now(),
           });
           
@@ -178,7 +177,7 @@ export const updatePaymentStatus = internalMutation({
       const customerEmail = (order as { customerEmail?: string }).customerEmail ?? "";
       const customerPhone = (order as { customerPhone?: string }).customerPhone ?? "";
       const customerNif = (order as { customerNif?: string }).customerNif ?? undefined;
-      const paymentMethod = (order as { paymentMethod?: "mbway" | "mb" | "ccard" | "cash" }).paymentMethod ?? "cash";
+      const paymentMethod = args.paymentMethod ?? order.paymentMethod ?? "unknown";
 
       if (pending && pending.length > 0) {
         const now = Date.now();
@@ -224,7 +223,7 @@ export const updatePaymentStatus = internalMutation({
             customerPhone,
             customerNif,
             status: "paid",
-            paymentMethod: paymentMethod as "mbway" | "mb" | "ccard" | "cash",
+            paymentMethod,
             paymentStatus: "completed",
             createdAt: now,
             updatedAt: now,
@@ -235,7 +234,7 @@ export const updatePaymentStatus = internalMutation({
             const orderDoc = buildOrderFromTourBooking(
               { ...booking, customerNif: booking.customerNif ?? undefined },
               now,
-              paymentMethod as "cash" | "mbway" | "mb" | "ccard",
+              paymentMethod,
               departure,
               arrival
             );

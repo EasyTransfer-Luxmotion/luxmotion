@@ -390,7 +390,7 @@ export function buildOrderFromTourBooking(
     addonsTotal?: number;
   },
   now: number,
-  paymentMethod: "cash" | "mbway" | "mb" | "ccard",
+  paymentMethod: string,
   departure: OrderLocation,
   arrival: OrderLocation
 ) {
@@ -424,7 +424,7 @@ export function buildOrderFromTourBooking(
     ...(booking.sharingMode && { sharingMode: booking.sharingMode }),
     ...(booking.selectedAddons?.length && { selectedAddons: booking.selectedAddons }),
     ...(booking.addonsTotal != null && booking.addonsTotal > 0 && { addonsTotal: booking.addonsTotal }),
-    paymentMethod: paymentMethod as "cash" | "mbway" | "mb" | "ccard",
+    paymentMethod,
     paymentStatus: "completed" as const,
     createdAt: now,
     updatedAt: now,
@@ -446,7 +446,7 @@ export const ensureOrderForPaidTourBooking = internalMutation({
 
     const now = Date.now();
     const { departure, arrival } = await getDepartureArrivalFromBooking(ctx, booking);
-    const paymentMethod = (booking.paymentMethod as "cash" | "mbway" | "mb" | "ccard") ?? "cash";
+    const paymentMethod = booking.paymentMethod ?? "unknown";
     const orderDoc = buildOrderFromTourBooking(booking, now, paymentMethod, departure, arrival);
     const newOrderId = await ctx.db.insert("orders", orderDoc);
     return { orderId: newOrderId };
@@ -567,7 +567,7 @@ export const startPaymentAction = action({
 
     const session: any = await ctx.runAction(internal.stripe.createCheckoutSession, {
       kind: "tour",
-      method: args.method, // "ccard" | "mbway" | "mb"
+      // O Stripe apresenta os métodos ativos e elegíveis, tal como nos transfers.
       orderNumber: bookingNumber,
       orderId: args.bookingId,
       amount: totalAmount,
@@ -622,6 +622,7 @@ export const setPaymentFailed = internalMutation({
 export const updatePaymentStatus = internalMutation({
   args: {
     bookingNumber: v.string(),
+    paymentMethod: v.optional(v.string()),
     paymentStatus: v.union(
       v.literal("pending"),
       v.literal("processing"),
@@ -644,6 +645,7 @@ export const updatePaymentStatus = internalMutation({
     const now = Date.now();
     const updates: Record<string, unknown> = {
       paymentStatus: args.paymentStatus,
+      ...(args.paymentMethod ? { paymentMethod: args.paymentMethod } : {}),
       updatedAt: now,
     };
     if (args.paymentStatus === "completed") {
@@ -665,6 +667,7 @@ export const updatePaymentStatus = internalMutation({
 export const completeTourBookingPayment = internalAction({
   args: {
     bookingNumber: v.string(),
+    paymentMethod: v.optional(v.string()),
     paymentStatus: v.union(
       v.literal("pending"),
       v.literal("processing"),
@@ -676,6 +679,7 @@ export const completeTourBookingPayment = internalAction({
     const result = await ctx.runMutation(internal.tourBookings.updatePaymentStatus, {
       bookingNumber: args.bookingNumber,
       paymentStatus: args.paymentStatus,
+      paymentMethod: args.paymentMethod,
     });
     if (args.paymentStatus === "completed" && result?.bookingId) {
       const ensureResult = await ctx.runMutation(internal.tourBookings.ensureOrderForPaidTourBooking, {

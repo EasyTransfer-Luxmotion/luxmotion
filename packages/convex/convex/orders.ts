@@ -1163,7 +1163,7 @@ export const startPaymentAction = action({
     try {
       const result: any = await ctx.runAction(internal.stripe.createCheckoutSession, {
         kind: "transfer",
-        // Sem método específico → o Stripe mostra cartão + MB WAY + Multibanco na página dele.
+        // Sem método específico: usar os métodos ativos e elegíveis da conta Stripe.
         orderNumber,
         orderId: args.orderId,
         // Total da reserva (ida + volta). O IfThenPay só cobrava a ida no cartão — corrigido.

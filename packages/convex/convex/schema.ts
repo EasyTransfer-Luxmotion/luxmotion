@@ -169,14 +169,8 @@ export default defineSchema({
     passengerRelationship: v.optional(v.string()),
 
     // Payment
-    paymentMethod: v.optional(
-      v.union(
-        v.literal("mbway"),
-        v.literal("mb"),
-        v.literal("ccard"),
-        v.literal("cash"),
-      ),
-    ),
+    // Existing legacy codes plus the actual method returned by signed Stripe webhooks.
+    paymentMethod: v.optional(v.string()),
     paymentStatus: v.optional(
       v.union(
         v.literal("pending"),
@@ -1573,14 +1567,8 @@ export default defineSchema({
     tipPercent: v.number(),
     tipAmount: v.number(),
     totalAmount: v.number(),
-    paymentMethod: v.optional(
-      v.union(
-        v.literal("mbway"),
-        v.literal("mb"),
-        v.literal("ccard"),
-        v.literal("cash"),
-      ),
-    ),
+    // Existing legacy codes plus the actual method returned by signed Stripe webhooks.
+    paymentMethod: v.optional(v.string()),
     paymentStatus: v.optional(
       v.union(
         v.literal("pending"),

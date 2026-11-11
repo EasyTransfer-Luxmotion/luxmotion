@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
+import { stripeCheckoutParams, stripeMethodCode } from "./lib/stripe-checkout";
 
 /*
  * Stripe integration (replaces ifthenpay.ts).
@@ -17,13 +18,6 @@ function secretKey(): string {
   if (!k) throw new Error("STRIPE_SECRET_KEY not configured");
   return k;
 }
-
-/** Our internal method codes → Stripe payment_method_types. (cash never hits Stripe.) */
-const METHOD_TO_STRIPE: Record<string, string> = {
-  ccard: "card",
-  mbway: "mb_way",
-  mb: "multibanco",
-};
 
 /**
  * Create a hosted Stripe Checkout Session and return its redirect URL.
@@ -56,36 +50,8 @@ export const createCheckoutSession = internalAction({
     _ctx,
     args,
   ): Promise<{ checkoutUrl: string; sessionId: string; paymentIntentId: string | null }> => {
-    // Offer all online methods on the Stripe page unless a specific one is requested.
-    const methods: string[] = args.method
-      ? [METHOD_TO_STRIPE[args.method]!]
-      : ["card", "mb_way", "multibanco"];
-
-    const unitAmount = Math.round(args.amount * 100); // cents
-    if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
-      throw new Error(`Invalid amount for Stripe: ${args.amount}`);
-    }
-
-    const p = new URLSearchParams();
-    p.set("mode", "payment");
-    p.set("success_url", args.successUrl);
-    p.set("cancel_url", args.cancelUrl);
-    p.set("line_items[0][quantity]", "1");
-    p.set("line_items[0][price_data][currency]", "eur");
-    p.set("line_items[0][price_data][unit_amount]", String(unitAmount));
-    p.set(
-      "line_items[0][price_data][product_data][name]",
-      (args.description || "Easy Transfer").slice(0, 250),
-    );
-    p.set("client_reference_id", args.orderNumber);
-    p.set("metadata[orderNumber]", args.orderNumber);
-    p.set("metadata[orderId]", args.orderId);
-    p.set("metadata[kind]", args.kind);
-    p.set("payment_intent_data[metadata][orderNumber]", args.orderNumber);
-    p.set("payment_intent_data[metadata][kind]", args.kind);
-    p.set("locale", args.language === "pt" ? "pt" : "en");
-    if (args.email) p.set("customer_email", args.email);
-    // MB WAY: Stripe collects the customer's phone on its hosted page — we don't pass it.
+    // Default: Stripe selects the eligible methods enabled in its Dashboard.
+    const p = stripeCheckoutParams(args);
 
     const criar = (corpo: URLSearchParams) =>
       fetch(`${STRIPE_API}/checkout/sessions`, {
@@ -97,19 +63,15 @@ export const createCheckoutSession = internalAction({
         body: corpo.toString(),
       });
 
-    const comMetodos = new URLSearchParams(p);
-    methods.forEach((m, i) => comMetodos.set(`payment_method_types[${i}]`, m));
-    let res = await criar(comMetodos);
-
-    /* As contas Stripe criadas recentemente já não aceitam escolher os métodos
-       no pedido, em nenhuma versão da API — só no painel. A de produção, mais
-       antiga, aceita, e continua a ir com eles. Numa conta nova (a sandbox de
-       development e staging) repete-se sem: a página do Stripe mostra os
-       métodos ligados nessa conta. */
-    if (res.status === 400) {
-      const erro = await res.clone().text();
-      if (erro.includes("payment_method_types") && erro.includes("no longer supported")) {
-        res = await criar(p);
+    let res = await criar(p);
+    // Legacy internal callers may explicitly choose one method; newer Stripe accounts
+    // can require Dashboard-managed methods instead. Never retry an unrelated failure.
+    if (args.method && res.status === 400) {
+      const error = await res.clone().text();
+      if (error.includes("payment_method_types") && error.includes("no longer supported")) {
+        const dynamic = new URLSearchParams(p);
+        dynamic.delete("payment_method_types[0]");
+        res = await criar(dynamic);
       }
     }
 
@@ -131,32 +93,25 @@ export const createCheckoutSession = internalAction({
   },
 });
 
-/** Stripe payment_method type → our internal method code. */
-const STRIPE_TO_METHOD: Record<string, "ccard" | "mbway" | "mb"> = {
-  card: "ccard",
-  mb_way: "mbway",
-  multibanco: "mb",
-};
-
 /**
  * After a Checkout Session completes, look up its PaymentIntent to learn which method the
- * customer actually chose on Stripe's page, mapped to our internal code (undefined if it
- * can't be determined — the order just keeps whatever method it had).
+ * customer actually chose on Stripe's page, mapped to a legacy code or its Stripe type. If lookup fails, use the neutral
+ * "stripe" code instead of incorrectly recording the preselected card method.
  */
 export async function getUsedMethod(
   paymentIntentId: string,
-): Promise<"ccard" | "mbway" | "mb" | undefined> {
+): Promise<string> {
   try {
     const res = await fetch(
       `${STRIPE_API}/payment_intents/${paymentIntentId}?expand[]=payment_method`,
       { headers: { Authorization: `Bearer ${secretKey()}` } },
     );
-    if (!res.ok) return undefined;
+    if (!res.ok) return "stripe";
     const pi = (await res.json()) as { payment_method?: { type?: string } };
     const type = pi?.payment_method?.type;
-    return type ? STRIPE_TO_METHOD[type] : undefined;
+    return stripeMethodCode(type);
   } catch {
-    return undefined;
+    return "stripe";
   }
 }
 
