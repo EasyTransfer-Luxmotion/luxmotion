@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
-import { stripeCheckoutParams, stripeMethodCode } from "./lib/stripe-checkout";
+import { stripeCheckoutParams, stripeMethodCode } from "./lib/stripeCheckout";
 
 /*
  * Stripe integration (replaces ifthenpay.ts).

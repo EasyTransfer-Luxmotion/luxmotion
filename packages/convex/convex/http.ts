@@ -1,4 +1,4 @@
-import { stripeCheckoutPaymentStatus } from "./lib/stripe-checkout";
+import { stripeCheckoutPaymentStatus } from "./lib/stripeCheckout";
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";

@@ -1,7 +1,7 @@
 // node --experimental-strip-types --test scripts/test-stripe-checkout.mjs
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { stripeCheckoutParams, stripeMethodCode, stripeCheckoutPaymentStatus } from "../packages/convex/convex/lib/stripe-checkout.ts";
+import { stripeCheckoutParams, stripeMethodCode, stripeCheckoutPaymentStatus } from "../packages/convex/convex/lib/stripeCheckout.ts";
 
 const booking = {
   kind: "transfer", orderNumber: "ET1793292767485091", orderId: "test-order",
