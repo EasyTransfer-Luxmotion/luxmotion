@@ -294,6 +294,9 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_payment_status", ["paymentStatus"])
     .index("by_order_number", ["orderNumber"])
+    /* Contador "hoje" da sidebar: departureDate começa por AAAA-MM-DD, por
+       isso o dia é um intervalo do índice. */
+    .index("by_departure_date", ["departureDate"])
     .index("by_tour_booking", ["tourBookingId"])
     .index("by_transfer_order", ["transferOrderId"]),
 
