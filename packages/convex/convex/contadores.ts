@@ -1,5 +1,5 @@
 import { query, type QueryCtx } from "./_generated/server";
-import { exigirAdmin } from "./lib/admin";
+import { avaliarAcesso } from "./lib/admin";
 
 /*
  * Os números ao lado de Pedidos e Candidaturas na sidebar do dashboard: o que
@@ -43,7 +43,11 @@ async function somar(ctx: QueryCtx, pares: [Tabela, string | undefined][]): Prom
 export const porTratar = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    /* null em vez de erro: a sidebar está na moldura do dashboard, acima do
+       error.tsx, e um erro aqui (sessão ainda a chegar, email tirado do
+       ADMIN_EMAILS com a página aberta) deitava abaixo o back-office inteiro.
+       Sem acesso não se devolve número nenhum. */
+    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
 
     const pedidos = await somar(ctx, [
       ["contactSubmissions", "new"],
