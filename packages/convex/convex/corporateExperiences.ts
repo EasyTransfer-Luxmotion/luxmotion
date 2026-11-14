@@ -31,12 +31,17 @@ async function resolveUrls(
   exp: Doc<"corporateExperiences">,
   locale?: string,
 ) {
-  const coverImageUrl = exp.coverImageId
-    ? await urlDaImagem(ctx, exp.coverImageId)
-    : null
   const galleryImageUrls = await Promise.all(
     (exp.galleryImageIds ?? []).map((id) => urlDaImagem(ctx, id)),
   )
+  /* Sem capa (ou com a capa partida), a primeira da galeria. Em produção, as
+     60 experiências tinham a capa num ficheiro antigo do Convex que já não
+     existia (ficou de fora da migração para o Bunny), e o site mostrava no
+     lugar fotografias genéricas que não são de nenhuma delas. */
+  const coverImageUrl =
+    (exp.coverImageId ? await urlDaImagem(ctx, exp.coverImageId) : null) ??
+    galleryImageUrls.find((u): u is string => Boolean(u)) ??
+    null
   const translations = await ctx.db.query("corporateExperienceTranslations")
     .withIndex("by_experience", (q) => q.eq("experienceId", exp._id)).collect()
   const originalLanguage = corporateOriginalLanguage(exp)
