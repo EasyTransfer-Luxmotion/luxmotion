@@ -27,6 +27,7 @@ import type * as flights from "../flights.js";
 import type * as googleReviews from "../googleReviews.js";
 import type * as http from "../http.js";
 import type * as imagensBunny from "../imagensBunny.js";
+import type * as inicio from "../inicio.js";
 import type * as instagram from "../instagram.js";
 import type * as lib_addons from "../lib/addons.js";
 import type * as lib_admin from "../lib/admin.js";
@@ -109,6 +110,7 @@ declare const fullApi: ApiFromModules<{
   googleReviews: typeof googleReviews;
   http: typeof http;
   imagensBunny: typeof imagensBunny;
+  inicio: typeof inicio;
   instagram: typeof instagram;
   "lib/addons": typeof lib_addons;
   "lib/admin": typeof lib_admin;
