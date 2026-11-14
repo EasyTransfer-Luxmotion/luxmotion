@@ -92,6 +92,9 @@ export const servicos = query({
  *    (tourBookings.ts) — é por ela que entra, para não contar duas vezes.
  *  - O período é pela data em que a reserva foi feita, não pela da viagem:
  *    são vendas. A data da viagem é o que a lista de Reservas mostra.
+ *  - Método de pagamento e parceiro vêm da ida. "Dinheiro" conta como pago
+ *    logo ao reservar: o checkout marca-o assim (orders.startPayment) e
+ *    ninguém regista depois se o motorista recebeu.
  *  - A origem é só a observada no endereço (adSource). Parceiro e opprefId
  *    são outras coisas e não entram neste gráfico; sem dados, "Origem
  *    desconhecida".
@@ -125,6 +128,27 @@ function origemNoEndereco(o: Doc<"orders">): string {
   if (s.includes("chatgpt") || s.includes("openai")) return "ChatGPT";
   return s;
 }
+
+/* Os códigos que o checkout e o webhook do Stripe gravam em paymentMethod. */
+const METODOS: Record<string, string> = {
+  ccard: "Cartão",
+  card: "Cartão",
+  link: "Cartão (Stripe Link)",
+  mbway: "MB WAY",
+  mb: "Multibanco",
+  multibanco: "Multibanco",
+  cash: "Dinheiro",
+  transferencia: "Transferência",
+};
+const SEM_METODO = "Sem método registado";
+/* "Easy Transfer" é o que orders.create grava quando não veio parceria no
+   endereço: é o site, não um parceiro. Contá-lo como parceiro dizia que 97%
+   das reservas vinham de parcerias. */
+const SEM_PARCEIRO = "Sem parceiro (site)";
+const parceiroDe = (o: Doc<"orders">) => {
+  const p = o.partnershipName?.trim();
+  return !p || p === "Easy Transfer" ? SEM_PARCEIRO : p;
+};
 
 export const estatisticas = query({
   args: {
@@ -218,6 +242,14 @@ export const estatisticas = query({
     const origens = new Map<string, number>();
     const viaturas = new Map<string, number>();
     const rotas = new Map<string, { origem: string; destino: string; reservas: number; faturacao: number }>();
+    const metodos = new Map<string, { rotulo: string; reservas: number; faturacao: number }>();
+    const parceiros = new Map<string, { rotulo: string; reservas: number; faturacao: number }>();
+    const somar = (m: typeof metodos, rotulo: string, valor: number, conta: boolean) => {
+      const x = m.get(rotulo) ?? { rotulo, reservas: 0, faturacao: 0 };
+      x.faturacao += valor;
+      if (conta) x.reservas++;
+      m.set(rotulo, x);
+    };
 
     for (const o of docs) {
       const dia = paraDia(o._creationTime);
@@ -247,6 +279,13 @@ export const estatisticas = query({
         faturacaoSerie[b]! += valor;
         if (!volta) serie[p][b]!++;
       }
+      /* Método e parceiro são os da ida: a volta nasce sem eles (o pagamento
+         é um só e fica gravado na ida), e a faturação dela vai para o mesmo
+         sítio. */
+      const ida = volta ? (porId.get(o.relatedOrderId!) ?? outras.get(o.relatedOrderId!) ?? o) : o;
+      const metodo = ida.paymentMethod?.trim().toLowerCase();
+      somar(metodos, metodo ? (METODOS[metodo] ?? metodo) : SEM_METODO, valor, !volta);
+      somar(parceiros, parceiroDe(ida), valor, !volta);
       if (volta) {
         const r = rotas.get(`${local(o.arrival)}→${local(o.departure)}`.toLowerCase());
         if (r) r.faturacao += valor;
@@ -268,6 +307,7 @@ export const estatisticas = query({
 
     const ordenar = (m: Map<string, number>) =>
       [...m.entries()].map(([rotulo, n]) => ({ rotulo, n })).sort((a, b) => b.n - a.n || a.rotulo.localeCompare(b.rotulo));
+    const arredondar = <T extends { faturacao: number }>(x: T): T => ({ ...x, faturacao: Math.round(x.faturacao * 100) / 100 });
     const resumo = (c: ReturnType<typeof contas>) => ({
       reservas: c.reservas,
       faturacao: Math.round(c.faturacao * 100) / 100,
@@ -287,6 +327,10 @@ export const estatisticas = query({
       faturacao: faturacaoSerie.map((x) => Math.round(x * 100) / 100),
       origens: ordenar(origens),
       viaturas: ordenar(viaturas),
+      metodos: [...metodos.values()].map(arredondar).sort((a, b) => b.faturacao - a.faturacao),
+      parceiros: [...parceiros.values()].map(arredondar).sort((a, b) => b.reservas - a.reservas || b.faturacao - a.faturacao),
+      semMetodo: SEM_METODO,
+      semParceiro: SEM_PARCEIRO,
       rotas: [...rotas.values()].sort((a, b) => b.reservas - a.reservas || b.faturacao - a.faturacao).slice(0, 8),
     };
   },
