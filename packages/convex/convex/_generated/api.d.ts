@@ -15,6 +15,7 @@ import type * as blogAutomation from "../blogAutomation.js";
 import type * as blogs from "../blogs.js";
 import type * as catalogoCorporate from "../catalogoCorporate.js";
 import type * as catalogoEventos from "../catalogoEventos.js";
+import type * as catalogoExtras from "../catalogoExtras.js";
 import type * as catalogoTours from "../catalogoTours.js";
 import type * as contactQuotes from "../contactQuotes.js";
 import type * as contactSubmissions from "../contactSubmissions.js";
@@ -103,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   blogs: typeof blogs;
   catalogoCorporate: typeof catalogoCorporate;
   catalogoEventos: typeof catalogoEventos;
+  catalogoExtras: typeof catalogoExtras;
   catalogoTours: typeof catalogoTours;
   contactQuotes: typeof contactQuotes;
   contactSubmissions: typeof contactSubmissions;
