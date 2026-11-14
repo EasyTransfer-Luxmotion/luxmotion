@@ -23,6 +23,7 @@ import type * as contadores from "../contadores.js";
 import type * as corporateExperiences from "../corporateExperiences.js";
 import type * as corporateRequests from "../corporateRequests.js";
 import type * as crons from "../crons.js";
+import type * as disponibilidade from "../disponibilidade.js";
 import type * as driverApplications from "../driverApplications.js";
 import type * as drivers from "../drivers.js";
 import type * as emailVerification from "../emailVerification.js";
@@ -112,6 +113,7 @@ declare const fullApi: ApiFromModules<{
   corporateExperiences: typeof corporateExperiences;
   corporateRequests: typeof corporateRequests;
   crons: typeof crons;
+  disponibilidade: typeof disponibilidade;
   driverApplications: typeof driverApplications;
   drivers: typeof drivers;
   emailVerification: typeof emailVerification;
