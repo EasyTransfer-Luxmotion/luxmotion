@@ -69,7 +69,7 @@ function limparTraducoes(xs: Traducao[]): Traducao[] {
   return xs
     .map((t) => {
       const o: Traducao = { locale: t.locale };
-      for (const k of ["name", "title", "description", "duration"] as const) {
+      for (const k of ["name", "title", "description", "duration", "examples"] as const) {
         const s = t[k]?.trim();
         if (s) o[k] = s;
       }
@@ -93,7 +93,7 @@ function faltaCheckout(x: { title: string; universal: boolean; location?: { lat?
   const f: Falta[] = [];
   if (!x.title.trim()) f.push({ campo: "title", texto: "Nome" });
   if (!valido(preco)) f.push({ campo: "preco", texto: "Preço" });
-  if (!x.universal && !temCoordenadas(x.location)) f.push({ campo: "location", texto: "Local no mapa (ou marcar como em todos os checkouts)" });
+  if (!x.universal && !temCoordenadas(x.location)) f.push({ campo: "location", texto: "Local no mapa" });
   return f;
 }
 function faltaUniversal(x: { title: string; price: number; scopes: string[] }): Falta[] {
