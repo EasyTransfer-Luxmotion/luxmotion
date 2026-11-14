@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as acesso from "../acesso.js";
 import type * as addonImages from "../addonImages.js";
 import type * as avisoPedidos from "../avisoPedidos.js";
 import type * as blogAutomation from "../blogAutomation.js";
@@ -45,6 +46,7 @@ import type * as lib_precoTours from "../lib/precoTours.js";
 import type * as lib_pricing from "../lib/pricing.js";
 import type * as lib_referral from "../lib/referral.js";
 import type * as lib_storage from "../lib/storage.js";
+import type * as lib_stripeCheckout from "../lib/stripeCheckout.js";
 import type * as lib_tabelasImagens from "../lib/tabelasImagens.js";
 import type * as lib_upsellTranslations from "../lib/upsellTranslations.js";
 import type * as lib_utils from "../lib/utils.js";
@@ -86,6 +88,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  acesso: typeof acesso;
   addonImages: typeof addonImages;
   avisoPedidos: typeof avisoPedidos;
   blogAutomation: typeof blogAutomation;
@@ -123,6 +126,7 @@ declare const fullApi: ApiFromModules<{
   "lib/pricing": typeof lib_pricing;
   "lib/referral": typeof lib_referral;
   "lib/storage": typeof lib_storage;
+  "lib/stripeCheckout": typeof lib_stripeCheckout;
   "lib/tabelasImagens": typeof lib_tabelasImagens;
   "lib/upsellTranslations": typeof lib_upsellTranslations;
   "lib/utils": typeof lib_utils;
