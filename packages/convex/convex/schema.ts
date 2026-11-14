@@ -405,6 +405,10 @@ export default defineSchema({
     // Experience-upgrade upsell: when set, THIS (premium) vehicle is offered as an
     // upgrade to customers who selected the referenced (standard) vehicle at checkout.
     upgradeFromVehicleId: v.optional(v.id("vehicles")),
+    /* Quando foi gravado pela última vez. O editor do dashboard manda o valor
+       que leu; se mudou entretanto (outra pessoa gravou), recusa em vez de
+       pisar a alteração dela. */
+    actualizadoEm: v.optional(v.number()),
   })
     .index("by_status", ["status"])
     .index("by_order", ["order"])

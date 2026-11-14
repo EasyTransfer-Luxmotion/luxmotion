@@ -82,6 +82,7 @@ import type * as tours from "../tours.js";
 import type * as universalAddons from "../universalAddons.js";
 import type * as upsells from "../upsells.js";
 import type * as vehicles from "../vehicles.js";
+import type * as veiculos from "../veiculos.js";
 import type * as webhooks from "../webhooks.js";
 import type * as weddingQuoteSubmissions from "../weddingQuoteSubmissions.js";
 
@@ -166,6 +167,7 @@ declare const fullApi: ApiFromModules<{
   universalAddons: typeof universalAddons;
   upsells: typeof upsells;
   vehicles: typeof vehicles;
+  veiculos: typeof veiculos;
   webhooks: typeof webhooks;
   weddingQuoteSubmissions: typeof weddingQuoteSubmissions;
 }>;

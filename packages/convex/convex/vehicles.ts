@@ -260,7 +260,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
-    return await ctx.db.insert("vehicles", args);
+    return await ctx.db.insert("vehicles", { ...args, actualizadoEm: Date.now() });
   },
 });
 
@@ -304,7 +304,7 @@ export const update = mutation({
       await apagarImagem(ctx, existing.imageId);
     }
 
-    await ctx.db.patch(id, data);
+    await ctx.db.patch(id, { ...data, actualizadoEm: Date.now() });
   },
 });
 
