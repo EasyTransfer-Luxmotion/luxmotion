@@ -416,6 +416,9 @@ export const mudarEstado = mutation({
 export const confirmarPagamento = mutation({
   args: {
     reservaId: v.id("orders"),
+    /* Como foi pago de facto. Sem isto ficava o método da tentativa no
+       checkout — um pagamento em dinheiro aparecia como "Cartão". */
+    metodo: v.union(v.literal("cash"), v.literal("transferencia"), v.literal("link"), v.literal("tpa")),
     operacao: v.string(),
   },
   handler: async (ctx, a) => {
@@ -451,6 +454,7 @@ export const confirmarPagamento = mutation({
       orderId: o._id,
       orderNumber: o.orderNumber ?? undefined,
       paymentStatus: "completed",
+      paymentMethod: a.metodo,
     });
     /* Agendado na mesma transacção: se algo acima falhar, não sai webhook
        nenhum; se sair, o pagamento ficou gravado. O sendOrderPayload tem as
