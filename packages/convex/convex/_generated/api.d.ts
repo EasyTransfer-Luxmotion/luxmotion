@@ -65,6 +65,7 @@ import type * as payments from "../payments.js";
 import type * as pipedrive from "../pipedrive.js";
 import type * as procurar from "../procurar.js";
 import type * as recompressao from "../recompressao.js";
+import type * as reservas from "../reservas.js";
 import type * as schoolQuoteSubmissions from "../schoolQuoteSubmissions.js";
 import type * as seedReviews from "../seedReviews.js";
 import type * as siteSettings from "../siteSettings.js";
@@ -148,6 +149,7 @@ declare const fullApi: ApiFromModules<{
   pipedrive: typeof pipedrive;
   procurar: typeof procurar;
   recompressao: typeof recompressao;
+  reservas: typeof reservas;
   schoolQuoteSubmissions: typeof schoolQuoteSubmissions;
   seedReviews: typeof seedReviews;
   siteSettings: typeof siteSettings;

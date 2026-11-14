@@ -334,7 +334,36 @@ export default defineSchema({
       v.literal("failed"),
     ),
     timestamp: v.number(),
-  }).index("by_status", ["status"]),
+  })
+    .index("by_status", ["status"])
+    /* Os pagamentos de uma reserva no detalhe do dashboard. */
+    .index("by_booking", ["bookingId"]),
+
+  /*
+   * Quem mudou o quê numa reserva, a partir do back-office. Antes não ficava
+   * rasto nenhum: uma reserva marcada como paga por engano não dizia por quem
+   * nem quando, e o webhook à operação já tinha saído.
+   *
+   * `operacao` é a chave que o browser gera por cada intenção (um clique em
+   * "Confirmar pagamento", com as repetições depois de um erro de rede). A
+   * mesma chave duas vezes não repete o efeito: devolve o que ficou gravado.
+   */
+  registoReservas: defineTable({
+    reservaId: v.id("orders"),
+    numero: v.string(),
+    accao: v.union(v.literal("estado"), v.literal("pagamento")),
+    de: v.string(),
+    para: v.string(),
+    /* Email verificado de quem fez (o mesmo que o ADMIN_EMAILS deixou entrar). */
+    ator: v.string(),
+    operacao: v.string(),
+    resultado: v.union(v.literal("feito"), v.literal("jaEstava")),
+    /* O que mais aconteceu: o regresso que mudou junto, o webhook agendado. */
+    nota: v.optional(v.string()),
+    em: v.number(),
+  })
+    .index("by_reserva", ["reservaId", "em"])
+    .index("by_operacao", ["operacao"]),
 
   vehicles: defineTable({
     name: v.string(),
