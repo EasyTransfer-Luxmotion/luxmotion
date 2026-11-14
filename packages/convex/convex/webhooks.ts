@@ -72,9 +72,18 @@ export const sendOrderPayload = internalAction({
   args: {
     orderId: v.id("orders"),
     attempt: v.optional(v.number()),
+    /* A linha do registoReservas que pediu este aviso (dashboard, "Confirmar
+       pagamento"). Com ela, o resultado fica à vista no histórico da reserva:
+       antes, uma falha definitiva só existia num console.error. */
+    aviso: v.optional(v.id("registoReservas")),
   },
   handler: async (ctx, args): Promise<void> => {
     const attempt = args.attempt ?? 1;
+    const anotar = async (estado: "enviado" | "aTentar" | "falhou" | "semDestino") => {
+      if (args.aviso) {
+        await ctx.runMutation(internal.reservas.anotarAviso, { registoId: args.aviso, estado, tentativas: attempt });
+      }
+    };
     const MAX_ATTEMPTS = 5;
     console.log(`[Webhook] ENVIO WEBHOOK — sendOrderPayload INICIADO — orderId: ${args.orderId} (tentativa ${attempt}/${MAX_ATTEMPTS})`);
     const order: Doc<"orders"> | null = await ctx.runQuery(api.orders.getById, {
@@ -117,6 +126,7 @@ export const sendOrderPayload = internalAction({
 
     // Antes das novas tentativas: sem destino não há nada a repetir.
     if (!ORDER_WEBHOOK_URL) {
+      await anotar("semDestino");
       return semDestino("EASYTRANSFER_ORDER_WEBHOOK_URL", `Reserva (${orders.length} encomenda/s)`);
     }
 
@@ -142,13 +152,16 @@ export const sendOrderPayload = internalAction({
 
     // Retry com backoff exponencial — evita perder reservas se a API/edge estiver
     // temporariamente indisponivel. Antes, uma falha aqui perdia a reserva em silencio.
+    if (ok) await anotar("enviado");
     if (!ok) {
+      await anotar(attempt < MAX_ATTEMPTS ? "aTentar" : "falhou");
       if (attempt < MAX_ATTEMPTS) {
         const delayMs = Math.min(5 * 60_000, 5_000 * 2 ** (attempt - 1)); // 5s,10s,20s,40s... (max 5min)
         console.warn(`[Webhook] Reagendando envio (tentativa ${attempt + 1}/${MAX_ATTEMPTS}) em ${delayMs}ms — order ${args.orderId}`);
         await ctx.scheduler.runAfter(delayMs, internal.webhooks.sendOrderPayload, {
           orderId: args.orderId,
           attempt: attempt + 1,
+          aviso: args.aviso,
         });
       } else {
         console.error(`[Webhook] FALHA DEFINITIVA apos ${MAX_ATTEMPTS} tentativas — RESERVA PODE TER-SE PERDIDO — order ${args.orderId}. Verificar manualmente.`);

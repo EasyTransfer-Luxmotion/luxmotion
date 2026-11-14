@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { avaliarAcesso, exigirAdmin } from "./lib/admin";
@@ -312,11 +312,15 @@ export const detalhe = query({
         ator: r.ator,
         resultado: r.resultado,
         nota: r.nota ?? null,
+        aviso: r.aviso ?? null,
         em: r.em,
       })),
       accoes: {
         estados: destinos(o).map((para) => ({ para, rotulo: ROTULO[para] })),
         confirmarPagamento: podeConfirmarPagamento(o),
+        /* Só depois de um aviso falhar de vez: reenviar um que chegou podia
+           duplicar o serviço do lado da operação. */
+        reenviarAviso: o.paymentStatus === "completed" && registo.find((r) => r.aviso)?.aviso?.estado === "falhou",
       },
     };
   },
@@ -450,19 +454,17 @@ export const confirmarPagamento = mutation({
       throw new ConvexError(`Uma reserva ${ROTULO[o.status].toLowerCase()} não pode ser dada como paga.`);
     }
 
+    /* A outra perna lida antes da cadeia de pagamento, que também a paga:
+       depois já dizia "paga" e o registo dela ficava "de pago para pago". */
+    const outra = o.relatedOrderId ? await ctx.db.get(o.relatedOrderId) : null;
+
     await ctx.runMutation(internal.payments.updatePaymentStatus, {
       orderId: o._id,
       orderNumber: o.orderNumber ?? undefined,
       paymentStatus: "completed",
       paymentMethod: a.metodo,
     });
-    /* Agendado na mesma transacção: se algo acima falhar, não sai webhook
-       nenhum; se sair, o pagamento ficou gravado. O sendOrderPayload tem as
-       suas próprias tentativas. */
-    await ctx.scheduler.runAfter(0, internal.webhooks.sendOrderPayload, { orderId: o._id });
 
-    /* A cadeia de pagamento paga também a outra perna; fica no registo dela. */
-    const outra = o.relatedOrderId ? await ctx.db.get(o.relatedOrderId) : null;
     if (outra) {
       await ctx.db.insert("registoReservas", {
         reservaId: outra._id,
@@ -478,7 +480,7 @@ export const confirmarPagamento = mutation({
       });
     }
 
-    await ctx.db.insert("registoReservas", {
+    const registoId = await ctx.db.insert("registoReservas", {
       reservaId: o._id,
       numero: o.orderNumber ?? "",
       accao: "pagamento",
@@ -487,11 +489,72 @@ export const confirmarPagamento = mutation({
       ator: quem.email ?? "",
       operacao: a.operacao,
       resultado: "feito",
-      nota: outra
-        ? `Aviso à operação agendado. ${outra.orderNumber ?? "A outra perna"} também ficou paga.`
-        : "Aviso à operação agendado.",
+      nota: outra ? `${outra.orderNumber ?? "A outra perna"} também ficou paga.` : undefined,
+      aviso: { estado: "agendado", tentativas: 0, em: agora },
       em: agora,
     });
+    /* Agendado na mesma transacção: se algo acima falhar, não sai aviso
+       nenhum; se sair, o pagamento ficou gravado. O sendOrderPayload tem as
+       suas próprias tentativas e vai anotando o resultado neste registo. */
+    await ctx.scheduler.runAfter(0, internal.webhooks.sendOrderPayload, { orderId: o._id, aviso: registoId });
+    return { resultado: "feito" as const };
+  },
+});
+
+/* O sendOrderPayload vai dizendo como correu o aviso. */
+export const anotarAviso = internalMutation({
+  args: {
+    registoId: v.id("registoReservas"),
+    estado: v.union(v.literal("aTentar"), v.literal("enviado"), v.literal("falhou"), v.literal("semDestino")),
+    tentativas: v.number(),
+  },
+  handler: async (ctx, a) => {
+    const r = await ctx.db.get(a.registoId);
+    if (!r) return;
+    await ctx.db.patch(a.registoId, { aviso: { estado: a.estado, tentativas: a.tentativas, em: Date.now() } });
+  },
+});
+
+/*
+ * Voltar a avisar a operação de uma reserva paga cujo aviso falhou as cinco
+ * tentativas. Antes ficava um "RESERVA PODE TER-SE PERDIDO" nos logs do Convex
+ * e mais nada: ninguém na equipa o lia.
+ */
+export const reenviarAviso = mutation({
+  args: { reservaId: v.id("orders"), operacao: v.string() },
+  handler: async (ctx, a) => {
+    const quem = await exigirAdmin(ctx);
+    validarOperacao(a.operacao);
+    const antes = await jaFeita(ctx, a.operacao);
+    if (antes) return { resultado: antes.resultado };
+
+    const o = await ctx.db.get(a.reservaId);
+    if (!o) throw new ConvexError("Esta reserva já não existe.");
+    if (o.paymentStatus !== "completed") throw new ConvexError("Só se avisa a operação de reservas pagas.");
+    const ultimo = await ctx.db
+      .query("registoReservas")
+      .withIndex("by_reserva", (q) => q.eq("reservaId", o._id))
+      .order("desc")
+      .filter((q) => q.neq(q.field("aviso"), undefined))
+      .first();
+    if (ultimo?.aviso?.estado !== "falhou") {
+      throw new ConvexError("O último aviso não falhou: reenviar podia duplicar o serviço na operação.");
+    }
+
+    const agora = Date.now();
+    const registoId = await ctx.db.insert("registoReservas", {
+      reservaId: o._id,
+      numero: o.orderNumber ?? "",
+      accao: "aviso",
+      de: "falhou",
+      para: "reenviado",
+      ator: quem.email ?? "",
+      operacao: a.operacao,
+      resultado: "feito",
+      aviso: { estado: "agendado", tentativas: 0, em: agora },
+      em: agora,
+    });
+    await ctx.scheduler.runAfter(0, internal.webhooks.sendOrderPayload, { orderId: o._id, aviso: registoId });
     return { resultado: "feito" as const };
   },
 });

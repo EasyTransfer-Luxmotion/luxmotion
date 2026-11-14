@@ -351,7 +351,7 @@ export default defineSchema({
   registoReservas: defineTable({
     reservaId: v.id("orders"),
     numero: v.string(),
-    accao: v.union(v.literal("estado"), v.literal("pagamento")),
+    accao: v.union(v.literal("estado"), v.literal("pagamento"), v.literal("aviso")),
     de: v.string(),
     para: v.string(),
     /* Email verificado de quem fez (o mesmo que o ADMIN_EMAILS deixou entrar). */
@@ -360,6 +360,16 @@ export default defineSchema({
     resultado: v.union(v.literal("feito"), v.literal("jaEstava")),
     /* O que mais aconteceu: o regresso que mudou junto, o webhook agendado. */
     nota: v.optional(v.string()),
+    /* O aviso à operação (webhooks.sendOrderPayload) que esta acção pediu, e
+       como correu. "semDestino": o ambiente não tem o endereço (development e
+       staging, de propósito). */
+    aviso: v.optional(
+      v.object({
+        estado: v.union(v.literal("agendado"), v.literal("aTentar"), v.literal("enviado"), v.literal("falhou"), v.literal("semDestino")),
+        tentativas: v.number(),
+        em: v.number(),
+      }),
+    ),
     em: v.number(),
   })
     .index("by_reserva", ["reservaId", "em"])
