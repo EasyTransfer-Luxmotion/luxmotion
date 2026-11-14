@@ -45,12 +45,15 @@ function avisosDoUpgrade(x: Doc<"vehicles">, todos: Doc<"vehicles">[]): string[]
   if (!x.upgradeFromVehicleId) return [];
   const base = todos.find((y) => y._id === x.upgradeFromVehicleId);
   if (!base) return ["O veículo standard deste upgrade já não existe."];
-  const avisos: string[] = [];
-  if (base.upgradeFromVehicleId === x._id) avisos.push(`Em círculo com ${base.name}: cada um diz ser o upgrade do outro.`);
-  if (x.pricePerKm <= base.pricePerKm) {
-    avisos.push(`Não é mais caro que ${base.name} (${x.pricePerKm.toFixed(2)} €/km contra ${base.pricePerKm.toFixed(2)}): não é um upgrade.`);
-  }
-  return avisos;
+  /* Num círculo, a ligação certa é a do mais caro (é ele o upgrade); o erro
+     está só na do mais barato, e é essa que se marca — uma por par. */
+  if (x.pricePerKm > base.pricePerKm) return [];
+  const circulo = base.upgradeFromVehicleId === x._id;
+  const preco = (n: number) => n.toFixed(2).replace(".", ",");
+  return [
+    `Não é mais caro que ${base.name} (${preco(x.pricePerKm)} €/km contra ${preco(base.pricePerKm)}), por isso não é um upgrade dele.` +
+      (circulo ? ` ${base.name} já está registado como upgrade deste, que é o sentido certo.` : ""),
+  ];
 }
 
 async function nomesDosParceiros(ctx: QueryCtx) {
@@ -268,9 +271,21 @@ export const guardar = mutation({
 
     const agora = Date.now();
     if (actual) {
-      /* undefined apaga o campo no patch: tirar o dono ou o upgrade é isso. */
       if (actual.imageId && actual.imageId !== d.imageId) await apagarImagem(ctx, actual.imageId);
-      await ctx.db.patch(actual._id, { ...d, actualizadoEm: agora });
+      /* Os opcionais vão sempre com a chave: um campo que o browser manda
+         vazio chega cá sem chave nenhuma, e um patch sem a chave não mexe no
+         campo. Era assim que "Nenhum" no upgrade (e tirar o dono ou a foto)
+         gravava sem efeito — no vehicles.update antigo também. Com a chave
+         e o valor undefined, o patch apaga-o. */
+      await ctx.db.patch(actual._id, {
+        ...d,
+        examples: d.examples,
+        translations: d.translations,
+        imageId: d.imageId,
+        partnershipId: d.partnershipId,
+        upgradeFromVehicleId: d.upgradeFromVehicleId,
+        actualizadoEm: agora,
+      });
       return { id: actual._id, versao: agora };
     }
     const ordem = todos.length ? Math.max(...todos.map((x) => x.order)) + 1 : 0;
