@@ -858,7 +858,9 @@ export default defineSchema({
     partnershipId: v.optional(v.id("partnerships")),
     partnershipName: v.optional(v.string()),
     createdAt: v.number(),
-  }).index("by_created", ["createdAt"]),
+  }).index("by_created", ["createdAt"])
+    /* Para o contador de pedidos por tratar na sidebar do dashboard. */
+    .index("by_status", ["status"]),
 
   contactSubmissions: defineTable({
     name: v.string(),

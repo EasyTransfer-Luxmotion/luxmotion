@@ -15,6 +15,7 @@ import type * as blogAutomation from "../blogAutomation.js";
 import type * as blogs from "../blogs.js";
 import type * as contactQuotes from "../contactQuotes.js";
 import type * as contactSubmissions from "../contactSubmissions.js";
+import type * as contadores from "../contadores.js";
 import type * as corporateExperiences from "../corporateExperiences.js";
 import type * as corporateRequests from "../corporateRequests.js";
 import type * as crons from "../crons.js";
@@ -95,6 +96,7 @@ declare const fullApi: ApiFromModules<{
   blogs: typeof blogs;
   contactQuotes: typeof contactQuotes;
   contactSubmissions: typeof contactSubmissions;
+  contadores: typeof contadores;
   corporateExperiences: typeof corporateExperiences;
   corporateRequests: typeof corporateRequests;
   crons: typeof crons;
