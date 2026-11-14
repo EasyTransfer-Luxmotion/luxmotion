@@ -13,6 +13,7 @@ import type * as addonImages from "../addonImages.js";
 import type * as avisoPedidos from "../avisoPedidos.js";
 import type * as blogAutomation from "../blogAutomation.js";
 import type * as blogs from "../blogs.js";
+import type * as catalogoTours from "../catalogoTours.js";
 import type * as contactQuotes from "../contactQuotes.js";
 import type * as contactSubmissions from "../contactSubmissions.js";
 import type * as contadores from "../contadores.js";
@@ -98,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   avisoPedidos: typeof avisoPedidos;
   blogAutomation: typeof blogAutomation;
   blogs: typeof blogs;
+  catalogoTours: typeof catalogoTours;
   contactQuotes: typeof contactQuotes;
   contactSubmissions: typeof contactSubmissions;
   contadores: typeof contadores;
