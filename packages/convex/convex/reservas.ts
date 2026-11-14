@@ -109,6 +109,18 @@ async function lerVista(ctx: QueryCtx, vista: Vista | "todas"): Promise<Doc<"ord
   return partes.flat();
 }
 
+/* As reservas de um dia, pelo índice da data da viagem, só com os estados
+   da vista. */
+async function lerDia(ctx: QueryCtx, vista: Vista | "todas", dia: string): Promise<Doc<"orders">[]> {
+  const docs = await ctx.db
+    .query("orders")
+    .withIndex("by_departure_date", (q) => q.gte("departureDate", dia).lt("departureDate", dia + "\uffff"))
+    .collect();
+  if (vista === "todas") return docs;
+  const estados: readonly Estado[] = VISTAS[vista];
+  return docs.filter((o) => estados.includes(o.status));
+}
+
 /* AAAA-MM-DD de hoje em Lisboa, para "próximas" e "passadas". */
 function hojeEmLisboa(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(new Date());
@@ -126,6 +138,11 @@ export const lista = query({
     /* Só para as viagens: as que ainda vão acontecer (a partir de hoje) ou
        as que já passaram. */
     quando: v.optional(v.union(v.literal("proximas"), v.literal("passadas"))),
+    /* Um dia só (AAAA-MM-DD, Lisboa). Lê-se pelo índice da data da viagem,
+       não pela vista inteira. Com dia, "quando" não se aplica. */
+    dia: v.optional(v.string()),
+    /* Estado do pagamento: pending, processing, completed, failed, ou "sem". */
+    pagamento: v.optional(v.string()),
     pesquisa: v.optional(v.string()),
     metodo: v.optional(v.string()),
     /* "source:<utm_source>" ou "desconhecida". */
@@ -138,18 +155,21 @@ export const lista = query({
   handler: async (ctx, a) => {
     if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
 
-    let docs = await lerVista(ctx, a.vista);
+    const dia = a.dia && /^\d{4}-\d{2}-\d{2}$/.test(a.dia) ? a.dia : null;
+    let docs = dia ? await lerDia(ctx, a.vista, dia) : await lerVista(ctx, a.vista);
 
     /* As opções de origem vêm da vista inteira, antes dos filtros: escolher
        uma não pode fazer desaparecer as outras do menu. */
     const origens = [...new Set(docs.map(origemAnuncio))].filter(Boolean).sort();
+    const pagamentos = [...new Set(docs.map((o) => o.paymentStatus ?? "sem"))].sort();
     const metodos = [...new Set(docs.map((o) => o.paymentMethod).filter((m): m is string => Boolean(m)))].sort();
 
-    if (a.quando) {
+    if (a.quando && !dia) {
       const hoje = hojeEmLisboa();
       docs = docs.filter((o) => (a.quando === "proximas" ? o.departureDate >= hoje : o.departureDate < hoje));
     }
     if (a.metodo) docs = docs.filter((o) => o.paymentMethod === a.metodo);
+    if (a.pagamento) docs = docs.filter((o) => (o.paymentStatus ?? "sem") === a.pagamento);
     if (a.origem) {
       docs = docs.filter((o) =>
         a.origem === "desconhecida" ? !origemAnuncio(o) : `source:${origemAnuncio(o)}` === a.origem,
@@ -224,7 +244,7 @@ export const lista = query({
       };
     });
 
-    return { linhas, total, pagina, paginas, porPagina, origens, metodos };
+    return { linhas, total, pagina, paginas, porPagina, origens, metodos, pagamentos };
   },
 });
 
