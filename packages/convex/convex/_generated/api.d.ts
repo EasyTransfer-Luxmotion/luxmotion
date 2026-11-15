@@ -38,6 +38,7 @@ import type * as instagram from "../instagram.js";
 import type * as lib_addons from "../lib/addons.js";
 import type * as lib_admin from "../lib/admin.js";
 import type * as lib_avisoPedido from "../lib/avisoPedido.js";
+import type * as lib_bibliotecaFotos from "../lib/bibliotecaFotos.js";
 import type * as lib_blogPrompts from "../lib/blogPrompts.js";
 import type * as lib_bunny from "../lib/bunny.js";
 import type * as lib_catalogTranslations from "../lib/catalogTranslations.js";
@@ -129,6 +130,7 @@ declare const fullApi: ApiFromModules<{
   "lib/addons": typeof lib_addons;
   "lib/admin": typeof lib_admin;
   "lib/avisoPedido": typeof lib_avisoPedido;
+  "lib/bibliotecaFotos": typeof lib_bibliotecaFotos;
   "lib/blogPrompts": typeof lib_blogPrompts;
   "lib/bunny": typeof lib_bunny;
   "lib/catalogTranslations": typeof lib_catalogTranslations;

@@ -6,6 +6,7 @@ import { urlDaImagem, vImagem } from "./lib/imagens";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { legacyUpsellTranslations } from "./lib/upsellTranslations";
 import { siteSettingsDefaults } from "./siteSettings";
+import { guardarNaBiblioteca } from "./lib/bibliotecaFotos";
 
 /*
  * Catálogo → Extras no dashboard (E3). Junta num só módulo as três coisas que
@@ -321,6 +322,7 @@ export const guardarParagem = mutation({
         const f = faltaCheckout(d, d.price30);
         if (f.length) publicadoIncompleto(f);
       }
+      if (actual.imageId !== d.imageId) await guardarNaBiblioteca(ctx, actual.imageId, actual.title);
       await ctx.db.patch(actual._id, { ...d, updatedAt: agora });
       return { id: actual._id, versao: agora };
     }
@@ -403,6 +405,7 @@ export const guardarExperiencia = mutation({
         const f = faltaCheckout(d, d.basePrice);
         if (f.length) publicadoIncompleto(f);
       }
+      if (actual.imageId !== d.imageId) await guardarNaBiblioteca(ctx, actual.imageId, actual.title);
       await ctx.db.patch(actual._id, { ...d, updatedAt: agora });
       return { id: actual._id, versao: agora };
     }
@@ -455,6 +458,7 @@ export const guardarUniversal = mutation({
     };
     const agora = Date.now();
     if (actual) {
+      if (actual.imageId !== d.imageId) await guardarNaBiblioteca(ctx, actual.imageId, actual.title);
       await ctx.db.patch(actual._id, { ...d, updatedAt: agora });
       return { id: actual._id, versao: agora };
     }
@@ -526,7 +530,8 @@ export const reordenar = mutation({
 /*
  * Apaga a linha e, num universal, tira-o das excepções dos tours e eventos
  * (senão ficavam ids mortos). As reservas já feitas guardam o nome e o preço,
- * não dependem disto. O ficheiro da imagem fica: pode estar noutros extras.
+ * não dependem disto. O ficheiro da imagem fica (pode estar noutros extras)
+ * e a foto passa para a biblioteca, para não se perder de vista.
  */
 export const remover = mutation({
   args: { tipo: vTipo, id: v.string() },
@@ -544,6 +549,7 @@ export const remover = mutation({
         if (e.disabledUniversalAddons?.includes(uid)) await ctx.db.patch(e._id, { disabledUniversalAddons: e.disabledUniversalAddons.filter((y) => y !== uid) });
       }
     }
+    await guardarNaBiblioteca(ctx, x.imageId, x.title);
     await ctx.db.delete(x._id);
   },
 });

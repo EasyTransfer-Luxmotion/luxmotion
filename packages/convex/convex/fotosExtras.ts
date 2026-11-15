@@ -3,6 +3,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
 import { urlDaImagem, vImagem } from "./lib/imagens";
+import { guardarNaBiblioteca } from "./lib/bibliotecaFotos";
 
 /*
  * Conteúdos → Fotos dos extras no dashboard (E3).
@@ -202,6 +203,8 @@ async function mudarFoto(ctx: MutationCtx, ref: { tipo: Tipo; id: string }, cami
   if (!id) throw new ConvexError({ tipo: "naoExiste", mensagem: "Um dos extras já não existe. Recarregue a página." });
   const doc = await ctx.db.get(id);
   if (!doc) throw new ConvexError({ tipo: "naoExiste", mensagem: "Um dos extras já não existe. Recarregue a página." });
+  if (doc.imageId === caminho) return;
+  await guardarNaBiblioteca(ctx, doc.imageId, doc.title);
   const updatedAt = Math.max(Date.now(), (doc.updatedAt ?? 0) + 1);
   await ctx.db.patch(id, { imageId: caminho, updatedAt });
 }
@@ -228,10 +231,14 @@ export const trocar = mutation({
   handler: async (ctx, { de, para }) => {
     await exigirAdmin(ctx);
     if (de === para) return { trocados: 0 };
-    const extras = (await lerExtras(ctx)).filter((x) => x.imageId === de);
+    const todos = await lerExtras(ctx);
+    const extras = todos.filter((x) => x.imageId === de);
+    /* A foto nova fica com o nome que já tinha: o da biblioteca, ou o do
+       extra que já a usa. Dar-lhe o nome da antiga trocava os nomes às duas
+       (apanhado no teste: a foto do Cabo da Roca ficou "Aveiro"). */
+    const jaUsaPara = todos.find((x) => x.imageId === para);
+    await garantirNaBiblioteca(ctx, para, jaUsaPara?.titulo ?? "Sem nome");
     for (const x of extras) await mudarFoto(ctx, x, para);
-    const antiga = await linhaDe(ctx, de);
-    await garantirNaBiblioteca(ctx, para, antiga?.label ?? extras[0]?.titulo ?? "Sem nome");
     return { trocados: extras.length };
   },
 });
