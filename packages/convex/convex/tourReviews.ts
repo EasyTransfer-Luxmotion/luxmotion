@@ -395,7 +395,7 @@ export const update = mutation({
   },
 });
 
-async function updateTourRating(ctx: any, tourId: any) {
+export async function updateTourRating(ctx: any, tourId: any) {
   const reviews = await ctx.db
     .query("tourReviews")
     .withIndex("by_tour", (q: any) => q.eq("tourId", tourId))
@@ -415,7 +415,7 @@ async function updateTourRating(ctx: any, tourId: any) {
   });
 }
 
-async function updateEventRating(ctx: any, eventId: any) {
+export async function updateEventRating(ctx: any, eventId: any) {
   const reviews = await ctx.db
     .query("tourReviews")
     .withIndex("by_event", (q: any) => q.eq("eventId", eventId))

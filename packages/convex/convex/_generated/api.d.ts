@@ -10,6 +10,7 @@
 
 import type * as acesso from "../acesso.js";
 import type * as addonImages from "../addonImages.js";
+import type * as avaliacoes from "../avaliacoes.js";
 import type * as avisoPedidos from "../avisoPedidos.js";
 import type * as blogAutomation from "../blogAutomation.js";
 import type * as blogs from "../blogs.js";
@@ -107,6 +108,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   acesso: typeof acesso;
   addonImages: typeof addonImages;
+  avaliacoes: typeof avaliacoes;
   avisoPedidos: typeof avisoPedidos;
   blogAutomation: typeof blogAutomation;
   blogs: typeof blogs;
