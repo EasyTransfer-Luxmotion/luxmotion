@@ -74,10 +74,11 @@ function dataCurta(s: string | number | undefined): string | null {
   if (!Number.isFinite(d.getTime())) return String(s);
   return `${d.getUTCDate()} ${MESES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
-/* Agrupado sempre: em pt-PT o Intl deixa "2500 €" sem espaço e "12 000 €" com
-   ele, e lado a lado parecia um erro. */
+/* Milhares sempre separados: em pt-PT o Intl deixa "2500 €" sem espaço e
+   "12 000 €" com ele, e lado a lado parecia um erro. À mão porque o
+   useGrouping: "always" não existe na versão de TypeScript do Convex. */
 const euros = (n: number | undefined) =>
-  typeof n === "number" ? `${new Intl.NumberFormat("pt-PT", { useGrouping: "always" } as Intl.NumberFormatOptions).format(n)} €` : null;
+  typeof n === "number" ? `${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0")}\u00a0€` : null;
 
 /* O nome e uma linha que diga do que se trata, para a lista. */
 function resumo(tipo: Tipo, d: Qualquer): { nome: string; empresa: string | null; linha: string } {
