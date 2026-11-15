@@ -74,6 +74,7 @@ import type * as payments from "../payments.js";
 import type * as pedidos from "../pedidos.js";
 import type * as perfis from "../perfis.js";
 import type * as pipedrive from "../pipedrive.js";
+import type * as portefolio from "../portefolio.js";
 import type * as procurar from "../procurar.js";
 import type * as recompressao from "../recompressao.js";
 import type * as reservas from "../reservas.js";
@@ -170,6 +171,7 @@ declare const fullApi: ApiFromModules<{
   pedidos: typeof pedidos;
   perfis: typeof perfis;
   pipedrive: typeof pipedrive;
+  portefolio: typeof portefolio;
   procurar: typeof procurar;
   recompressao: typeof recompressao;
   reservas: typeof reservas;
