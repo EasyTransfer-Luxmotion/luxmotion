@@ -504,10 +504,21 @@ export const remover = mutation({
   args: { id: v.id("partnerships") },
   handler: async (ctx, { id }) => {
     await exigirAdmin(ctx);
+    if (!(await ctx.db.get(id))) return;
+    /* Um veículo de um parceiro só aparece no checkout dele (veiculos.ts):
+       apagar o parceiro deixava-o preso a um dono que não existe. Nenhum em
+       produção a 2026-11-15, mas o editor de veículos deixa criá-los. */
+    const veiculos = (await ctx.db.query("vehicles").collect()).filter((x) => x.partnershipId === id);
+    if (veiculos.length) {
+      throw new ConvexError({
+        tipo: "emUso",
+        mensagem: `Tem ${veiculos.length === 1 ? "um veículo próprio" : `${veiculos.length} veículos próprios`} (${veiculos.map((x) => x.name).join(", ")}). Mude o dono em Catálogo → Veículos antes de a apagar.`,
+      });
+    }
     /* As reservas e os pedidos ficam com o partnershipName gravado, por isso
        o Início continua a mostrá-los com o nome. O logótipo não se apaga
        (ver guardar). */
-    if (await ctx.db.get(id)) await ctx.db.delete(id);
+    await ctx.db.delete(id);
   },
 });
 
