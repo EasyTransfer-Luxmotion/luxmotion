@@ -200,3 +200,18 @@ export const upsertTranslation = mutation({
   },
 });
 
+
+/* Apagar a tradução de um extra: no editor, esvaziar o título e a descrição
+   num idioma. Não havia como, e o site ficava com a tradução para sempre. */
+export const removeTranslation = mutation({
+  args: { addonId: v.id("tourAddons"), locale: v.string() },
+  handler: async (ctx, { addonId, locale }) => {
+    await exigirAdmin(ctx);
+    const existing = await ctx.db
+      .query("tourAddonTranslations")
+      .withIndex("by_addon_locale", (q) => q.eq("addonId", addonId).eq("locale", locale))
+      .first();
+    if (existing) await ctx.db.delete(existing._id);
+    return null;
+  },
+});
