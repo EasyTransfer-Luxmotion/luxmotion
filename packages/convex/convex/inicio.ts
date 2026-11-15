@@ -92,9 +92,7 @@ export const servicos = query({
  *    (tourBookings.ts) — é por ela que entra, para não contar duas vezes.
  *  - O período é pela data em que a reserva foi feita, não pela da viagem:
  *    são vendas. A data da viagem é o que a lista de Reservas mostra.
- *  - Método de pagamento e parceiro vêm da ida. "Dinheiro" conta como pago
- *    logo ao reservar: o checkout marca-o assim (orders.startPayment) e
- *    ninguém regista depois se o motorista recebeu.
+ *  - Método de pagamento e parceiro vêm da ida.
  *  - A origem é só a observada no endereço (adSource). Parceiro e opprefId
  *    são outras coisas e não entram neste gráfico; sem dados, "Origem
  *    desconhecida".
@@ -137,8 +135,12 @@ const METODOS: Record<string, string> = {
   mbway: "MB WAY",
   mb: "Multibanco",
   multibanco: "Multibanco",
-  cash: "Dinheiro",
-  transferencia: "Transferência",
+  /* O checkout deixou de os oferecer: desde 2026-07-08 só se paga pelo
+     Stripe (cartão, MB WAY, Multibanco, Link). As reservas antigas continuam
+     a contar na faturação dos períodos que as incluem; "(antigo)" no nome
+     diz que já não se oferecem, sem uma nota a ocupar o painel. */
+  cash: "Dinheiro (antigo)",
+  transferencia: "Transferência (antiga)",
 };
 const SEM_METODO = "Sem método registado";
 /* "Easy Transfer" é o que orders.create grava quando não veio parceria no
