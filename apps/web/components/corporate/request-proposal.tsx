@@ -10,6 +10,7 @@ import { PhoneInput } from "@/components/ui/phone-input"
 import { DateTimePicker } from "@/components/checkout/date-time-picker"
 import { readReferralCookie } from "@/lib/referral"
 import { medirPedidoDeOrcamento } from "@/lib/oaiq"
+import { instanteDoRelogio } from "@/lib/hora-lisboa"
 
 const sans = { fontFamily: "var(--font-sans), system-ui, sans-serif" } as const
 const serif = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
@@ -102,7 +103,9 @@ export function RequestProposal() {
         email: email.trim(),
         phone: phone.trim(),
         companyName: companyName.trim(),
-        eventDate: eventDate ? eventDate.getTime() : undefined,
+        // O selector dá a hora de Lisboa; getTime() gravava a mesma hora no
+        // fuso do browser — horas ao lado para quem pedia do estrangeiro.
+        eventDate: eventDate ? (instanteDoRelogio(eventDate) ?? undefined) : undefined,
         guests: guests ? Number(guests) : undefined,
         budget,
         vehicleType: selectedVehicle,

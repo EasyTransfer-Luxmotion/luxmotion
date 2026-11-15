@@ -1,17 +1,12 @@
 "use client"
 
 import Image from "next/image"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
+import { formatarEmLisboa } from "@/lib/hora-lisboa"
 import { useUpcomingEvents, usePublishedEvents, type EventData } from "@/hooks/use-event-data"
 
 const sans = { fontFamily: "var(--font-sans), system-ui, sans-serif" } as const
 const serif = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
-
-function formatEventDate(timestamp: number): string {
-  const d = new Date(timestamp)
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-  return `${d.getDate()} ${months[d.getMonth()]}`
-}
 
 export function EventsHero({
   initialUpcoming,
@@ -21,6 +16,7 @@ export function EventsHero({
   initialPublished?: EventData[] | null
 } = {}) {
   const t = useTranslations("eventsPage.hero")
+  const locale = useLocale()
   const { events: dbEvents } = useUpcomingEvents(5, initialUpcoming)
   const { events: allEvents } = usePublishedEvents(initialPublished)
 
@@ -32,7 +28,8 @@ export function EventsHero({
 
   const tickerEvents = dbEvents.map((e) => ({
     title: e.title,
-    date: formatEventDate(e.eventDate),
+    // O dia de Lisboa: um evento às 00h30 caía na véspera para quem estava a oeste.
+    date: formatarEmLisboa(e.eventDate, locale, { day: "numeric", month: "short" }),
     isFeatured: e.isFeatured,
   }))
 

@@ -18,6 +18,7 @@ import { calculatePriceBreakdown } from "@/lib/format"
 import { api } from "@workspace/convex/api"
 import { cn } from "@workspace/ui/lib/utils"
 import { readAdSourceCookie, readOppref } from "@/lib/ad-source"
+import { relogioDeLisboa } from "@/lib/hora-lisboa"
 
 interface TransferInfoStepProps {
   onContinue: () => void
@@ -288,11 +289,22 @@ function TimelineConnector() {
   return <div className="flex-1 border-t border-dashed border-[rgba(var(--ck-accent-rgb,201,169,110),0.4)] mt-4" />
 }
 
+/**
+ * Hora local do aeroporto. A API dos voos manda "2026-11-20T10:00:00+00:00" e
+ * o toLocaleTimeString passava-a para o fuso do browser — a chegada a Lisboa
+ * às 10h00 aparecia às 05h00 a quem reservava de Nova Iorque. A hora escrita
+ * na string já é a do aeroporto: lê-se tal e qual. Um `Date` é relógio de
+ * Lisboa (o do selector), e os campos locais dão a hora certa.
+ */
 function formatFlightTime(value: string | Date | null | undefined): string | null {
   if (!value) return null
+  if (typeof value === "string") {
+    const m = /T(\d{2}):(\d{2})/.exec(value)
+    if (m) return `${m[1]}:${m[2]}`
+  }
   const d = value instanceof Date ? value : new Date(value)
   if (!Number.isFinite(d.getTime())) return null
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false })
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
 }
 
 export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
@@ -709,7 +721,7 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
       if (isRoundTrip && !returnOrderId) {
         const returnDate = transfer.returnDate
           ? new Date(transfer.returnDate)
-          : departureDate ? new Date(departureDate.getTime() + 24 * 60 * 60 * 1000) : new Date()
+          : departureDate ? new Date(departureDate.getTime() + 24 * 60 * 60 * 1000) : relogioDeLisboa()
 
         if (Number.isFinite(returnDate.getTime())) {
           const returnOrderResp = await createReturnOrder(convex, currentOrderId, {
@@ -771,7 +783,7 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
       if (isRoundTrip && returnOrderId) {
         const returnDate = transfer.returnDate
           ? new Date(transfer.returnDate)
-          : departureDate ? new Date(departureDate.getTime() + 24 * 60 * 60 * 1000) : new Date()
+          : departureDate ? new Date(departureDate.getTime() + 24 * 60 * 60 * 1000) : relogioDeLisboa()
 
         if (Number.isFinite(returnDate.getTime())) {
           const returnTripPayload = {

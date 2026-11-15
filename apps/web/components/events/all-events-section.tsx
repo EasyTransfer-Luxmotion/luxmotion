@@ -3,7 +3,8 @@
 import { useState, useMemo } from "react"
 import Image from "next/image"
 import { Link } from "@/i18n/navigation"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
+import { dataDoEvento } from "@/lib/hora-lisboa"
 import { precoDeMontra } from "@/hooks/use-event-data"
 import { Calendar, MapPin, Search, Loader2 } from "lucide-react"
 import { useFilteredEvents, type EventData } from "@/hooks/use-event-data"
@@ -13,22 +14,11 @@ const serif = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } a
 
 const CATEGORIES = ["all", "music", "sports", "culture", "corporate"] as const
 
-function formatDate(timestamp: number, endDate?: number): string {
-  const d = new Date(timestamp)
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-  if (endDate) {
-    const e = new Date(endDate)
-    return `${d.getDate()}–${e.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
-  }
-  const hours = d.getHours()
-  const mins = d.getMinutes()
-  const time = hours > 0 || mins > 0 ? ` · ${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}` : ""
-  return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}${time}`
-}
 
 function EventGridCard({ event, featuredLabel }: { event: EventData; featuredLabel: string }) {
   const t = useTranslations("eventsPage")
+  // Dia e hora de Lisboa, na língua da página (lib/hora-lisboa.ts).
+  const locale = useLocale()
   const montra = precoDeMontra(event)
   return (
     <Link
@@ -57,7 +47,7 @@ function EventGridCard({ event, featuredLabel }: { event: EventData; featuredLab
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[rgba(10,10,10,0.88)] to-[rgba(10,10,10,0)] pt-[18px] pb-[9px] px-3 flex items-center gap-[6px]">
           <Calendar className="size-4 text-[rgba(255,255,255,0.82)] shrink-0" strokeWidth={1.5} />
           <span className="text-[11px] md:text-[12px] font-medium text-[rgba(255,255,255,0.82)] whitespace-nowrap" style={sans}>
-            {formatDate(event.eventDate, event.endDate)}
+            {dataDoEvento(event.eventDate, event.endDate, locale)}
           </span>
         </div>
       </div>

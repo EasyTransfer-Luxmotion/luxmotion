@@ -21,6 +21,7 @@ import type { Id } from "@workspace/convex/dataModel"
 import type { TourCheckoutTour } from "@/components/tours/tour-checkout-context"
 import { useMoney } from "@/components/currency-provider"
 import { readReferralCookie } from "@/lib/referral"
+import { diaDoRelogio } from "@/lib/hora-lisboa"
 
 const SERIF_FONT = "'Cormorant Garamond', serif"
 
@@ -318,7 +319,10 @@ export function TourCheckoutModal() {
     setSubmitError("")
     setIsSubmitting(true)
     try {
-      const dateStr = bookingData.date ? bookingData.date.toISOString().slice(0, 10) : ""
+      // O dia tal como está no calendário (relógio de Lisboa). Com toISOString
+      // passava a UTC e, a leste de UTC — Berlim, ou Lisboa no verão —, o tour
+      // escolhido para dia 20 gravava-se no dia 19.
+      const dateStr = bookingData.date ? diaDoRelogio(bookingData.date) : ""
       const timeStr = bookingData.time || ""
       const guests = bookingData.adults + bookingData.children + bookingData.infants || 1
       const isEvent = productType === "event"

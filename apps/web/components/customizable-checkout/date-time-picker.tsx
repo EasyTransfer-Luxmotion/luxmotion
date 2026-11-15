@@ -10,6 +10,7 @@ import { MobileDrawer } from "../ui/mobile-drawer"
 import { cn } from "@workspace/ui/lib/utils"
 import { ClockTimePicker } from "../ui/clock-time-picker"
 import { useMinAdvanceBookingHours } from "@/hooks/use-min-advance-hours"
+import { relogioDeLisboa } from "@/lib/hora-lisboa"
 
 interface DateTimePickerProps {
   value?: Date | string | number | null
@@ -38,8 +39,8 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
   const [date, setDate] = React.useState<Date | undefined>(normalizedValue)
   const [hours, setHours] = React.useState(() => normalizedValue?.getHours() ?? 0)
   const [minutes, setMinutes] = React.useState(() => normalizedValue?.getMinutes() ?? 0)
-  const [viewMonth, setViewMonth] = React.useState(normalizedValue ? normalizedValue.getMonth() : new Date().getMonth())
-  const [viewYear, setViewYear] = React.useState(normalizedValue ? normalizedValue.getFullYear() : new Date().getFullYear())
+  const [viewMonth, setViewMonth] = React.useState(normalizedValue ? normalizedValue.getMonth() : relogioDeLisboa().getMonth())
+  const [viewYear, setViewYear] = React.useState(normalizedValue ? normalizedValue.getFullYear() : relogioDeLisboa().getFullYear())
 
   const [hoursInput, setHoursInput] = React.useState("")
   const [minutesInput, setMinutesInput] = React.useState("")
@@ -53,12 +54,14 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
   // Minimum booking lead time (admin-configurable); default 2h until it loads / deploys.
   const minAdvanceHours = useMinAdvanceBookingHours()
 
-  const now = new Date()
+  // Relógio de Lisboa (lib/hora-lisboa.ts): a recolha é em Portugal, e com a
+  // hora do browser quem estava noutro fuso via o mínimo de antecedência errado.
+  const now = relogioDeLisboa()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   // Earliest bookable moment = now + lead time. Days before its calendar day are
   // disabled; on that day the time is clamped up to it.
   const minLeadMs = minAdvanceHours * 60 * 60 * 1000
-  const minDateTime = new Date(now.getTime() + minLeadMs)
+  const minDateTime = relogioDeLisboa(Date.now() + minLeadMs)
   const minDate = new Date(minDateTime.getFullYear(), minDateTime.getMonth(), minDateTime.getDate())
 
   React.useEffect(() => {

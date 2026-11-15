@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-is-mobile"
 import { MobileDrawer } from "../ui/mobile-drawer"
 import { cn } from "@workspace/ui/lib/utils"
 import { useTranslations } from "next-intl"
+import { deLisboa, diaDoRelogio, relogioDeLisboa } from "@/lib/hora-lisboa"
 
 interface TimeSlot {
   startTime: string
@@ -104,11 +105,13 @@ export function TourDateTimePicker({
   const [open, setOpen] = React.useState(false)
   const [selectedDate, setSelectedDate] = React.useState<Date | null>(value?.date || null)
   const [selectedTime, setSelectedTime] = React.useState<string | null>(value?.time || null)
-  const [viewMonth, setViewMonth] = React.useState(value?.date ? value.date.getMonth() : new Date().getMonth())
-  const [viewYear, setViewYear] = React.useState(value?.date ? value.date.getFullYear() : new Date().getFullYear())
+  const [viewMonth, setViewMonth] = React.useState(value?.date ? value.date.getMonth() : relogioDeLisboa().getMonth())
+  const [viewYear, setViewYear] = React.useState(value?.date ? value.date.getFullYear() : relogioDeLisboa().getFullYear())
 
   const isMobile = useIsMobile()
-  const now = new Date()
+  // O calendário é o de Lisboa (lib/hora-lisboa.ts): os dias e os horários dos
+  // tours são de lá, e "hoje" no browser de Nova Iorque ainda é ontem em Lisboa.
+  const now = relogioDeLisboa()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
   React.useEffect(() => {
@@ -278,10 +281,12 @@ export function TourDateTimePicker({
 
   const isSlotPastDeadline = (d: Date, startTime: string) => {
     if (!bookingDeadlineHours) return false
-    const [hours, minutes] = startTime.split(":").map(Number)
-    const slotDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hours, minutes)
+    // O horário "10:00" é das 10h00 em Lisboa; contado no fuso do browser, o
+    // prazo fechava horas antes (ou depois) do que devia.
+    const slotMs = deLisboa(diaDoRelogio(d), startTime)
+    if (slotMs === null) return false
     const deadlineMs = bookingDeadlineHours * 60 * 60 * 1000
-    return slotDate.getTime() - Date.now() < deadlineMs
+    return slotMs - Date.now() < deadlineMs
   }
 
   const getBookableSlots = (d: Date, slots: TimeSlot[]) => {

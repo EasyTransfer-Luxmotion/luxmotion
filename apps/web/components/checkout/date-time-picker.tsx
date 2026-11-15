@@ -11,6 +11,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { ClockTimePicker } from "@/components/new-landing-page/booking/clock-time-picker"
 import { useMinAdvanceBookingHours } from "@/hooks/use-min-advance-hours"
 import { clampDateTime } from "@/lib/event-date-time"
+import { relogioDeLisboa } from "@/lib/hora-lisboa"
 
 interface DateTimePickerProps {
   value?: Date | string | number | null
@@ -45,7 +46,9 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
   const [date, setDate] = React.useState<Date | undefined>(normalizedValue)
   const [hours, setHours] = React.useState(() => normalizedValue?.getHours() ?? 0)
   const [minutes, setMinutes] = React.useState(() => normalizedValue?.getMinutes() ?? 0)
-  const initialView = normalizedValue ?? (earliest === undefined ? new Date() : new Date(Math.max(Date.now(), earliest)))
+  /* Tudo o que este selector mostra e devolve é relógio de Lisboa (ver
+     lib/hora-lisboa.ts). Os limites chegam em ms e convertem-se aqui. */
+  const initialView = normalizedValue ?? relogioDeLisboa(earliest === undefined ? Date.now() : Math.max(Date.now(), earliest))
   const [viewMonth, setViewMonth] = React.useState(initialView.getMonth())
   const [viewYear, setViewYear] = React.useState(initialView.getFullYear())
 
@@ -73,13 +76,15 @@ export function DateTimePicker({ value, onChange, placeholder = "Partida", label
   // Minimum booking lead time (admin-configurable); default 2h until it loads / deploys.
   const minAdvanceHours = useMinAdvanceBookingHours()
 
-  const now = new Date()
+  // "Agora" é a hora de Lisboa: com o relógio do browser, quem estava em Nova
+  // Iorque às 05h00 (10h00 em Lisboa) podia marcar para as 07h00 de hoje.
+  const now = relogioDeLisboa()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   // Earliest bookable moment = now + lead time. Days before its calendar day are
   // disabled; on that day the time is clamped up to it.
   const minLeadMs = minAdvanceHours * 60 * 60 * 1000
-  const minDateTime = new Date(Math.max(now.getTime() + minLeadMs, earliest ?? -Infinity))
-  const maxDateTime = latest === undefined ? undefined : new Date(latest)
+  const minDateTime = relogioDeLisboa(Math.max(Date.now() + minLeadMs, earliest ?? -Infinity))
+  const maxDateTime = latest === undefined ? undefined : relogioDeLisboa(latest)
   const maxDate = maxDateTime && new Date(maxDateTime.getFullYear(), maxDateTime.getMonth(), maxDateTime.getDate())
   const minDate = new Date(minDateTime.getFullYear(), minDateTime.getMonth(), minDateTime.getDate())
 

@@ -1,5 +1,6 @@
 import type { Id } from "@workspace/convex/dataModel"
 import type { ExperienceSelection } from "@/components/checkout/checkout-context"
+import { diaDoRelogio } from "@/lib/hora-lisboa"
 
 /**
  * Converte um extra escolhido no passo 2 no formato que a order guarda até o
@@ -41,7 +42,8 @@ export function toPendingExperience(exp: ExperienceSelection) {
     tourTitle: exp.title,
     tourSlug: exp.slug,
     passengers: exp.passengers,
-    selectedDate: exp.date ? exp.date.toISOString().slice(0, 10) : "",
+    // Dia do calendário, não toISOString: a leste de UTC dava o dia anterior.
+    selectedDate: exp.date ? diaDoRelogio(exp.date) : "",
     selectedTime: exp.time ?? "",
     basePrice: exp.totalPrice,
     // Os upsells não têm paragens em `tourStops` de onde tirar partida/chegada.

@@ -2,7 +2,8 @@
 
 import Image from "next/image"
 import { Link } from "@/i18n/navigation"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
+import { dataDoEvento } from "@/lib/hora-lisboa"
 import { precoDeMontra } from "@/hooks/use-event-data"
 import { Calendar, MapPin, ArrowRight, Star, Loader2 } from "lucide-react"
 import { useFeaturedEvents, type EventData } from "@/hooks/use-event-data"
@@ -10,30 +11,17 @@ import { useFeaturedEvents, type EventData } from "@/hooks/use-event-data"
 const sans = { fontFamily: "var(--font-sans), system-ui, sans-serif" } as const
 const serif = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
 
-function formatDate(timestamp: number, endDate?: number): string {
-  const d = new Date(timestamp)
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-  if (endDate) {
-    const e = new Date(endDate)
-    return `${d.getDate()}–${e.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
-  }
-
-  const hours = d.getHours()
-  const mins = d.getMinutes()
-  const time = hours > 0 || mins > 0 ? ` · ${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}` : ""
-  return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}${time}`
-}
 
 /* Os três badges assentam sobre a fotografia do evento: o contraste vem da
    foto, não do tema, por isso ficam escuros nos dois modos. */
 function DateBadge({ date, endDate }: { date: number; endDate?: number }) {
+  // Dia e hora de Lisboa, na língua da página (lib/hora-lisboa.ts).
+  const locale = useLocale()
   return (
     <div className="absolute top-3 left-3 backdrop-blur-[4px] bg-[rgba(13,13,13,0.82)] border border-[rgba(201,169,110,0.2)] flex items-center gap-[7px] px-3 py-[6px]">
       <Calendar className="size-[11px] text-white" strokeWidth={1.5} />
       <span className="text-[12px] font-medium text-white whitespace-nowrap" style={sans}>
-        {formatDate(date, endDate)}
+        {dataDoEvento(date, endDate, locale)}
       </span>
     </div>
   )

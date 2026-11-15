@@ -19,6 +19,7 @@ import { PhoneInput } from "@/components/ui/phone-input"
 import { CountryCombobox } from "@/components/ui/country-combobox"
 import { DateTimePicker } from "@/components/checkout/date-time-picker"
 import { readReferralCookie } from "@/lib/referral"
+import { textoDoRelogio } from "@/lib/hora-lisboa"
 
 const INPUT =
   "w-full h-[44px] bg-[var(--lm-surface,#1E1D1B)] border border-[rgba(var(--lm-text-rgb,255,255,255),0.12)] px-[13px] text-[14px] text-[var(--lm-text,#fff)] placeholder:text-[var(--lm-muted,#696969)] outline-none focus:border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] transition-colors"
@@ -146,7 +147,9 @@ export function ContactSection() {
     const parts = [
       form.country && `Country: ${form.country}`,
       form.region && `Region: ${form.region === "other" ? form.regionOther : form.region}`,
-      form.date && `Date: ${form.date}`,
+      // Era o ISO em UTC ("…T15:00:00.000Z" para as 10h00 de quem escolhia em
+      // Nova Iorque). O selector já dá a hora de Lisboa: escreve-se essa.
+      form.date && `Date: ${textoDoRelogio(new Date(form.date))} (Lisbon)`,
       form.flexibleDates && "Flexible dates: Yes",
       form.travelers && `Travelers: ${form.travelers}`,
       (form.budgetMin > 150 || form.budgetMax < 50000) &&

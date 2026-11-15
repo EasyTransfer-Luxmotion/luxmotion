@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Calendar, Clock, MapPin, Users } from "lucide-react"
 import type { Id } from "@workspace/convex/dataModel"
 import { TipTapRenderer } from "@/components/shared/tiptap-renderer"
@@ -14,6 +14,7 @@ import { EventLocationMap } from "./event-location-map"
 import { EventReviews } from "./event-reviews"
 import { AddonCarouselSection } from "@/components/shared/addon-carousel-section"
 import { validEventSelection } from "@/lib/event-date-time"
+import { dataEmLisboa, horaEmLisboa } from "@/lib/hora-lisboa"
 
 export interface EventDetailsData {
   _id?: string
@@ -170,6 +171,7 @@ function EventCheckoutAutoOpen({ event }: { event: any }) {
 
 export function EventDetailsContent({ event }: EventDetailsContentProps) {
   const t = useTranslations("eventDetails")
+  const locale = useLocale()
   const { openCheckout } = useTourCheckout()
   /* O auto-abrir do checkout lê os parâmetros do endereço, e isso impede a
      página de ser pré-gerada. Isolado aqui dentro, só esta parte espera pelo
@@ -228,19 +230,11 @@ export function EventDetailsContent({ event }: EventDetailsContentProps) {
     )
   }
 
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    })
-
-  const formatTime = (timestamp: number) =>
-    new Date(timestamp).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
+  /* Em Lisboa e na língua da página. Sem `timeZone` o evento das 10h00
+     aparecia às 05h00 a quem visitava de Nova Iorque (e às 09h00 no HTML do
+     servidor, que corre em UTC, no verão). */
+  const formatDate = (timestamp: number) => dataEmLisboa(timestamp, locale)
+  const formatTime = horaEmLisboa
 
   const titleWords = event.title.split(" ")
   const lastTitleWord = titleWords.pop() || ""
@@ -255,12 +249,7 @@ export function EventDetailsContent({ event }: EventDetailsContentProps) {
   const servico = {
     origin: event.meetingPoint?.title || event.location,
     destination: event.venue || event.location,
-    returnTime: event.returnAt
-      ? new Date(event.returnAt).toLocaleTimeString("pt-PT", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      : undefined,
+    returnTime: event.returnAt ? horaEmLisboa(event.returnAt) : undefined,
     vehicleName: event.vehicle?.name,
     vehicleSeats: event.vehicle?.passengers,
     confirmationHours: event.confirmationHours,

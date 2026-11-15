@@ -21,6 +21,7 @@ import { useState, useMemo } from "react"
 import { calculatePriceBreakdown } from "@/lib/format"
 import { api } from "@workspace/convex/api"
 import { readAdSourceCookie, readOppref } from "@/lib/ad-source"
+import { relogioDeLisboa } from "@/lib/hora-lisboa"
 
 interface TransferInfoStepProps {
   onContinue: () => void
@@ -454,7 +455,7 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
         // Se não tiver returnDate ainda, usar uma data placeholder (será atualizada depois)
         const returnDate = transfer.returnDate 
           ? new Date(transfer.returnDate)
-          : departureDate ? new Date(departureDate.getTime() + 24 * 60 * 60 * 1000) : new Date() // 1 dia depois se não tiver
+          : departureDate ? new Date(departureDate.getTime() + 24 * 60 * 60 * 1000) : relogioDeLisboa() // 1 dia depois se não tiver
         
         if (Number.isFinite(returnDate.getTime())) {
           const returnOrderResp = await createReturnOrder(convex, currentOrderId, {
@@ -521,7 +522,7 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
         // Se não tiver returnDate ainda, usar uma data placeholder (será atualizada depois)
         const returnDate = transfer.returnDate 
           ? new Date(transfer.returnDate)
-          : departureDate ? new Date(departureDate.getTime() + 24 * 60 * 60 * 1000) : new Date() // 1 dia depois se não tiver
+          : departureDate ? new Date(departureDate.getTime() + 24 * 60 * 60 * 1000) : relogioDeLisboa() // 1 dia depois se não tiver
         
         if (Number.isFinite(returnDate.getTime())) {
           const returnTripPayload = {

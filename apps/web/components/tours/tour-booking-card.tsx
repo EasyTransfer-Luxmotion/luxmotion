@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl"
 import { TourDateTimePicker } from "@/components/tours/tour-date-time-picker"
 import { EventDateTimePicker } from "@/components/events/event-date-time-picker"
 import { localDateTimeFields, validEventSelection } from "@/lib/event-date-time"
+import { emLisboa, relogioDeLisboa } from "@/lib/hora-lisboa"
 import { useHomeTheme } from "@/components/new-landing-page/home-theme"
 import { useTourAvailability } from "@/hooks/use-tour-data"
 import { BookingAddonsSelector, type BookingAddon } from "@/components/shared/booking-addons-selector"
@@ -170,7 +171,7 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
   const isPrivateEvent = fixedDateTime !== undefined && (!temEscolha || sharingMode === "private")
   const dateTime = useMemo(() => {
     if (fixedDateTime !== undefined && !isPrivateEvent) {
-      return { date: new Date(fixedDateTime), time: localDateTimeFields(fixedDateTime).time }
+      return { date: relogioDeLisboa(fixedDateTime), time: localDateTimeFields(fixedDateTime).time }
     }
     return selectedDateTime
   }, [fixedDateTime, isPrivateEvent, selectedDateTime])
@@ -199,12 +200,11 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
 
   const formatFixedDateTime = () => {
     if (!fixedDateTime) return null
-    const date = new Date(fixedDateTime)
-    const day = String(date.getDate()).padStart(2, "0")
-    const month = String(date.getMonth() + 1).padStart(2, "0")
-    const year = date.getFullYear()
-    const time = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-    return `${day}/${month}/${year} ${t("at")} ${time}`
+    // Dia e hora de Lisboa: no fuso do browser o evento das 10h00 aparecia às
+    // 05h00 a quem visitava de Nova Iorque.
+    const { dia, hora } = emLisboa(fixedDateTime)
+    const [year, month, day] = dia.split("-")
+    return `${day}/${month}/${year} ${t("at")} ${hora}`
   }
 
   /* A rota sai do que o evento já tem: ponto de encontro e local. Com hora de

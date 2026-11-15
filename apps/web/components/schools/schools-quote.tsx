@@ -16,6 +16,7 @@ import { DateTimePicker } from "@/components/checkout/date-time-picker"
 import { useScrollReveal } from "@/hooks/use-scroll-reveal"
 import { cn } from "@workspace/ui/lib/utils"
 import { readReferralCookie } from "@/lib/referral"
+import { isoDoRelogio } from "@/lib/hora-lisboa"
 
 const SERIF_FONT = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
 const SANS_FONT = { fontFamily: "var(--font-sans), system-ui, sans-serif" } as const
@@ -258,7 +259,9 @@ export function SchoolsQuote() {
         children,
         budget,
         route: (fd.get("route") || "").toString() || undefined,
-        departureTime: departureDate ? departureDate.toISOString() : undefined,
+        // O selector dá a hora de Lisboa (lib/hora-lisboa.ts); o instante que
+        // se grava tem de ser esse, não o da hora igual no fuso do browser.
+        departureTime: departureDate ? isoDoRelogio(departureDate) : undefined,
         pickup: pickup.location || undefined,
         dropoff: dropoff.location || undefined,
         vehicle,

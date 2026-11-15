@@ -1,32 +1,33 @@
-/** Keep the date and time in the same local timezone when editing a timestamp. */
+import { deLisboa, diaDoRelogio, emLisboa, fimDoDiaEmLisboa } from "@/lib/hora-lisboa"
+
+/*
+ * Os eventos acontecem em Portugal: o dia e a hora contam-se em Lisboa. Estas
+ * funções usavam getHours/setHours do browser, e quem visitava de Nova Iorque
+ * via o evento das 10h00 às 05h00 e podia escolher horas fora dele.
+ */
+
+/** Dia e hora de Lisboa de um instante. */
 export function localDateTimeFields(timestamp: number) {
-  const date = new Date(timestamp)
-  const pad = (value: number) => String(value).padStart(2, "0")
-  return {
-    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
-  }
+  const { dia, hora } = emLisboa(timestamp)
+  return { date: dia, time: hora }
 }
 
 export function combineLocalDateTime(date: string, time: string): number | undefined {
   if (!date) return undefined
-  return new Date(`${date}T${time || "00:00"}`).getTime()
+  return deLisboa(date, time || "00:00") ?? undefined
 }
 
-/** An event without an end date is bookable on its start day. */
+/** An event without an end date is bookable until the end of its start day (in Lisbon). */
 export function eventBookingEnd(start: number, end?: number): number {
   if (end !== undefined) return end
-  const date = new Date(start)
-  date.setHours(23, 59, 59, 999)
-  return date.getTime()
+  return fimDoDiaEmLisboa(start)
 }
 
+/** `date` é um `Date` de relógio de Lisboa (o que os selectores devolvem); `time` "HH:MM" em Lisboa. */
 export function eventSelectionTimestamp(selection: { date: Date | null; time: string | null }): number | null {
   if (!selection.date || !selection.time || !/^([01]\d|2[0-3]):[0-5]\d$/.test(selection.time)) return null
-  const [hours, minutes] = selection.time.split(":").map(Number)
-  const date = new Date(selection.date)
-  date.setHours(hours!, minutes!, 0, 0)
-  return Number.isFinite(date.getTime()) ? date.getTime() : null
+  if (!Number.isFinite(selection.date.getTime())) return null
+  return deLisboa(diaDoRelogio(selection.date), selection.time)
 }
 
 export function validEventSelection(selection: { date: Date | null; time: string | null }, start: number, end?: number) {

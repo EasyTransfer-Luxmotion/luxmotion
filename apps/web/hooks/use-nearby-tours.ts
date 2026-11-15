@@ -10,6 +10,7 @@ import type { NearbyTour } from "@/components/checkout/experiences-step";
 import { extractTextContent } from "@/lib/seo";
 import { useSafeQuery } from "@/hooks/use-safe-query";
 import { useCheckoutRadiiKm } from "@/hooks/use-site-settings";
+import { formatarEmLisboa } from "@/lib/hora-lisboa";
 
 interface UseNearbyToursProps {
   lat: number | null;
@@ -29,13 +30,10 @@ type UpsellLists = {
 
 const NO_UPSELLS: UpsellLists = { stops: [], experiences: [] };
 
+/* O dia do evento em Lisboa: sem `timeZone`, um evento às 00h30 aparecia na
+   véspera a quem estava a oeste. */
 function formatEventDate(timestamp: number, locale: string): string {
-  const date = new Date(timestamp);
-  return date.toLocaleDateString(locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatarEmLisboa(timestamp, locale, { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function useNearbyTours({ lat, lng, radiusKm }: UseNearbyToursProps) {

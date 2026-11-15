@@ -14,6 +14,7 @@ import { TourDateTimePicker } from "@/components/tours/tour-date-time-picker"
 import { InquiryConfirmationModal } from "@/components/ultra-luxury-tours/detail/inquiry-confirmation-modal"
 import { useMoney } from "@/components/currency-provider"
 import { readReferralCookie } from "@/lib/referral"
+import { diaDoRelogio } from "@/lib/hora-lisboa"
 
 const SERIF_FONT = "var(--font-title), 'Cormorant Garamond', serif"
 
@@ -104,7 +105,8 @@ export function UltraTourInquiryWidget({ price, currency = "€", rating, review
         email: submittedEmail,
         phone: phone.trim(),
         country: country || undefined,
-        date: date ? date.toISOString().slice(0, 10) : undefined,
+        // Dia do calendário, não toISOString: a leste de UTC dava o dia anterior.
+        date: date ? diaDoRelogio(date) : undefined,
         datesFlexible: flexible,
         people: people || undefined,
         ageRange: ageRange || undefined,
