@@ -5,7 +5,7 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
 import { siteSettingsDefaults } from "./siteSettings";
-import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
 
 /* Extras oferecidos a meio do checkout de um transfer: paragens curtas no
@@ -263,13 +263,7 @@ export const updateStop = mutation({
     await exigirAdmin(ctx);
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Upsell stop not found");
-    if (
-      patch.imageId &&
-      existing.imageId &&
-      patch.imageId !== existing.imageId
-    ) {
-      await apagarImagem(ctx, existing.imageId);
-    }
+    // A imagem antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.patch(id, { ...patch, updatedAt: Date.now() });
     return id;
   },
@@ -281,7 +275,7 @@ export const removeStop = mutation({
     await exigirAdmin(ctx);
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Upsell stop not found");
-    if (row.imageId) await apagarImagem(ctx, row.imageId);
+    // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.delete(id);
   },
 });
@@ -408,13 +402,7 @@ export const updateExperience = mutation({
     await exigirAdmin(ctx);
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Upsell experience not found");
-    if (
-      patch.imageId &&
-      existing.imageId &&
-      patch.imageId !== existing.imageId
-    ) {
-      await apagarImagem(ctx, existing.imageId);
-    }
+    // A imagem antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.patch(id, { ...patch, updatedAt: Date.now() });
     return id;
   },
@@ -426,7 +414,7 @@ export const removeExperience = mutation({
     await exigirAdmin(ctx);
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Upsell experience not found");
-    if (row.imageId) await apagarImagem(ctx, row.imageId);
+    // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.delete(id);
   },
 });

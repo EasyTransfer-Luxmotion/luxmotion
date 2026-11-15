@@ -1,4 +1,4 @@
-import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import type { QueryCtx } from "./_generated/server"
@@ -218,16 +218,8 @@ export const remove = mutation({
     await exigirAdmin(ctx);
     const exp = await ctx.db.get(id)
     if (!exp) throw new Error("Experience not found")
-    if (exp.coverImageId) {
-      try {
-        await apagarImagem(ctx, exp.coverImageId)
-      } catch {}
-    }
-    for (const gid of exp.galleryImageIds ?? []) {
-      try {
-        await apagarImagem(ctx, gid)
-      } catch {}
-    }
+    // Capa e galeria não se apagam: os ficheiros podem ser partilhados com outros
+    // registos (ver lib/imagens.ts).
     const translations = await ctx.db.query("corporateExperienceTranslations")
       .withIndex("by_experience", (q) => q.eq("experienceId", id)).collect()
     for (const translation of translations) await ctx.db.delete(translation._id)

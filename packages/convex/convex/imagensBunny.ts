@@ -6,7 +6,6 @@ import type { Id } from "./_generated/dataModel";
 import { action, internalAction } from "./_generated/server";
 import {
   EXTENSAO_POR_TIPO,
-  apagarDoBunny,
   enviarParaBunny,
   publicarNoBunny,
   urlCdn,
@@ -179,13 +178,5 @@ export const migrar = internalAction({
       await ctx.scheduler.runAfter(0, internal.imagensBunny.migrar, { corrida: corrida + 1 });
     }
     return resumo;
-  },
-});
-
-/** Agendada por `apagarImagem` quando um registo perde ou troca de imagem. */
-export const apagar = internalAction({
-  args: { caminho: v.string() },
-  handler: async (_ctx, { caminho }) => {
-    await apagarDoBunny(caminho);
   },
 });

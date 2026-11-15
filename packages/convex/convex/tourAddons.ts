@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
 
 export const listByTour = query({
@@ -147,23 +147,9 @@ export const remove = mutation({
       await ctx.db.delete(t._id);
     }
 
-    /* Só se apaga o ficheiro se mais ninguém o usar. Desde que as imagens
-       passaram a ser partilhadas entre extras, apagar um extra apagava a imagem
-       debaixo dos pés de todos os outros que apontavam para o mesmo ficheiro. */
-    if (addon.imageId) {
-      const outros = await ctx.db.query("tourAddons").collect();
-      const usadaPorOutro = outros.some(
-        (a) => a._id !== args.id && a.imageId === addon.imageId,
-      );
-      const naBiblioteca = await ctx.db
-        .query("addonImages")
-        .withIndex("by_storage", (q) => q.eq("storageId", addon.imageId!))
-        .first();
-
-      if (!usadaPorOutro && !naBiblioteca) {
-        await apagarImagem(ctx, addon.imageId);
-      }
-    }
+    /* O ficheiro da imagem não se apaga. Verificar só os outros extras e a biblioteca
+       não chegava: o mesmo ficheiro pode estar em veículos, tours ou eventos
+       (a migração para o Bunny juntou as cópias iguais). Ver lib/imagens.ts. */
 
     await ctx.db.delete(args.id);
     return args.id;

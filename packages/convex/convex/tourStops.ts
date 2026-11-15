@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
 
 export const listByTour = query({
@@ -159,9 +159,7 @@ export const remove = mutation({
       await ctx.db.delete(translation._id);
     }
 
-    if (stop.imageId) {
-      await apagarImagem(ctx, stop.imageId);
-    }
+    // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
 
     await ctx.db.delete(args.id);
 

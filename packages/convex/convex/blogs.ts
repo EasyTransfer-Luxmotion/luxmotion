@@ -2,7 +2,7 @@ import { v, type ObjectType } from "convex/values";
 import { query, mutation, internalMutation, type MutationCtx } from "./_generated/server";
 import { generateSlug, calculateReadTime } from "./lib/utils";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
-import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
 
 export const list = query({
@@ -483,17 +483,8 @@ export const remove = mutation({
       await ctx.db.delete(translation._id);
     }
 
-    if (blog.heroImageId) {
-      await apagarImagem(ctx, blog.heroImageId);
-    }
-
-    if (blog.editorialImageId) {
-      await apagarImagem(ctx, blog.editorialImageId);
-    }
-
-    if (blog.authorAvatarId) {
-      await apagarImagem(ctx, blog.authorAvatarId);
-    }
+    // Hero, editorial e avatar não se apagam: os ficheiros podem ser partilhados
+    // com outros registos (ver lib/imagens.ts).
 
     await ctx.db.delete(args.id);
     return args.id;

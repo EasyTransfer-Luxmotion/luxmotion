@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { avaliarAcesso, exigirAdmin } from "./lib/admin";
-import { apagarImagem, urlDaImagem } from "./lib/imagens";
+import { urlDaImagem } from "./lib/imagens";
 import { CORPORATE_LANGUAGES, corporateOriginalLanguage } from "./lib/corporateExperienceTranslations";
 
 /*
@@ -142,10 +142,7 @@ export const guardar = mutation({
       whatsIncluded: limpar(dados.whatsIncluded),
     };
     if (actual) {
-      if (actual.coverImageId && actual.coverImageId !== d.coverImageId && !d.galleryImageIds.includes(actual.coverImageId)) {
-        /* A capa partida (ficheiro que já não existe) não se apaga. */
-        await apagarImagem(ctx, actual.coverImageId).catch(() => undefined);
-      }
+      // A capa antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
       await ctx.db.patch(actual._id, { ...d, coverImageId: d.coverImageId, updatedAt: agora });
       return { id: actual._id, versao: agora };
     }
@@ -197,9 +194,9 @@ export const remover = mutation({
     await exigirAdmin(ctx);
     const x = await ctx.db.get(id);
     if (!x) return;
-    for (const img of new Set([x.coverImageId, ...x.galleryImageIds])) {
-      if (img) await apagarImagem(ctx, img).catch(() => undefined);
-    }
+    /* Capa e galeria não se apagam. Foi aqui que, ao apagar uma experiência de teste,
+       desapareceram duas fotografias de veículos (2026-11-14): a migração para
+       o Bunny tinha juntado os ficheiros iguais num só caminho. Ver lib/imagens.ts. */
     for (const t of await ctx.db.query("corporateExperienceTranslations").withIndex("by_experience", (q) => q.eq("experienceId", id)).collect()) {
       await ctx.db.delete(t._id);
     }

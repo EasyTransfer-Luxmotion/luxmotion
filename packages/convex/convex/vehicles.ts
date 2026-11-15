@@ -4,7 +4,7 @@ import { isNightDeparture, priceVehicle } from "./lib/pricing";
 import { siteSettingsDefaults } from "./siteSettings";
 import { mutation, query } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
-import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
 
 export const list = query({
@@ -298,12 +298,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const { id, ...data } = args;
-    const existing = await ctx.db.get(id);
-    
-    if (existing?.imageId && data.imageId && existing.imageId !== data.imageId) {
-      await apagarImagem(ctx, existing.imageId);
-    }
-
+    // A imagem antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.patch(id, { ...data, actualizadoEm: Date.now() });
   },
 });
@@ -312,10 +307,7 @@ export const remove = mutation({
   args: { id: v.id("vehicles") },
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
-    const existing = await ctx.db.get(args.id);
-    if (existing?.imageId) {
-      await apagarImagem(ctx, existing.imageId);
-    }
+    // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.delete(args.id);
   },
 });

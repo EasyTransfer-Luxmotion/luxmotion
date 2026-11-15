@@ -5,7 +5,7 @@ import { query, mutation } from "./_generated/server";
 import { generateSlug } from "./lib/utils";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
-import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
 
 export const list = query({
@@ -646,9 +646,6 @@ export const remove = mutation({
       for (const at of addonTranslations) {
         await ctx.db.delete(at._id);
       }
-      if (addon.imageId) {
-        await apagarImagem(ctx, addon.imageId);
-      }
       await ctx.db.delete(addon._id);
     }
 
@@ -661,21 +658,8 @@ export const remove = mutation({
       await ctx.db.delete(review._id);
     }
 
-    if (event.bannerImageId) {
-      await apagarImagem(ctx, event.bannerImageId);
-    }
-
-    if (event.additionalBannerIds) {
-      for (const imageId of event.additionalBannerIds) {
-        await apagarImagem(ctx, imageId);
-      }
-    }
-
-    if (event.galleryImageIds) {
-      for (const imageId of event.galleryImageIds) {
-        await apagarImagem(ctx, imageId);
-      }
-    }
+    // Banners, galeria e imagens das paragens e extras não se apagam: os ficheiros
+    // podem ser partilhados com outros registos (ver lib/imagens.ts).
 
     await ctx.db.delete(args.id);
     return args.id;

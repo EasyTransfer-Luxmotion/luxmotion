@@ -4,7 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { avaliarAcesso, exigirAdmin } from "./lib/admin";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { NIGHT_TAX_MIN_EUR, NIGHT_TAX_PERCENT, priceVehicle } from "./lib/pricing";
-import { apagarImagem, urlDaImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { siteSettingsDefaults } from "./siteSettings";
 
 /*
@@ -271,7 +271,7 @@ export const guardar = mutation({
 
     const agora = Date.now();
     if (actual) {
-      if (actual.imageId && actual.imageId !== d.imageId) await apagarImagem(ctx, actual.imageId);
+      // A imagem antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
       /* Os opcionais vão sempre com a chave: um campo que o browser manda
          vazio chega cá sem chave nenhuma, e um patch sem a chave não mexe no
          campo. Era assim que "Nenhum" no upgrade (e tirar o dono ou a foto)
@@ -338,7 +338,7 @@ export const remover = mutation({
         mensagem: `Não se pode apagar: é usado ${onde}. Desactive-o em vez disso — deixa de aparecer no checkout.`,
       });
     }
-    if (x.imageId) await apagarImagem(ctx, x.imageId);
+    // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.delete(id);
   },
 });

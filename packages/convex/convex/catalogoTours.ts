@@ -3,7 +3,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { avaliarAcesso, exigirAdmin } from "./lib/admin";
-import { apagarImagem, urlDaImagem } from "./lib/imagens";
+import { urlDaImagem } from "./lib/imagens";
 
 /*
  * Catálogo → Tours no dashboard (E3). Substitui, para o ecrã novo, o
@@ -303,7 +303,7 @@ async function sincronizarParagens(ctx: MutationCtx, tourId: Id<"tours">, parage
     for (const tr of await ctx.db.query("tourStopTranslations").withIndex("by_stop", (q) => q.eq("stopId", p._id)).collect()) {
       await ctx.db.delete(tr._id);
     }
-    if (p.imageId) await apagarImagem(ctx, p.imageId);
+    // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.delete(p._id);
   }
   for (const [ordem, p] of paragens.entries()) {
@@ -322,7 +322,7 @@ async function sincronizarParagens(ctx: MutationCtx, tourId: Id<"tours">, parage
     };
     const actual = _id ? existentes.find((x) => x._id === _id) : undefined;
     if (actual) {
-      if (actual.imageId && actual.imageId !== campos.imageId) await apagarImagem(ctx, actual.imageId);
+      // A imagem antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
       await ctx.db.patch(actual._id, doc);
     } else {
       await ctx.db.insert("tourStops", { ...doc, tourId, createdAt: agora });

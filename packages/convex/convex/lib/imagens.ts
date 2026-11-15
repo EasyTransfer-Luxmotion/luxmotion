@@ -1,9 +1,6 @@
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
 import { urlCdn } from "./bunny";
-import { safeStorageDelete } from "./storage";
 
 /**
  * Uma imagem de conteúdo (frota, tours, blog, parcerias…) pode estar em dois
@@ -40,21 +37,19 @@ export async function urlDaImagem(
   return await ctx.storage.getUrl(ref as Id<"_storage">);
 }
 
-/**
- * Apaga a imagem onde quer que esteja.
+/*
+ * Não há função para apagar uma imagem, e é de propósito: os editores (frota,
+ * tours, eventos, corporate, blog, equipa…) trocam ou removem a referência e
+ * deixam o ficheiro onde está.
  *
- * O Bunny só se alcança por HTTP, e uma mutation não pode fazer pedidos — por
- * isso agenda-se uma action. Corre só se a mutation fizer commit: se a remoção
- * do registo falhar e voltar atrás, o ficheiro também fica.
+ * A migração para o Bunny (`imagensBunny.migrar`) juntou ficheiros iguais num
+ * só caminho, `uploads/migrados/<id>.<ext>`, e a biblioteca dos extras reutiliza
+ * fotos — o mesmo ficheiro pode estar em registos de tabelas diferentes. Em
+ * 2026-11-14, apagar uma experiência corporate de teste levou duas fotografias
+ * de veículos. Confirmar que nenhum registo de nenhuma tabela usa o caminho
+ * seria frágil (cada tabela nova com imagens teria de entrar na verificação);
+ * um ficheiro a mais no Bunny custa quase nada, uma foto em falta no site não.
+ *
+ * As candidaturas de motoristas e parceiros não passam por aqui: os documentos
+ * pessoais estão no storage do Convex e esses podem e devem ser apagados.
  */
-export async function apagarImagem(
-  ctx: MutationCtx,
-  ref: string | null | undefined,
-): Promise<void> {
-  if (!ref) return;
-  if (estaNoBunny(ref)) {
-    await ctx.scheduler.runAfter(0, internal.imagensBunny.apagar, { caminho: ref });
-    return;
-  }
-  await safeStorageDelete(ctx, ref as Id<"_storage">);
-}

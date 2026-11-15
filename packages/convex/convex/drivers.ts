@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
-import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
 
 export const list = query({
@@ -134,9 +134,7 @@ export const remove = mutation({
     const driver = await ctx.db.get(args.id);
     if (!driver) throw new Error("Driver not found");
 
-    if (driver.imageId) {
-      await apagarImagem(ctx, driver.imageId);
-    }
+    // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
 
     await ctx.db.delete(args.id);
     return args.id;

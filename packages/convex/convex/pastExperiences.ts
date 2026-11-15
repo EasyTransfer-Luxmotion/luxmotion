@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
-import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
 
 export const list = query({
@@ -143,9 +143,7 @@ export const remove = mutation({
     const experience = await ctx.db.get(args.id);
     if (!experience) throw new Error("Experience not found");
 
-    if (experience.imageId) {
-      await apagarImagem(ctx, experience.imageId);
-    }
+    // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
 
     await ctx.db.delete(args.id);
     return args.id;
