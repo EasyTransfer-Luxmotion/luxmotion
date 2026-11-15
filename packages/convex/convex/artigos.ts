@@ -58,9 +58,10 @@ export const lista = query({
   },
   handler: async (ctx, a) => {
     await exigirAdmin(ctx);
-    const [blogs, traducoes] = await Promise.all([ctx.db.query("blogs").collect(), ctx.db.query("blogTranslations").collect()]);
-    const porBlog = new Map<string, Doc<"blogTranslations">[]>();
-    for (const t of traducoes) porBlog.set(t.blogId, [...(porBlog.get(t.blogId) ?? []), t]);
+    /* As traduções só dos artigos desta página. Lia-as todas: em produção
+       eram 174 com o texto inteiro, 7,5 MB a cada abertura e a cada
+       alteração, e o Convex recusa uma consulta que passe dos 16 MB. */
+    const blogs = await ctx.db.query("blogs").collect();
 
     const daCategoria = a.categoria ? blogs.filter((b) => b.category === a.categoria) : blogs;
     const porEstado = {
@@ -94,7 +95,13 @@ export const lista = query({
         publicadoEm: b.publishedAt ?? null,
         actualizado: b.updatedAt,
         leitura: b.readTimeMinutes,
-        idiomas: estadoDasTraducoes(b, porBlog.get(b._id) ?? []),
+        idiomas: estadoDasTraducoes(
+          b,
+          await ctx.db
+            .query("blogTranslations")
+            .withIndex("by_blog", (q) => q.eq("blogId", b._id))
+            .collect(),
+        ),
       })),
     );
 

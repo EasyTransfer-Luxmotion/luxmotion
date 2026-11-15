@@ -35,14 +35,27 @@ export const lista = query({
   },
   handler: async (ctx, a) => {
     await exigirAdmin(ctx);
-    /* 666 em produção: lê-se tudo e os títulos dos produtos de uma vez. */
-    const [todas, tours, eventos] = await Promise.all([
-      ctx.db.query("tourReviews").collect(),
-      ctx.db.query("tours").collect(),
-      ctx.db.query("events").collect(),
-    ]);
-    const tourPor = new Map(tours.map((t) => [t._id as string, t]));
-    const eventoPor = new Map(eventos.map((e) => [e._id as string, e]));
+    /* As avaliações lêem-se todas (666 em produção, 300 KB): são precisas
+       para as contagens. Os tours e eventos não: eram mais 680 KB a cada
+       abertura, só pelos títulos. Agora só os desta página — ou todos quando
+       se pesquisa, porque a pesquisa também procura no título do produto. */
+    const q = semAcentos(a.pesquisa?.trim() ?? "");
+    const todas = await ctx.db.query("tourReviews").collect();
+    const tourPor = new Map<string, Doc<"tours"> | null>();
+    const eventoPor = new Map<string, Doc<"events"> | null>();
+    if (q) {
+      const [tours, eventos] = await Promise.all([ctx.db.query("tours").collect(), ctx.db.query("events").collect()]);
+      for (const t of tours) tourPor.set(t._id, t);
+      for (const e of eventos) eventoPor.set(e._id, e);
+    }
+    const lerProdutos = async (rs: Doc<"tourReviews">[]) => {
+      const tours = [...new Set(rs.flatMap((r) => (r.tourId && !tourPor.has(r.tourId) ? [r.tourId] : [])))];
+      const eventos = [...new Set(rs.flatMap((r) => (!r.tourId && r.eventId && !eventoPor.has(r.eventId) ? [r.eventId] : [])))];
+      await Promise.all([
+        ...tours.map(async (id) => tourPor.set(id, await ctx.db.get(id))),
+        ...eventos.map(async (id) => eventoPor.set(id, await ctx.db.get(id))),
+      ]);
+    };
     const produtoDe = (r: Doc<"tourReviews">) => {
       if (r.tourId) {
         const t = tourPor.get(r.tourId);
@@ -62,18 +75,20 @@ export const lista = query({
     };
     const porNota = Object.fromEntries([1, 2, 3, 4, 5].map((n) => [n, doProduto.filter((r) => r.rating === n).length]));
 
-    const q = semAcentos(a.pesquisa?.trim() ?? "");
+    /* Com pesquisa os produtos já estão todos lidos; sem ela, o título não
+       entra no filtro e só se lê o da página. */
     const filtradas = daNota
       .filter((r) => a.grupo === "todas" || (a.grupo === "destaque" ? r.isApproved && r.isFeatured : grupoDe(r) === a.grupo))
-      .map((r) => ({ r, p: produtoDe(r) }))
-      .filter(({ r, p }) => !q || [r.author, r.text, r.nationality, p.titulo].some((c) => c && semAcentos(c).includes(q)))
-      .sort((x, y) => y.r.createdAt - x.r.createdAt);
+      .filter((r) => !q || [r.author, r.text, r.nationality, produtoDe(r).titulo].some((c) => c && semAcentos(c).includes(q)))
+      .sort((x, y) => y.createdAt - x.createdAt);
 
     const porPagina = Math.max(1, Math.min(100, Math.floor(a.porPagina)));
     const paginas = Math.max(1, Math.ceil(filtradas.length / porPagina));
     const pagina = Math.min(Math.max(0, Math.floor(a.pagina)), paginas - 1);
+    const daPagina = filtradas.slice(pagina * porPagina, (pagina + 1) * porPagina);
+    await lerProdutos(daPagina);
     return {
-      linhas: filtradas.slice(pagina * porPagina, (pagina + 1) * porPagina).map(({ r, p }) => ({
+      linhas: daPagina.map((r) => ({ r, p: produtoDe(r) })).map(({ r, p }) => ({
         id: r._id as string,
         autor: r.author,
         nacionalidade: r.nationality ?? "",
