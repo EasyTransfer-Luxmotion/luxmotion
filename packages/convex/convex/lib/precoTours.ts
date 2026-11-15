@@ -75,6 +75,8 @@ export async function precoDaReserva(
   if (reserva.tourId) {
     const tour = await ctx.db.get(reserva.tourId);
     if (!tour) throw new ConvexError("Este tour já não existe.");
+    /* Despublicar tem de parar as reservas, não só esconder o tour das listas. */
+    if (tour.status !== "published") throw new ConvexError("Este tour já não está disponível para reserva.");
     unitario = tour.basePrice;
     alvoExtras = {
       tourId: tour._id,
@@ -85,6 +87,7 @@ export async function precoDaReserva(
   } else if (reserva.eventId) {
     const evento = await ctx.db.get(reserva.eventId);
     if (!evento) throw new ConvexError("Este evento já não existe.");
+    if (evento.status !== "published") throw new ConvexError("Este evento já não está disponível para reserva.");
     const temEscolha = typeof evento.sharedPrice === "number" && evento.sharedPrice > 0;
     porViatura = temEscolha && reserva.sharingMode !== "shared";
     unitario = temEscolha && reserva.sharingMode === "shared" ? evento.sharedPrice! : precoPrivado(evento);

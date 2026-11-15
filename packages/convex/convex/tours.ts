@@ -365,7 +365,10 @@ export const getBySlug = query({
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .first();
 
-    if (!tour) return null;
+    /* Só publicados. Um tour em rascunho ou arquivado continuava aberto por
+       link (a página só o marcava noindex) e reservável — despublicar não o
+       tirava do site (verificado em dev a 2026-11-15). */
+    if (!tour || tour.status !== "published") return null;
 
     const bannerImageUrl = tour.bannerImageId
       ? await urlDaImagem(ctx, tour.bannerImageId)

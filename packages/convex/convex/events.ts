@@ -235,7 +235,8 @@ export const getBySlug = query({
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .first();
 
-    if (!event) return null;
+    /* Só publicados, como as listas: ver tours.getBySlug. */
+    if (!event || event.status !== "published") return null;
 
     const bannerImageUrl = event.bannerImageId
       ? await urlDaImagem(ctx, event.bannerImageId)
