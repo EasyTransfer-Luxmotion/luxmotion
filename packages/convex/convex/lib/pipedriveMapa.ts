@@ -92,23 +92,52 @@ function telefoneSeguro(telefone: string | undefined): string | undefined {
 }
 
 /**
- * As datas estão guardadas em três formatos diferentes conforme a tabela:
- * `corporateRequests.eventDate` é epoch em ms, `schoolQuoteSubmissions
- * .departureTime` é ISO completo, e `weddingQuoteSubmissions.weddingDate` e
- * `tourInquiries.date` são o que o visitante escreveu. Um formatador só, que
- * nunca rebenta e devolve o original quando não reconhece.
+ * As datas estão guardadas em quatro formatos diferentes conforme a tabela:
+ * `corporateRequests.eventDate` e os `createdAt` são epoch em ms,
+ * `schoolQuoteSubmissions.departureTime` é ISO completo em UTC,
+ * `orders.departureDate` é a hora de relógio ("AAAA-MM-DD HH:mm:ss", sem fuso)
+ * e `weddingQuoteSubmissions.weddingDate` e `tourInquiries.date` são um dia ou
+ * o que o visitante escreveu. Um formatador só, que nunca rebenta e devolve o
+ * original quando não reconhece.
+ *
+ * Os instantes (ms, ou ISO com `Z`/offset) passam para a hora de Lisboa. Eram
+ * formatados em UTC, e no verão a operação via a partida das 10h00 às 09:00.
+ * O relógio e os dias saem como estão escritos: lidos com `new Date` contavam
+ * como UTC e, convertidos para Lisboa, ganhavam uma hora no verão.
  */
+const PARTES_LISBOA = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Lisbon",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function montar(aaaa: string, mm: string, dd: string, hh = "00", min = "00"): string {
+  const horas = hh !== "00" || min !== "00" ? ` ${hh}:${min}` : "";
+  return `${dd}/${mm}/${aaaa}${horas}`;
+}
+
 export function formatarData(valor: string | number | undefined): string | undefined {
   if (valor === undefined || valor === null || valor === "") return undefined;
+  if (typeof valor === "string") {
+    const texto = valor.trim();
+    const relogio = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?)?$/.exec(texto);
+    if (relogio) return montar(relogio[1]!, relogio[2]!, relogio[3]!, relogio[4], relogio[5]);
+  }
   const d = new Date(valor);
   if (Number.isNaN(d.getTime())) return typeof valor === "string" ? valor : undefined;
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const aaaa = d.getUTCFullYear();
-  const hh = d.getUTCHours();
-  const min = d.getUTCMinutes();
-  const horas = hh || min ? ` ${String(hh).padStart(2, "0")}:${String(min).padStart(2, "0")}` : "";
-  return `${dd}/${mm}/${aaaa}${horas}`;
+  // Texto livre sem fuso ("15 July 2026") lê-se no fuso do Convex, que é UTC:
+  // os campos UTC são o que foi escrito. Só um instante a sério vai para Lisboa.
+  const instante = typeof valor === "number" || /(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(valor.trim());
+  if (!instante) {
+    const dois = (n: number) => String(n).padStart(2, "0");
+    return montar(String(d.getUTCFullYear()), dois(d.getUTCMonth() + 1), dois(d.getUTCDate()), dois(d.getUTCHours()), dois(d.getUTCMinutes()));
+  }
+  const p = Object.fromEntries(PARTES_LISBOA.formatToParts(d).map((x) => [x.type, x.value]));
+  return montar(p.year!, p.month!, p.day!, p.hour, p.minute);
 }
 
 function euros(valor: number | undefined): string | undefined {
