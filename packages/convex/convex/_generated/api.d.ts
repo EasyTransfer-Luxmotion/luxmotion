@@ -29,6 +29,7 @@ import type * as drivers from "../drivers.js";
 import type * as emailVerification from "../emailVerification.js";
 import type * as events from "../events.js";
 import type * as flights from "../flights.js";
+import type * as fotosExtras from "../fotosExtras.js";
 import type * as googleReviews from "../googleReviews.js";
 import type * as http from "../http.js";
 import type * as imagensBunny from "../imagensBunny.js";
@@ -119,6 +120,7 @@ declare const fullApi: ApiFromModules<{
   emailVerification: typeof emailVerification;
   events: typeof events;
   flights: typeof flights;
+  fotosExtras: typeof fotosExtras;
   googleReviews: typeof googleReviews;
   http: typeof http;
   imagensBunny: typeof imagensBunny;

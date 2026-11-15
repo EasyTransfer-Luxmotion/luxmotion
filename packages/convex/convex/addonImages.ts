@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { urlDaImagem, apagarImagem, vImagem } from "./lib/imagens";
+import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
 
 /**
@@ -119,8 +119,10 @@ export const rename = mutation({
 });
 
 /**
- * Apaga a imagem a sério: tira-a da biblioteca, limpa-a dos extras que a estejam
- * a usar e apaga o ficheiro.
+ * Tira a imagem da biblioteca e dos extras próprios de tours e eventos que a
+ * usam. Já não apaga o ficheiro: só olhava para tourAddons, e as mesmas
+ * fotos estão em paragens, experiências e extras universais — apagar uma
+ * deixava esses cartões sem imagem no site. O ecrã novo é fotosExtras.*.
  *
  * É por `storageId` e não pela linha da biblioteca de propósito — as imagens que
  * vieram dos extras e nunca foram registadas não têm linha nenhuma, e eram
@@ -143,8 +145,6 @@ export const remove = mutation({
     for (const extra of afectados) {
       await ctx.db.patch(extra._id, { imageId: undefined, updatedAt: Date.now() });
     }
-
-    await apagarImagem(ctx, args.storageId);
 
     return { extrasAfectados: afectados.length };
   },
