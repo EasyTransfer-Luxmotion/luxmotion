@@ -517,6 +517,10 @@ export default defineSchema({
     faq: v.optional(
       v.array(v.object({ question: v.string(), answer: v.string() })),
     ),
+    /* Quando mudou o texto (título, resumo ou corpo), para o dashboard dizer
+       que traduções ficaram para trás (artigos.ts). O updatedAt não serve:
+       muda também ao pôr em destaque. */
+    textoActualizadoEm: v.optional(v.number()),
   })
     .index("by_slug", ["slug"])
     .index("by_status", ["status"])
