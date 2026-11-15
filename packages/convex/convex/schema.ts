@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
+import { vPerna } from "./lib/vPerna";
 
 const amadeusFlightInfoValidator = v.object({
   carrier: v.optional(v.string()),
@@ -221,6 +222,9 @@ export default defineSchema({
     /* Copiado da reserva: um evento vendido em lugar partilhado tem de se ver
        na order sem ter de ir buscar a reserva. */
     sharingMode: v.optional(v.union(v.literal("private"), v.literal("shared"))),
+    /* As pernas de um evento partilhado com saídas (E3A): ida, regresso ou
+       as duas, cada uma com o seu dia e hora. */
+    pernas: v.optional(v.array(vPerna)),
 
     // Tour booking link (when order represents a paid tour/experience/event)
     tourBookingId: v.optional(v.id("tourBookings")),
@@ -872,6 +876,30 @@ export default defineSchema({
     .index("by_location", ["location"])
     .index("by_event_date", ["eventDate"])
     .index("by_featured", ["isFeatured"]),
+
+  /*
+   * As saídas de um evento partilhado (E3A, decisões D07 e D08): cada uma é
+   * uma viagem num sentido, num dia e hora de Lisboa, com o seu preço por
+   * pessoa e os seus lugares. O cliente escolhe a ida, o regresso ou as duas,
+   * em dias diferentes se quiser. O privado não usa isto: continua na data do
+   * evento.
+   */
+  eventDepartures: defineTable({
+    eventId: v.id("events"),
+    sentido: v.union(v.literal("ida"), v.literal("regresso")),
+    partida: v.number(),
+    origem: v.string(),
+    destino: v.string(),
+    /* Por pessoa, nesta perna. Ida e regresso é a soma das duas (D08: sem
+       desconto). */
+    preco: v.number(),
+    lugares: v.number(),
+    /* Fechada: deixa de se vender, as reservas mantêm-se. Cancelada: idem, e
+       a Operação vê-a para avisar quem já tinha reservado. */
+    estado: v.union(v.literal("aberta"), v.literal("fechada"), v.literal("cancelada")),
+    criadaEm: v.number(),
+    actualizadaEm: v.number(),
+  }).index("by_event", ["eventId", "partida"]),
 
   eventTranslations: defineTable({
     eventId: v.id("events"),
@@ -1601,6 +1629,12 @@ export default defineSchema({
     /* Comprou lugar partilhado ou o evento em privado? O preço sozinho não
        chega para o saber, e quem organiza precisa de agrupar os partilhados. */
     sharingMode: v.optional(v.union(v.literal("private"), v.literal("shared"))),
+    /* As saídas escolhidas num evento partilhado com saídas (E3A). Os ids
+       servem para contar os lugares de cada saída; as pernas guardam o que
+       a saída era no momento da reserva. */
+    saidaIdaId: v.optional(v.id("eventDepartures")),
+    saidaRegressoId: v.optional(v.id("eventDepartures")),
+    pernas: v.optional(v.array(vPerna)),
     selectedAddons: v.optional(
       v.array(
         v.object({
@@ -1655,7 +1689,9 @@ export default defineSchema({
     .index("by_tour", ["tourId"])
     .index("by_event", ["eventId"])
     .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_saida_ida", ["saidaIdaId"])
+    .index("by_saida_regresso", ["saidaRegressoId"]),
 
   // Cached snapshot of the business's Google reviews (refreshed daily by a cron
   // in crons.ts). A single document holds the aggregate rating/total plus up to

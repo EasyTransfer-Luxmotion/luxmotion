@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { resolveAddons } from "./addons";
+import { temSaidas, validarSaidas, type Perna } from "./saidas";
 
 /**
  * O preço de uma reserva de tour ou evento, calculado no servidor.
@@ -24,6 +25,9 @@ import { resolveAddons } from "./addons";
  *  - Extras por pessoa: preço × pessoas; fixos: o preço.
  *  - Gorjeta: percentagem sobre a base (sem extras), arredondada ao euro, ou
  *    um valor livre — que só pode ser zero ou mais.
+ *  - Evento partilhado com saídas (E3A): o preço por pessoa é a soma das
+ *    pernas escolhidas (ida, regresso ou as duas), e cada uma tem de ter
+ *    lugar para todos — ver lib/saidas.ts.
  */
 
 export type ExtraEscolhido = {
@@ -46,6 +50,8 @@ export type PrecoDaReserva = {
     subtotal: number;
   }>;
   addonsTotal: number;
+  /** Só num evento partilhado com saídas. */
+  pernas?: Perna[];
 };
 
 /** O preço da viatura num evento, venha do campo novo ou do antigo — como `precoPrivado` no site. */
@@ -61,6 +67,9 @@ export async function precoDaReserva(
     passengers: number;
     sharingMode?: "private" | "shared";
     extras: ExtraEscolhido[];
+    saidas?: { ida?: Id<"eventDepartures">; regresso?: Id<"eventDepartures"> };
+    /** Ao recalcular uma reserva já criada: não conta como ocupante das saídas. */
+    reservaId?: Id<"tourBookings">;
   },
 ): Promise<PrecoDaReserva> {
   if (!Number.isFinite(reserva.passengers) || reserva.passengers < 1 || reserva.passengers > 200) {
@@ -70,6 +79,7 @@ export async function precoDaReserva(
 
   let porViatura = false;
   let unitario: number;
+  let pernas: Perna[] | undefined;
   let alvoExtras: Parameters<typeof resolveAddons>[1];
 
   if (reserva.tourId) {
@@ -91,6 +101,13 @@ export async function precoDaReserva(
     const temEscolha = typeof evento.sharedPrice === "number" && evento.sharedPrice > 0;
     porViatura = temEscolha && reserva.sharingMode !== "shared";
     unitario = temEscolha && reserva.sharingMode === "shared" ? evento.sharedPrice! : precoPrivado(evento);
+    /* Partilhado num evento com saídas: o preço é o das pernas, e sem escolher
+       pelo menos uma não há reserva. */
+    if (temEscolha && reserva.sharingMode === "shared" && (await temSaidas(ctx, evento._id))) {
+      const r = await validarSaidas(ctx, evento._id, reserva.saidas ?? {}, pessoas, reserva.reservaId);
+      pernas = r.pernas;
+      unitario = r.precoPorPessoa;
+    }
     alvoExtras = { eventId: evento._id, disabled: evento.disabledUniversalAddons, trimmed: true };
   } else {
     // Sem produto não há preço que se possa confirmar.
@@ -127,7 +144,7 @@ export async function precoDaReserva(
   }
   const addonsTotal = selectedAddons.reduce((soma, a) => soma + a.subtotal, 0);
 
-  return { porViatura, pessoasNoPreco, basePrice, selectedAddons, addonsTotal };
+  return { porViatura, pessoasNoPreco, basePrice, selectedAddons, addonsTotal, ...(pernas && { pernas }) };
 }
 
 /**

@@ -6,6 +6,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { resolveReferral } from "./lib/referral";
 import { gorjeta, precoDaReserva } from "./lib/precoTours";
+import { emLisboa } from "./lib/saidas";
 
 function generateBookingNumber(): string {
   const t = Date.now().toString().slice(-10);
@@ -39,6 +40,8 @@ async function recalcular(ctx: MutationCtx, booking: Doc<"tourBookings">) {
       addonId: a.addonId,
       universalAddonId: a.universalAddonId,
     })),
+    saidas: { ida: booking.saidaIdaId, regresso: booking.saidaRegressoId },
+    reservaId: booking._id,
   });
   const tipAmount = gorjeta(preco.basePrice, booking.tipPercent ?? 0, booking.tipAmount ?? 0);
   return { ...preco, tipAmount, totalAmount: preco.basePrice + preco.addonsTotal + tipAmount };
@@ -69,6 +72,9 @@ export const init = mutation({
     }))),
     addonsTotal: v.optional(v.number()),
     referralSlug: v.optional(v.string()),
+    /* Evento partilhado com saídas (E3A): a ida, o regresso ou os dois. */
+    saidaIdaId: v.optional(v.id("eventDepartures")),
+    saidaRegressoId: v.optional(v.id("eventDepartures")),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -95,8 +101,13 @@ export const init = mutation({
         addonId: a.addonId,
         universalAddonId: a.universalAddonId,
       })),
+      saidas: { ida: args.saidaIdaId, regresso: args.saidaRegressoId },
     });
     const totalAmount = preco.basePrice + preco.addonsTotal;
+    /* Com saídas, o dia e a hora da reserva são os da primeira perna — é o
+       que os emails, a lista das Reservas e o webhook já sabem mostrar. */
+    const primeira = preco.pernas?.[0];
+    const quando = primeira ? emLisboa(primeira.partida) : null;
     const id = await ctx.db.insert("tourBookings", {
       bookingNumber,
       productType: args.productType,
@@ -105,10 +116,15 @@ export const init = mutation({
       tourTitle: args.tourTitle,
       tourSlug: args.tourSlug,
       passengers: args.passengers,
-      selectedDate: args.selectedDate,
-      selectedTime: args.selectedTime,
+      selectedDate: quando?.dia ?? args.selectedDate,
+      selectedTime: quando?.hora ?? args.selectedTime,
       basePrice: preco.basePrice,
       sharingMode: args.sharingMode ?? undefined,
+      ...(preco.pernas && {
+        saidaIdaId: preco.pernas.find((p) => p.sentido === "ida")?.saidaId,
+        saidaRegressoId: preco.pernas.find((p) => p.sentido === "regresso")?.saidaId,
+        pernas: preco.pernas,
+      }),
       selectedAddons: preco.selectedAddons.length ? preco.selectedAddons : undefined,
       addonsTotal: preco.addonsTotal > 0 ? preco.addonsTotal : undefined,
       partnershipId: ref.partnershipId,
@@ -232,6 +248,9 @@ export const fixarPreco = internalMutation({
       addonsTotal: preco.addonsTotal > 0 ? preco.addonsTotal : undefined,
       tipAmount: preco.tipAmount,
       totalAmount: preco.totalAmount,
+      /* A saída pode ter mudado de preço entretanto: a reserva leva o de agora,
+         que é o que se cobra. */
+      ...(preco.pernas && { pernas: preco.pernas }),
       updatedAt: Date.now(),
     });
     return preco.totalAmount;
@@ -376,6 +395,7 @@ export function buildOrderFromTourBooking(
     customerNif?: string | null;
     paymentMethod?: string | null;
     sharingMode?: "private" | "shared";
+    pernas?: Doc<"tourBookings">["pernas"];
     selectedAddons?: Array<{
       // Opcional: os add-ons dos upsells do checkout são embutidos na própria
       // experiência e não têm linha em `tourAddons`.
@@ -422,6 +442,7 @@ export function buildOrderFromTourBooking(
     customerPhone: booking.customerPhone,
     customerNif: booking.customerNif ?? undefined,
     ...(booking.sharingMode && { sharingMode: booking.sharingMode }),
+    ...(booking.pernas?.length && { pernas: booking.pernas }),
     ...(booking.selectedAddons?.length && { selectedAddons: booking.selectedAddons }),
     ...(booking.addonsTotal != null && booking.addonsTotal > 0 && { addonsTotal: booking.addonsTotal }),
     paymentMethod,

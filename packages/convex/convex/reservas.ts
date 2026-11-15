@@ -391,6 +391,13 @@ export const mudarEstado = mutation({
     const agora = Date.now();
     await ctx.db.patch(o._id, { status: a.para, updatedAt: agora });
 
+    /* Um evento partilhado com saídas (E3A): cancelar a reserva liberta os
+       lugares das saídas — contam-se pelas reservas do tour, não pelas orders.
+       Sem isto a saída ficava cheia com reservas canceladas. */
+    if (a.para === "cancelled" && o.pernas?.length && o.tourBookingId) {
+      await ctx.db.patch(o.tourBookingId, { status: "cancelled", updatedAt: agora });
+    }
+
     /* A outra perna só muda se estava igual: uma ida já concluída não se
        cancela por arrasto de um regresso. */
     let nota: string | undefined;
