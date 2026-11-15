@@ -1,3 +1,4 @@
+import { safeStorageDelete } from "./lib/storage"
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import { enfileirarLead } from "./lib/pipedriveFila"
@@ -150,6 +151,17 @@ export const remove = mutation({
   args: { id: v.id("partnerApplications") },
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
+    const a = await ctx.db.get(args.id)
+    if (!a) return
+    /* Os documentos vão com a candidatura (ver driverApplications.remove). */
+    const ficheiros = [
+      a.documentLicenseId,
+      a.documentAddressProofPrimaryId,
+      a.documentAddressProofSecondaryId,
+      a.documentLiabilityInsuranceId,
+      a.billingBankProofId,
+    ]
+    for (const id of ficheiros) if (id) await safeStorageDelete(ctx, id)
     await ctx.db.delete(args.id)
   },
 })

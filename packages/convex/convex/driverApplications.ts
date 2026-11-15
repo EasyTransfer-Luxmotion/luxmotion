@@ -1,3 +1,4 @@
+import { safeStorageDelete } from "./lib/storage"
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import { enfileirarLead } from "./lib/pipedriveFila"
@@ -177,6 +178,22 @@ export const remove = mutation({
   args: { id: v.id("driverApplications") },
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
+    const a = await ctx.db.get(args.id)
+    if (!a) return
+    /* Os documentos vão com a candidatura: são cartas de condução, seguros e
+       IBAN, carregados só para ela, e ficavam no storage depois de a linha
+       desaparecer. O ecrã novo usa candidaturas.remover, que faz o mesmo. */
+    const ficheiros = [
+      a.professionalPhotoId,
+      a.professionalLicenseId,
+      a.vehicleInsuranceId,
+      a.proofOfAddressId,
+      a.billingBankProofId,
+      a.introVideoId,
+      ...a.vehicleInteriorPhotoIds,
+      ...a.vehicleExteriorPhotoIds,
+    ]
+    for (const id of ficheiros) if (id) await safeStorageDelete(ctx, id)
     await ctx.db.delete(args.id)
   },
 })
