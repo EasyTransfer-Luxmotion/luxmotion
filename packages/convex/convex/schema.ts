@@ -433,6 +433,9 @@ export default defineSchema({
         v.literal("wedding-whitelabel"),
       ),
     ),
+    /* A versão para o editor do dashboard (parceiros.guardar): duas pessoas
+       com a mesma parceria aberta já não gravam uma por cima da outra. */
+    updatedAt: v.optional(v.number()),
   }).index("by_slug", ["slug"]),
 
   // Global site-wide settings (singleton keyed by "global"). The transfer booking

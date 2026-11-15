@@ -65,6 +65,7 @@ import type * as migracaoBunny from "../migracaoBunny.js";
 import type * as migracaoTextoBunny from "../migracaoTextoBunny.js";
 import type * as newsletterSubscriptions from "../newsletterSubscriptions.js";
 import type * as orders from "../orders.js";
+import type * as parceiros from "../parceiros.js";
 import type * as partnerApplications from "../partnerApplications.js";
 import type * as partnerLeads from "../partnerLeads.js";
 import type * as partnerships from "../partnerships.js";
@@ -159,6 +160,7 @@ declare const fullApi: ApiFromModules<{
   migracaoTextoBunny: typeof migracaoTextoBunny;
   newsletterSubscriptions: typeof newsletterSubscriptions;
   orders: typeof orders;
+  parceiros: typeof parceiros;
   partnerApplications: typeof partnerApplications;
   partnerLeads: typeof partnerLeads;
   partnerships: typeof partnerships;
