@@ -228,11 +228,15 @@ async function validar(ctx: QueryCtx, d: Dados, id?: Id<"blogs">): Promise<Recor
   else if (d.resumo.trim().length > 400) erros.resumo = "No máximo 400 caracteres.";
   if (palavras(d.conteudo) === 0) erros.conteudo = "O artigo não tem texto.";
   if (!(CATEGORIAS as readonly string[]).includes(d.categoria)) erros.categoria = "Escolha uma categoria.";
-  if (d.etiquetas.length > 8) erros.etiquetas = "No máximo 8 etiquetas.";
+  if (d.etiquetas.length > 12) erros.etiquetas = "No máximo 12 etiquetas.";
   else if (d.etiquetas.some((e) => e.trim().length > 40)) erros.etiquetas = "Cada etiqueta com 40 caracteres no máximo.";
   if (!d.autor.nome.trim()) erros.autor = "Escolha quem assina o artigo.";
-  if (d.seoTitulo.trim().length > 70) erros.seoTitulo = "No máximo 70 caracteres — o Google corta o resto.";
-  if (d.seoDescricao.trim().length > 180) erros.seoDescricao = "No máximo 180 caracteres.";
+  /* Limites largos: a geração automática escreve títulos para o Google com
+     até 95 caracteres (4 artigos e 30 traduções em produção), e recusá-los
+     impedia gravar o artigo por causa de um campo que ninguém mexeu. O
+     editor avisa a partir de onde o Google corta (60 e 160). */
+  if (d.seoTitulo.trim().length > 120) erros.seoTitulo = "No máximo 120 caracteres.";
+  if (d.seoDescricao.trim().length > 300) erros.seoDescricao = "No máximo 300 caracteres.";
   if (d.editorial.legenda.trim().length > 200) erros.editorialLegenda = "No máximo 200 caracteres.";
 
   const slug = d.slug.trim() || generateSlug(titulo);
@@ -372,8 +376,8 @@ export const guardarTraducao = mutation({
     if (!dados.titulo.trim()) erros.titulo = "Escreva o título.";
     if (!dados.resumo.trim()) erros.resumo = "Escreva o resumo.";
     if (palavras(dados.conteudo) === 0) erros.conteudo = "A tradução não tem texto.";
-    if (dados.seoTitulo.trim().length > 70) erros.seoTitulo = "No máximo 70 caracteres.";
-    if (dados.seoDescricao.trim().length > 180) erros.seoDescricao = "No máximo 180 caracteres.";
+    if (dados.seoTitulo.trim().length > 120) erros.seoTitulo = "No máximo 120 caracteres.";
+    if (dados.seoDescricao.trim().length > 300) erros.seoDescricao = "No máximo 300 caracteres.";
     if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
 
     const existente = await ctx.db
