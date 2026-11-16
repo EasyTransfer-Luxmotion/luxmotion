@@ -57,6 +57,7 @@ import type * as lib_pagination from "../lib/pagination.js";
 import type * as lib_pipedriveFila from "../lib/pipedriveFila.js";
 import type * as lib_pipedriveMapa from "../lib/pipedriveMapa.js";
 import type * as lib_precoTours from "../lib/precoTours.js";
+import type * as lib_precoTransfer from "../lib/precoTransfer.js";
 import type * as lib_pricing from "../lib/pricing.js";
 import type * as lib_referral from "../lib/referral.js";
 import type * as lib_saidas from "../lib/saidas.js";
@@ -160,6 +161,7 @@ declare const fullApi: ApiFromModules<{
   "lib/pipedriveFila": typeof lib_pipedriveFila;
   "lib/pipedriveMapa": typeof lib_pipedriveMapa;
   "lib/precoTours": typeof lib_precoTours;
+  "lib/precoTransfer": typeof lib_precoTransfer;
   "lib/pricing": typeof lib_pricing;
   "lib/referral": typeof lib_referral;
   "lib/saidas": typeof lib_saidas;

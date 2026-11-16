@@ -443,6 +443,10 @@ export default defineSchema({
     /* Carros da frota global que este parceiro não mostra no checkout (ver
        lib/frota.ts). Vazio: mostra-os todos. */
     veiculosEscondidos: v.optional(v.array(v.id("vehicles"))),
+    /* Ajuste ao preço da frota no checkout deste parceiro, em percentagem
+       (10 = mais 10%, -5 = menos 5%). Vazio: o preço do site. Aplica-se no
+       que se mostra e no que se cobra (lib/precoTransfer.ts). */
+    ajustePreco: v.optional(v.number()),
   }).index("by_slug", ["slug"]),
 
   // Global site-wide settings (singleton keyed by "global"). The transfer booking

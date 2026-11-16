@@ -1,4 +1,5 @@
-import { v } from "convex/values";
+import { minimoDoTransfer } from "./lib/precoTransfer";
+import { ConvexError, v } from "convex/values";
 import { isNightDeparture } from "./lib/pricing";
 import { mutation, query, action, internalMutation, internalQuery } from "./_generated/server";
 import { api, internal } from "./_generated/api";
@@ -573,6 +574,8 @@ export const startPayment = internalMutation({
         }),
       ),
     ),
+    /* Diferença pequena para o mínimo do servidor (ver startPaymentAction). */
+    avisoPreco: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Cash payments are automatically marked as paid
@@ -602,7 +605,7 @@ export const startPayment = internalMutation({
       discountAmount: args.discountAmount,
       additionalFees: args.additionalFees,
       nightTax: args.nightTax,
-      ...(pricingWarning ? { pricingWarning } : {}),
+      ...(pricingWarning || args.avisoPreco ? { pricingWarning: [pricingWarning, args.avisoPreco].filter(Boolean).join(" ") } : {}),
       airportServiceFee: args.airportServiceFee,
       cancellationFee: args.cancellationFee,
       refundFee: args.refundFee,
@@ -855,6 +858,47 @@ export const subscribeToOrderStatus = query({
   },
 });
 
+/* O mínimo a pagar por esta reserva (ida e, se houver, volta), calculado no
+   servidor — ver lib/precoTransfer.ts. */
+export const minimoAPagar = internalQuery({
+  args: { orderId: v.id("orders"), opcoes: v.array(v.object({ code: v.string() })) },
+  handler: async (ctx, { orderId, opcoes }) => {
+    const ida = await ctx.db.get(orderId);
+    if (!ida) throw new ConvexError("Esta reserva já não existe.");
+    const volta = ida.relatedOrderId ? await ctx.db.get(ida.relatedOrderId) : null;
+    return await minimoDoTransfer(ctx, ida, volta, opcoes);
+  },
+});
+
+/* Auditoria do mínimo: aplica lib/precoTransfer.ts às reservas de transfer
+   já pagas e conta as que ficaram abaixo (as que hoje seriam recusadas).
+   Interna; correr com `npx convex run orders:auditarMinimos`. Devolve só
+   números e números de reserva. */
+export const auditarMinimos = internalQuery({
+  args: { limite: v.optional(v.number()) },
+  handler: async (ctx, { limite }) => {
+    const pagas = (await ctx.db.query("orders").order("desc").take(limite ?? 400)).filter(
+      (o) => o.paymentStatus === "completed" && o.vehicleId && !o.tourBookingId && !o.transferOrderId,
+    );
+    let vistas = 0;
+    const abaixo: { numero: string; pago: number; minimo: number }[] = [];
+    for (const ida of pagas) {
+      const volta = ida.relatedOrderId ? await ctx.db.get(ida.relatedOrderId) : null;
+      /* A volta conta-se com a ida. */
+      if (volta && volta._creationTime < ida._creationTime) continue;
+      vistas++;
+      const pago = (ida.totalAmount ?? 0) + (volta?.totalAmount ?? 0);
+      try {
+        const m = await minimoDoTransfer(ctx, ida, volta, (ida.selectedCheckoutAddons ?? []).map((o) => ({ code: o.code })));
+        if (pago < m.minimo - 1) abaixo.push({ numero: ida.orderNumber ?? String(ida._id), pago, minimo: m.minimo });
+      } catch {
+        /* Carro apagado entretanto: não se sabe. */
+      }
+    }
+    return { vistas, abaixo: abaixo.length, exemplos: abaixo.slice(0, 15) };
+  },
+});
+
 export const startPaymentAction = action({
   args: {
     orderId: v.id("orders"),
@@ -936,6 +980,34 @@ export const startPaymentAction = action({
       }
     }
 
+    /* Antes de gravar ou cobrar: o total não pode ficar muito abaixo do que o
+       servidor calcula (lib/precoTransfer.ts). Acima do mínimo é gorjeta, que
+       é livre.
+
+       A folga é de 10%: medido nas reservas pagas de produção (16/11/2026),
+       as de Novembro batem certo (0 a 5 € acima, de gorjeta), mas antes das
+       correcções do checkout pagou-se até 20% menos por regras que já não
+       existem. Recusar por 2 € um cliente legítimo era pior do que o que se
+       evita; quem paga 1 € por um transfer fica de fora. Entre 1 € e 10%
+       abaixo, aceita-se e fica um aviso na reserva para a Operação ver. */
+    const calculado = await ctx.runQuery(internal.orders.minimoAPagar, {
+      orderId: args.orderId,
+      opcoes: (args.selectedCheckoutAddons ?? []).map((o) => ({ code: o.code })),
+    });
+    const avisoPreco =
+      totalAmount < calculado.minimo - 1
+        ? `Pago €${totalAmount.toFixed(2)}, abaixo dos €${calculado.minimo.toFixed(2)} que o servidor calcula para esta viagem.`
+        : undefined;
+    if (totalAmount < calculado.minimo * 0.9) {
+      console.error(
+        `[Pricing] Pagamento recusado: ${order.orderNumber ?? args.orderId} pediu €${totalAmount.toFixed(2)}, mínimo €${calculado.minimo.toFixed(2)}`,
+        calculado,
+      );
+      throw new ConvexError(
+        `O preço desta viagem é pelo menos €${calculado.minimo.toFixed(2)}, não €${totalAmount.toFixed(2)}. Recarregue a página e tente outra vez.`,
+      );
+    }
+
     // 3. Atualizar ordem de ida com os dados do pagamento
     const paymentUpdates: any = {
       orderId: args.orderId,
@@ -954,6 +1026,7 @@ export const startPaymentAction = action({
       email: args.email,
       driverNotes: args.driverNotes,
       selectedCheckoutAddons: args.selectedCheckoutAddons,
+      ...(avisoPreco && { avisoPreco }),
     };
 
     console.log("[Orders] startPaymentAction - Updating outbound order with:", {
