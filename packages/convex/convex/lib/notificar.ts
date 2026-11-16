@@ -117,7 +117,7 @@ export function construirReserva(
     tipo: "reserva",
     titulo: extra.dinheiro ? "Nova reserva · paga em dinheiro" : tour ? "Nova reserva · tour ou evento" : "Nova reserva paga",
     detalhe: [ida.orderNumber, nome, rota].filter(Boolean).join(" · "),
-    href: `/orders?reserva=${encodeURIComponent(ida.orderNumber ?? ida._id)}`,
+    href: `/orders/${encodeURIComponent(ida.orderNumber ?? ida._id)}`,
     valor: valor || undefined,
     /* O servidor aceitou um total abaixo do esperado (orders.startPaymentAction). */
     tom: ida.pricingWarning ? "aviso" : "normal",
