@@ -5,7 +5,7 @@ import { resolvePartnershipLandingTemplate } from "@/lib/partnership-landing-tem
 import { DynamicThemeProvider } from "@/components/dynamic-theme-provider"
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@workspace/convex/api";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { CaptureReferral } from "@/components/referral/capture-referral";
 import { decodeReferralSlug } from "@/lib/partnership-slug";
 
@@ -22,6 +22,10 @@ export default async function Page({
 
   if (!partnership || partnership.status === "inactive") {
     notFound();
+  }
+  /* Um endereço antigo da parceria (lib/parceriaPorSlug.ts no Convex). */
+  if (partnership.slug !== referral) {
+    permanentRedirect(`/${locale}/${encodeURIComponent(partnership.slug)}/checkout`)
   }
 
   /* O checkout segue o template da landing.

@@ -447,6 +447,8 @@ export default defineSchema({
        (10 = mais 10%, -5 = menos 5%). Vazio: o preço do site. Aplica-se no
        que se mostra e no que se cobra (lib/precoTransfer.ts). */
     ajustePreco: v.optional(v.number()),
+    /* Endereços que a parceria já teve, para o site reencaminhar (lib/parceriaPorSlug.ts). */
+    slugsAntigos: v.optional(v.array(v.string())),
   }).index("by_slug", ["slug"]),
 
   // Global site-wide settings (singleton keyed by "global"). The transfer booking

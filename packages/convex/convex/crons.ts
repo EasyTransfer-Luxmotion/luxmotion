@@ -36,4 +36,13 @@ crons.daily(
   {},
 );
 
+// As parcerias publicadas: o checkout tem carros e o endereço é válido.
+// 07:00 UTC, antes de a equipa começar. Manda email só se houver problemas.
+crons.daily(
+  "verificar parcerias",
+  { hourUTC: 7, minuteUTC: 0 },
+  internal.vigilancia.verificarParceiros,
+  {},
+);
+
 export default crons;

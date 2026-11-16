@@ -3,6 +3,7 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
 import { urlDaImagem } from "./lib/imagens";
+import { frotaVisivel } from "./lib/frota";
 
 /*
  * Parceiros no dashboard (E4): as parcerias (a página de marca branca em
@@ -138,10 +139,11 @@ export const lista = query({
   },
   handler: async (ctx, a) => {
     await exigirAdmin(ctx);
-    const [parcerias, reservas, pedidos] = await Promise.all([
+    const [parcerias, reservas, pedidos, activos] = await Promise.all([
       ctx.db.query("partnerships").collect(),
       lerReservas(ctx),
       lerPedidos(ctx),
+      ctx.db.query("vehicles").withIndex("by_status", (q) => q.eq("status", "active")).collect(),
     ]);
 
     const numeros = new Map<string, { reservas: number; faturacao: number; pedidos: number; ultima: number | null }>();
@@ -200,6 +202,13 @@ export const lista = query({
           faturacao: centimos(n?.faturacao ?? 0),
           pedidos: n?.pedidos ?? 0,
           ultima: n?.ultima ?? null,
+          /* Os mesmos avisos do email diário (vigilancia.ts): em 16/11/2026
+             todos os checkouts de parceiro estavam sem carros e só se via
+             a tentar reservar. */
+          avisos: [
+            ...(frotaVisivel(activos, p).length === 0 ? ["Checkout sem carros"] : []),
+            ...(SLUG_VALIDO.test(p.slug) ? [] : ["Endereço inválido"]),
+          ],
         };
       }),
     );
@@ -326,6 +335,8 @@ export const detalhe = query({
       seoTitulo: conteudo.seoTitle ?? "",
       seoDescricao: conteudo.seoDescription ?? "",
       veiculosEscondidos: (p.veiculosEscondidos ?? []) as string[],
+      ajustePreco: p.ajustePreco ?? 0,
+      slugsAntigos: p.slugsAntigos ?? [],
       /* A frota que o checkout do parceiro pode mostrar: a global (que se
          liga e desliga aqui) e os carros só deste parceiro (lib/frota.ts). */
       frota: await frotaParaOEditor(ctx, p._id),
@@ -443,6 +454,8 @@ export const guardar = mutation({
       cores: v.record(v.string(), v.string()),
       /* Opcional: um editor aberto antes da frota existir continua a gravar. */
       veiculosEscondidos: v.optional(v.array(v.id("vehicles"))),
+      /* Em %, sobre o preço por km e o mínimo de cada carro (lib/precoTransfer.ts). */
+      ajustePreco: v.optional(v.number()),
     }),
   },
   handler: async (ctx, { id, versao, dados }) => {
@@ -460,6 +473,9 @@ export const guardar = mutation({
     else if (slug !== p.slug) {
       const outra = await slugOcupado(ctx, slug, id);
       if (outra) erros.slug = `Já é o endereço de "${outra.name}".`;
+    }
+    if (dados.ajustePreco !== undefined && !(Number.isFinite(dados.ajustePreco) && dados.ajustePreco >= -50 && dados.ajustePreco <= 100)) {
+      erros.ajustePreco = "Entre −50% e +100%.";
     }
     if (dados.seoTitulo.trim().length > 70) erros.seoTitulo = "No máximo 70 caracteres — o Google corta o resto.";
     if (dados.seoDescricao.trim().length > 180) erros.seoDescricao = "No máximo 180 caracteres.";
@@ -506,6 +522,11 @@ export const guardar = mutation({
       logoId: dados.logo ?? undefined,
       heroImageId: dados.hero ?? undefined,
       ...(dados.veiculosEscondidos && { veiculosEscondidos: dados.veiculosEscondidos }),
+      ...(dados.ajustePreco !== undefined && { ajustePreco: Math.round(dados.ajustePreco * 10) / 10 }),
+      /* O endereço antigo fica a reencaminhar para o novo (lib/parceriaPorSlug.ts). */
+      ...(slug !== p.slug && {
+        slugsAntigos: [...new Set([...(p.slugsAntigos ?? []), p.slug])].filter((s) => s !== slug),
+      }),
       updatedAt,
     });
     return { versao: updatedAt };

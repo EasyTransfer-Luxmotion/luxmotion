@@ -54,6 +54,7 @@ import type * as lib_imagens from "../lib/imagens.js";
 import type * as lib_markdownToTiptap from "../lib/markdownToTiptap.js";
 import type * as lib_openai from "../lib/openai.js";
 import type * as lib_pagination from "../lib/pagination.js";
+import type * as lib_parceriaPorSlug from "../lib/parceriaPorSlug.js";
 import type * as lib_pipedriveFila from "../lib/pipedriveFila.js";
 import type * as lib_pipedriveMapa from "../lib/pipedriveMapa.js";
 import type * as lib_precoTours from "../lib/precoTours.js";
@@ -102,6 +103,7 @@ import type * as universalAddons from "../universalAddons.js";
 import type * as upsells from "../upsells.js";
 import type * as vehicles from "../vehicles.js";
 import type * as veiculos from "../veiculos.js";
+import type * as vigilancia from "../vigilancia.js";
 import type * as webhooks from "../webhooks.js";
 import type * as weddingQuoteSubmissions from "../weddingQuoteSubmissions.js";
 
@@ -158,6 +160,7 @@ declare const fullApi: ApiFromModules<{
   "lib/markdownToTiptap": typeof lib_markdownToTiptap;
   "lib/openai": typeof lib_openai;
   "lib/pagination": typeof lib_pagination;
+  "lib/parceriaPorSlug": typeof lib_parceriaPorSlug;
   "lib/pipedriveFila": typeof lib_pipedriveFila;
   "lib/pipedriveMapa": typeof lib_pipedriveMapa;
   "lib/precoTours": typeof lib_precoTours;
@@ -206,6 +209,7 @@ declare const fullApi: ApiFromModules<{
   upsells: typeof upsells;
   vehicles: typeof vehicles;
   veiculos: typeof veiculos;
+  vigilancia: typeof vigilancia;
   webhooks: typeof webhooks;
   weddingQuoteSubmissions: typeof weddingQuoteSubmissions;
 }>;

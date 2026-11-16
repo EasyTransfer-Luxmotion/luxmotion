@@ -2,7 +2,7 @@ import { setRequestLocale } from "next-intl/server"
 import { PartnershipLanding } from "@/components/partnerships/partnership-landing";
 import { fetchQuery } from "convex/nextjs";
 import { api } from "@workspace/convex/api";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { CaptureReferral } from "@/components/referral/capture-referral";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -26,6 +26,11 @@ export default async function ReferralLandingPage({
 
   if (!partnership || partnership.status === "inactive") {
     notFound();
+  }
+  /* Um endereço antigo da parceria: o "kiss&tell" passou a "kiss-tell" e os
+     links já impressos continuam a dar lá (lib/parceriaPorSlug.ts no Convex). */
+  if (partnership.slug !== referral) {
+    permanentRedirect(`/${locale}/${encodeURIComponent(partnership.slug)}`);
   }
 
   const seoTitle =
@@ -78,7 +83,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; referral: string }>;
 }): Promise<Metadata> {
-  const { locale, referral } = await params;
+  const { locale, referral: referralCodificado } = await params;
+  /* Codificado não encontrava o "kiss&tell": a página abria e o título caía no genérico. */
+  const referral = decodeReferralSlug(referralCodificado);
   setRequestLocale(locale);
   const partnership = await fetchQuery(api.partnerships.getBySlug, {
     slug: referral,

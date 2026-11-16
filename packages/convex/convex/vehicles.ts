@@ -1,4 +1,5 @@
 import { frotaVisivel } from "./lib/frota";
+import { parceriaPorSlug } from "./lib/parceriaPorSlug";
 import { factorDoParceiro } from "./lib/precoTransfer";
 import { v } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
@@ -79,10 +80,7 @@ export const listActive = query({
   args: { partnershipSlug: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const parceria = args.partnershipSlug
-      ? await ctx.db
-          .query("partnerships")
-          .withIndex("by_slug", (q) => q.eq("slug", args.partnershipSlug!))
-          .unique()
+      ? await parceriaPorSlug(ctx, args.partnershipSlug)
       : null;
 
     const vehicles = await ctx.db
@@ -126,10 +124,7 @@ export const listQuoted = query({
   },
   handler: async (ctx, args) => {
     const parceria = args.partnershipSlug
-      ? await ctx.db
-          .query("partnerships")
-          .withIndex("by_slug", (q) => q.eq("slug", args.partnershipSlug!))
-          .unique()
+      ? await parceriaPorSlug(ctx, args.partnershipSlug)
       : null;
 
     const all = await ctx.db

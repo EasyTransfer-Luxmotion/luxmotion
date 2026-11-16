@@ -1,5 +1,6 @@
 import { QueryCtx, MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
+import { parceriaPorSlug } from "./parceriaPorSlug";
 
 /**
  * Resolve an affiliate/partnership referral from a URL slug.
@@ -14,10 +15,9 @@ export async function resolveReferral(
   slug?: string | null,
 ): Promise<{ partnershipId?: Id<"partnerships">; partnershipName?: string }> {
   if (!slug) return {};
-  const p = await ctx.db
-    .query("partnerships")
-    .withIndex("by_slug", (q) => q.eq("slug", slug))
-    .first();
+  /* Também pelos endereços antigos: o cookie de atribuição de quem visitou
+     antes de a parceria mudar de endereço ainda tem o antigo. */
+  const p = await parceriaPorSlug(ctx, slug);
   if (!p) return {};
   return { partnershipId: p._id, partnershipName: p.name };
 }

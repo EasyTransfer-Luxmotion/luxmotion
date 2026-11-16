@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { parceriaPorSlug } from "./lib/parceriaPorSlug";
 import { mutation, query } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { urlDaImagem, vImagem } from "./lib/imagens";
@@ -59,10 +60,9 @@ export const listPaged = query({
 export const getBySlug = query({
   args: { slug: v.string() },
   handler: async (ctx, args) => {
-    const partnership = await ctx.db
-      .query("partnerships")
-      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-      .unique();
+    /* Por um endereço antigo devolve a parceria com o slug actual: o site
+       compara e reencaminha. */
+    const partnership = await parceriaPorSlug(ctx, args.slug);
     if (!partnership) return null;
     return {
       ...partnership,
