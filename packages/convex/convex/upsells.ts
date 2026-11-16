@@ -1,7 +1,7 @@
 import { legacyUpsellTranslations } from "./lib/upsellTranslations";
 import { v } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
 import { siteSettingsDefaults } from "./siteSettings";
@@ -195,20 +195,6 @@ export const listStopsPaged = query({
   },
 });
 
-export const getStop = query({
-  args: { id: v.id("upsellStops") },
-  handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
-    const row = await ctx.db.get(id);
-    if (!row) return null;
-    return {
-      ...row,
-      translations: row.translations ?? await legacyUpsellTranslations(ctx, row.title, "stops"),
-      imageUrl: row.imageId ? await urlDaImagem(ctx, row.imageId) : null,
-    };
-  },
-});
-
 const stopFields = {
   title: v.string(),
   translations: v.optional(catalogTranslationsValidator),
@@ -325,20 +311,6 @@ export const listExperiencesPaged = query({
   },
 });
 
-export const getExperience = query({
-  args: { id: v.id("upsellExperiences") },
-  handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
-    const row = await ctx.db.get(id);
-    if (!row) return null;
-    return {
-      ...row,
-      translations: row.translations ?? await legacyUpsellTranslations(ctx, row.title, "experiences"),
-      imageUrl: row.imageId ? await urlDaImagem(ctx, row.imageId) : null,
-    };
-  },
-});
-
 const experienceFields = {
   title: v.string(),
   translations: v.optional(catalogTranslationsValidator),
@@ -429,112 +401,3 @@ export const removeExperience = mutation({
    Correr do dashboard do Convex:
      npx convex run upsells:migrateFromTours '{"dryRun": true}'
 --------------------------------------------------------------------------- */
-
-export const migrateFromTours = internalMutation({
-  args: { dryRun: v.optional(v.boolean()) },
-  handler: async (ctx, { dryRun }) => {
-    const tours = await ctx.db.query("tours").collect();
-    const candidates = tours.filter(
-      (t) => t.category === "stops" || t.category === "experiences",
-    );
-
-    const [existingStops, existingExperiences] = await Promise.all([
-      ctx.db.query("upsellStops").collect(),
-      ctx.db.query("upsellExperiences").collect(),
-    ]);
-    // Reexecutar não pode duplicar: o título é a chave prática, já que as
-    // linhas novas não guardam de onde vieram.
-    const stopTitles = new Set(existingStops.map((r) => r.title));
-    const experienceTitles = new Set(existingExperiences.map((r) => r.title));
-
-    const created: string[] = [];
-    const skipped: string[] = [];
-    const needsAttention: string[] = [];
-    const now = Date.now();
-
-    for (const tour of candidates) {
-      const isStop = tour.category === "stops";
-      if (
-        isStop ? stopTitles.has(tour.title) : experienceTitles.has(tour.title)
-      ) {
-        skipped.push(`${tour.title} (já existe)`);
-        continue;
-      }
-
-      const location = tour.pickup
-        ? {
-            title: tour.pickup.title,
-            address: tour.pickup.address,
-            lat: tour.pickup.lat ?? tour.mapCenter?.lat,
-            lng: tour.pickup.lng ?? tour.mapCenter?.lng,
-            placeId: tour.pickup.placeId,
-          }
-        : undefined;
-
-      if (location?.lat == null || location?.lng == null) {
-        // Sem coordenadas o cross-match nunca o mostra — fica dito.
-        needsAttention.push(`${tour.title}: sem coordenadas`);
-      }
-
-      const translations = await legacyUpsellTranslations(ctx, tour.title, isStop ? "stops" : "experiences");
-      if (!dryRun) {
-        if (isStop) {
-          await ctx.db.insert("upsellStops", {
-            title: tour.title,
-            translations,
-            description: tour.subtitle,
-            imageId: tour.bannerImageId,
-            location,
-            // price15 não existe nos tours; fica por preencher no admin.
-            price30: tour.basePrice,
-            currency: tour.currency || "EUR",
-            tag: "none",
-            universal: false,
-            status: tour.status === "published" ? "published" : "draft",
-            order: created.length,
-            createdAt: now,
-            updatedAt: now,
-          });
-        } else {
-          const addons = await ctx.db
-            .query("tourAddons")
-            .withIndex("by_tour", (q) => q.eq("tourId", tour._id))
-            .collect();
-          await ctx.db.insert("upsellExperiences", {
-            title: tour.title,
-            translations,
-            description: tour.subtitle,
-            imageId: tour.bannerImageId,
-            location,
-            basePrice: tour.basePrice,
-            pricingModel: "perPerson",
-            currency: tour.currency || "EUR",
-            duration: tour.duration,
-            addons: addons.map((a) => ({
-              name: a.title,
-              price: a.price,
-              pricingType: a.pricingType,
-            })),
-            hasDateField: true,
-            hasSpecialRequest: false,
-            tag: "none",
-            universal: false,
-            status: tour.status === "published" ? "published" : "draft",
-            order: created.length,
-            createdAt: now,
-            updatedAt: now,
-          });
-        }
-      }
-      created.push(`${tour.category}: ${tour.title}`);
-    }
-
-    return {
-      dryRun: dryRun === true,
-      created,
-      skipped,
-      needsAttention,
-      note: "price15, tag e universal ficaram por preencher — revê-os em /admin/upsells. As linhas originais em `tours` não foram apagadas.",
-    };
-  },
-});

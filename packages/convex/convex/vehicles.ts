@@ -188,48 +188,6 @@ export const listQuoted = query({
   },
 });
 
-export const getById = query({
-  args: { id: v.id("vehicles") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const vehicle = await ctx.db.get(args.id);
-    if (!vehicle) return null;
-
-    return {
-      ...vehicle,
-      imageUrl: vehicle.imageId 
-        ? await urlDaImagem(ctx, vehicle.imageId) 
-        : null,
-    };
-  },
-});
-
-/**
- * Checkout upsell: given the vehicle the customer selected, return the premium
- * vehicle configured as its experience-upgrade (or null). Reverse lookup via the
- * `by_upgrade_from` index — the premium vehicle stores `upgradeFromVehicleId`.
- */
-export const getUpgradeFor = query({
-  args: { vehicleId: v.id("vehicles") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const upgrade = await ctx.db
-      .query("vehicles")
-      .withIndex("by_upgrade_from", (q) =>
-        q.eq("upgradeFromVehicleId", args.vehicleId),
-      )
-      .filter((q) => q.eq(q.field("status"), "active"))
-      .first();
-    if (!upgrade) return null;
-    return {
-      ...upgrade,
-      imageUrl: upgrade.imageId
-        ? await urlDaImagem(ctx, upgrade.imageId)
-        : null,
-    };
-  },
-});
-
 export const create = mutation({
   args: {
     name: v.string(),
@@ -309,13 +267,5 @@ export const remove = mutation({
     await exigirAdmin(ctx);
     // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.delete(args.id);
-  },
-});
-
-export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    return await ctx.storage.generateUploadUrl();
   },
 });

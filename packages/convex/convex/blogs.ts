@@ -251,40 +251,6 @@ export const getCategories = query({
   },
 });
 
-export const getTranslation = query({
-  args: {
-    blogId: v.id("blogs"),
-    locale: v.string()
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const translation = await ctx.db
-      .query("blogTranslations")
-      .withIndex("by_blog_locale", (q) =>
-        q.eq("blogId", args.blogId).eq("locale", args.locale)
-      )
-      .first();
-
-    return translation;
-  },
-});
-
-export const getAvailableLanguages = query({
-  args: { blogId: v.id("blogs") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const blog = await ctx.db.get(args.blogId);
-    if (!blog) return [];
-
-    const translations = await ctx.db
-      .query("blogTranslations")
-      .withIndex("by_blog", (q) => q.eq("blogId", args.blogId))
-      .collect();
-
-    return [blog.originalLanguage, ...translations.map((t) => t.locale)];
-  },
-});
-
 const argscriarBlog = {
     title: v.string(),
     excerpt: v.string(),
@@ -499,14 +465,6 @@ export const generateUploadUrl = mutation({
   },
 });
 
-export const getStorageUrl = query({
-  args: { storageId: vImagem },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    return await urlDaImagem(ctx, args.storageId);
-  },
-});
-
 export const getImageUrl = mutation({
   args: { storageId: vImagem },
   handler: async (ctx, args) => {
@@ -524,41 +482,6 @@ export const countFeatured = query({
       .withIndex("by_featured", (q) => q.eq("isFeatured", true))
       .collect();
     return featured.length;
-  },
-});
-
-export const listServices = query({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    const blogs = await ctx.db
-      .query("blogs")
-      .withIndex("by_service", (q) => q.eq("isService", true))
-      .collect();
-
-    const publishedServices = blogs
-      .filter((b) => b.status === "published")
-      .slice(0, 3);
-
-    const blogsWithUrls = await Promise.all(
-      publishedServices.map(async (blog) => {
-        const heroImageUrl = blog.heroImageId
-          ? await urlDaImagem(ctx, blog.heroImageId)
-          : null;
-
-        const authorAvatarUrl = blog.authorAvatarId
-          ? await urlDaImagem(ctx, blog.authorAvatarId)
-          : null;
-
-        return {
-          ...blog,
-          heroImageUrl,
-          authorAvatarUrl,
-        };
-      })
-    );
-
-    return blogsWithUrls;
   },
 });
 

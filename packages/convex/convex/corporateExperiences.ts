@@ -60,16 +60,6 @@ function validateLanguage(locale: string) {
   }
 }
 
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    const all = await ctx.db.query("corporateExperiences").collect()
-    const withUrls = await Promise.all(all.map((e) => resolveUrls(ctx, e)))
-    return withUrls.sort((a, b) => a.sortOrder - b.sortOrder || b.createdAt - a.createdAt)
-  },
-})
-
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
@@ -284,13 +274,5 @@ export const removeTranslation = mutation({
     if (!translation) throw new Error("Translation not found")
     await ctx.db.delete(translation._id)
     return translation._id
-  },
-})
-
-export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    return await ctx.storage.generateUploadUrl()
   },
 })

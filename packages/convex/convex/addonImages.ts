@@ -260,12 +260,3 @@ export const usedBy = query({
     );
   },
 });
-
-/** URL de upload próprio, para a biblioteca não depender de `blogs`. */
-export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    return await ctx.storage.generateUploadUrl();
-  },
-});

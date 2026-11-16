@@ -163,17 +163,6 @@ export const setStatus = mutation({
   },
 })
 
-export const setInternalNotes = mutation({
-  args: {
-    id: v.id("driverApplications"),
-    notes: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    await ctx.db.patch(args.id, { internalNotes: args.notes })
-  },
-})
-
 export const remove = mutation({
   args: { id: v.id("driverApplications") },
   handler: async (ctx, args) => {

@@ -52,14 +52,6 @@ export const list = query({
   },
 })
 
-export const get = query({
-  args: { id: v.id("contactQuotes") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    return await ctx.db.get(args.id)
-  },
-})
-
 export const setStatus = mutation({
   args: { id: v.id("contactQuotes"), status: statusValidator },
   handler: async (ctx, args) => {

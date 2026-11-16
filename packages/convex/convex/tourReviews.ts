@@ -2,47 +2,6 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { exigirAdmin } from "./lib/admin";
 
-export const listByTour = query({
-  args: { tourId: v.id("tours") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const reviews = await ctx.db
-      .query("tourReviews")
-      .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
-      .collect();
-
-    return reviews.sort((a, b) => b.createdAt - a.createdAt);
-  },
-});
-
-export const listByEvent = query({
-  args: { eventId: v.id("events") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const reviews = await ctx.db
-      .query("tourReviews")
-      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
-      .collect();
-
-    return reviews.sort((a, b) => b.createdAt - a.createdAt);
-  },
-});
-
-export const listApprovedByTour = query({
-  args: { tourId: v.id("tours") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const reviews = await ctx.db
-      .query("tourReviews")
-      .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
-      .collect();
-
-    return reviews
-      .filter((r) => r.isApproved)
-      .sort((a, b) => b.createdAt - a.createdAt);
-  },
-});
-
 export const listApprovedByEvent = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
@@ -166,60 +125,6 @@ export const listFeatured = query({
   },
 });
 
-export const getById = query({
-  args: { id: v.id("tourReviews") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    return await ctx.db.get(args.id);
-  },
-});
-
-export const create = mutation({
-  args: {
-    tourId: v.optional(v.id("tours")),
-    eventId: v.optional(v.id("events")),
-    author: v.string(),
-    avatar: v.optional(v.string()),
-    rating: v.number(),
-    text: v.string(),
-    source: v.optional(v.string()),
-    nationality: v.optional(v.string()),
-    isApproved: v.boolean(),
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    if (!args.tourId && !args.eventId) {
-      throw new Error("Either tourId or eventId must be provided");
-    }
-
-    if (args.tourId) {
-      const tour = await ctx.db.get(args.tourId);
-      if (!tour) throw new Error("Tour not found");
-    }
-
-    if (args.eventId) {
-      const event = await ctx.db.get(args.eventId);
-      if (!event) throw new Error("Event not found");
-    }
-
-    const reviewId = await ctx.db.insert("tourReviews", {
-      ...args,
-      createdAt: Date.now(),
-    });
-
-    if (args.isApproved) {
-      if (args.tourId) {
-        await updateTourRating(ctx, args.tourId);
-      }
-      if (args.eventId) {
-        await updateEventRating(ctx, args.eventId);
-      }
-    }
-
-    return reviewId;
-  },
-});
-
 export const submit = mutation({
   args: {
     tourId: v.optional(v.id("tours")),
@@ -285,30 +190,6 @@ export const approve = mutation({
 });
 
 export const reject = mutation({
-  args: { id: v.id("tourReviews") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const review = await ctx.db.get(args.id);
-    if (!review) throw new Error("Review not found");
-
-    const wasApproved = review.isApproved;
-
-    await ctx.db.delete(args.id);
-
-    if (wasApproved) {
-      if (review.tourId) {
-        await updateTourRating(ctx, review.tourId);
-      }
-      if (review.eventId) {
-        await updateEventRating(ctx, review.eventId);
-      }
-    }
-
-    return args.id;
-  },
-});
-
-export const remove = mutation({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);

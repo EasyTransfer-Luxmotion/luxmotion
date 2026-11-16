@@ -189,14 +189,6 @@ export const setDisabled = mutation({
   },
 });
 
-export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    return await ctx.storage.generateUploadUrl();
-  },
-});
-
 /* ---------------------------------------------------------------------------
    Conversão dos extras repetidos.
 

@@ -15,14 +15,6 @@ export const listByTour = query({
   },
 });
 
-export const getById = query({
-  args: { id: v.id("tourSchedules") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    return await ctx.db.get(args.id);
-  },
-});
-
 export const getAvailability = query({
   args: {
     tourId: v.id("tours"),
@@ -135,33 +127,6 @@ export const getAvailability = query({
   },
 });
 
-export const getExceptions = query({
-  args: {
-    tourId: v.id("tours"),
-    startDate: v.optional(v.number()),
-    endDate: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const exceptions = await ctx.db
-      .query("tourScheduleExceptions")
-      .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
-      .collect();
-
-    let filtered = exceptions;
-
-    if (args.startDate) {
-      filtered = filtered.filter((e) => e.date >= args.startDate!);
-    }
-
-    if (args.endDate) {
-      filtered = filtered.filter((e) => e.date <= args.endDate!);
-    }
-
-    return filtered.sort((a, b) => a.date - b.date);
-  },
-});
-
 export const create = mutation({
   args: {
     tourId: v.id("tours"),
@@ -245,121 +210,5 @@ export const remove = mutation({
 
     await ctx.db.delete(args.id);
     return args.id;
-  },
-});
-
-export const toggleActive = mutation({
-  args: { id: v.id("tourSchedules") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const schedule = await ctx.db.get(args.id);
-    if (!schedule) throw new Error("Schedule not found");
-
-    await ctx.db.patch(args.id, {
-      isActive: !schedule.isActive,
-      updatedAt: Date.now(),
-    });
-
-    return !schedule.isActive;
-  },
-});
-
-export const addException = mutation({
-  args: {
-    tourId: v.id("tours"),
-    scheduleId: v.optional(v.id("tourSchedules")),
-    date: v.number(),
-    type: v.union(
-      v.literal("cancelled"),
-      v.literal("rescheduled"),
-      v.literal("special")
-    ),
-    newTimeSlot: v.optional(
-      v.object({
-        startTime: v.string(),
-        endTime: v.optional(v.string()),
-      })
-    ),
-    reason: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const tour = await ctx.db.get(args.tourId);
-    if (!tour) throw new Error("Tour not found");
-
-    if (args.scheduleId) {
-      const schedule = await ctx.db.get(args.scheduleId);
-      if (!schedule) throw new Error("Schedule not found");
-    }
-
-    const exceptionId = await ctx.db.insert("tourScheduleExceptions", {
-      ...args,
-      createdAt: Date.now(),
-    });
-
-    return exceptionId;
-  },
-});
-
-export const removeException = mutation({
-  args: { id: v.id("tourScheduleExceptions") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const exception = await ctx.db.get(args.id);
-    if (!exception) throw new Error("Exception not found");
-
-    await ctx.db.delete(args.id);
-    return args.id;
-  },
-});
-
-export const cancelTourDate = mutation({
-  args: {
-    tourId: v.id("tours"),
-    date: v.number(),
-    reason: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const tour = await ctx.db.get(args.tourId);
-    if (!tour) throw new Error("Tour not found");
-
-    const exceptionId = await ctx.db.insert("tourScheduleExceptions", {
-      tourId: args.tourId,
-      date: args.date,
-      type: "cancelled",
-      reason: args.reason,
-      createdAt: Date.now(),
-    });
-
-    return exceptionId;
-  },
-});
-
-export const rescheduleTourDate = mutation({
-  args: {
-    tourId: v.id("tours"),
-    date: v.number(),
-    newTimeSlot: v.object({
-      startTime: v.string(),
-      endTime: v.optional(v.string()),
-    }),
-    reason: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const tour = await ctx.db.get(args.tourId);
-    if (!tour) throw new Error("Tour not found");
-
-    const exceptionId = await ctx.db.insert("tourScheduleExceptions", {
-      tourId: args.tourId,
-      date: args.date,
-      type: "rescheduled",
-      newTimeSlot: args.newTimeSlot,
-      reason: args.reason,
-      createdAt: Date.now(),
-    });
-
-    return exceptionId;
   },
 });

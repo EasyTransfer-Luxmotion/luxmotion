@@ -37,18 +37,6 @@ export const submit = mutation({
   },
 })
 
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    const rows = await ctx.db
-      .query("partnerLeads")
-      .withIndex("by_created")
-      .collect()
-    return rows.reverse()
-  },
-})
-
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
@@ -76,14 +64,6 @@ export const listPaged = query({
     })
 
     return paginate(rows, a.page, a.pageSize)
-  },
-})
-
-export const get = query({
-  args: { id: v.id("partnerLeads") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    return await ctx.db.get(args.id)
   },
 })
 

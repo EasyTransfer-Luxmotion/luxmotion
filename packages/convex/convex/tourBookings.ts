@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, action, internalMutation, internalAction, internalQuery } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { resolveReferral } from "./lib/referral";
 import { gorjeta, precoDaReserva } from "./lib/precoTours";
@@ -620,25 +620,6 @@ export const startPaymentAction = action({
 
 /* checkPaymentStatus removido na migração para Stripe — sem polling de MB Way; o estado é
    confirmado pelo webhook do Stripe (que chama completeTourBookingPayment). */
-
-export const setPaymentFailed = internalMutation({
-  args: { bookingNumber: v.string() },
-  handler: async (ctx, args) => {
-    const booking = await ctx.db
-      .query("tourBookings")
-      .withIndex("by_booking_number", (q) => q.eq("bookingNumber", args.bookingNumber))
-      .unique();
-    if (!booking) return;
-    await ctx.db.patch(booking._id, {
-      paymentStatus: "failed",
-      status: "pending",
-      updatedAt: Date.now(),
-    });
-    ctx.scheduler.runAfter(0, internal.webhooks.sendLeadPayloadFromTourBooking, {
-      bookingNumber: args.bookingNumber,
-    });
-  },
-});
 
 export const updatePaymentStatus = internalMutation({
   args: {

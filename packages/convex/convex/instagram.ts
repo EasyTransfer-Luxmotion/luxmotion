@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internalAction, internalMutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { exigirAdmin } from "./lib/admin";
 
 /**
  * O feed do Instagram do site.
@@ -64,34 +63,6 @@ export const getInstagramFeed = query({
     } catch {
       return null;
     }
-  },
-});
-
-/**
- * Estado da sincronização, para o admin. É aqui que se vê um token expirado
- * antes de alguém reparar que as fotos são sempre as mesmas.
- */
-export const getInstagramStatus = query({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    const doc = await ctx.db.query("instagramCache").first();
-    if (!doc) {
-      return {
-        configured: false,
-        postCount: 0,
-        fetchedAt: null,
-        lastError: null,
-        lastErrorAt: null,
-      };
-    }
-    return {
-      configured: true,
-      postCount: doc.posts.length,
-      fetchedAt: doc.fetchedAt,
-      lastError: doc.lastError ?? null,
-      lastErrorAt: doc.lastErrorAt ?? null,
-    };
   },
 });
 

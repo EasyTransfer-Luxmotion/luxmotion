@@ -55,22 +55,6 @@ export const listByEvent = query({
   },
 });
 
-export const getTranslation = query({
-  args: {
-    addonId: v.id("tourAddons"),
-    locale: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    return await ctx.db
-      .query("tourAddonTranslations")
-      .withIndex("by_addon_locale", (q) =>
-        q.eq("addonId", args.addonId).eq("locale", args.locale)
-      )
-      .first();
-  },
-});
-
 export const create = mutation({
   args: {
     tourId: v.optional(v.id("tours")),

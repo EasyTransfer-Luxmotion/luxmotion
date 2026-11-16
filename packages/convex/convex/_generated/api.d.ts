@@ -85,7 +85,6 @@ import type * as recompressao from "../recompressao.js";
 import type * as reservas from "../reservas.js";
 import type * as saidas from "../saidas.js";
 import type * as schoolQuoteSubmissions from "../schoolQuoteSubmissions.js";
-import type * as seedReviews from "../seedReviews.js";
 import type * as siteSettings from "../siteSettings.js";
 import type * as stripe from "../stripe.js";
 import type * as teamMembers from "../teamMembers.js";
@@ -188,7 +187,6 @@ declare const fullApi: ApiFromModules<{
   reservas: typeof reservas;
   saidas: typeof saidas;
   schoolQuoteSubmissions: typeof schoolQuoteSubmissions;
-  seedReviews: typeof seedReviews;
   siteSettings: typeof siteSettings;
   stripe: typeof stripe;
   teamMembers: typeof teamMembers;

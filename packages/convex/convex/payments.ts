@@ -1,9 +1,8 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, action } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { getDepartureArrivalFromBooking, buildOrderFromTourBooking } from "./tourBookings";
-import { exigirAdmin } from "./lib/admin";
 
 export const updatePaymentStatus = internalMutation({
   args: {
@@ -258,40 +257,6 @@ export const updatePaymentStatus = internalMutation({
       // Webhook é chamado diretamente pelo caller (HTTP/action), nunca agendado
       return { success: true, orderId: order._id as Id<"orders"> };
     }
-
-    return { success: true };
-  },
-});
-
-/**
- * Mutation para testar pagamento bem-sucedido (desenvolvimento)
- * Pode ser chamada diretamente para simular um pagamento
- */
-export const testPaymentSuccess = mutation({
-  args: {
-    orderId: v.id("orders"),
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const order = await ctx.db.get(args.orderId);
-    if (!order) {
-      throw new Error("Order not found");
-    }
-
-    await ctx.db.patch(args.orderId, {
-      paymentStatus: "completed",
-      status: "paid",
-      updatedAt: Date.now(),
-    });
-
-    // Criar transação
-    await ctx.db.insert("transactions", {
-      amount: order.totalAmount || 0,
-      bookingId: args.orderId,
-      paymentMethod: order.paymentMethod || "cash",
-      status: "completed",
-      timestamp: Date.now(),
-    });
 
     return { success: true };
   },

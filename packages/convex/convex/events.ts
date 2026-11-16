@@ -431,22 +431,6 @@ export const listNearCoordinates = query({
   },
 });
 
-export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    return await ctx.storage.generateUploadUrl();
-  },
-});
-
-export const getStorageUrl = query({
-  args: { storageId: vImagem },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    return await urlDaImagem(ctx, args.storageId);
-  },
-});
-
 export const create = mutation({
   args: {
     title: v.string(),
@@ -837,32 +821,6 @@ export const removeTranslation = mutation({
   },
 });
 
-export const updateRating = mutation({
-  args: { eventId: v.id("events") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const reviews = await ctx.db
-      .query("tourReviews")
-      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
-      .collect();
-
-    const approvedReviews = reviews.filter((r) => r.isApproved);
-    const reviewCount = approvedReviews.length;
-    const rating =
-      reviewCount > 0
-        ? approvedReviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
-        : 0;
-
-    await ctx.db.patch(args.eventId, {
-      rating: Math.round(rating * 10) / 10,
-      reviewCount,
-      updatedAt: Date.now(),
-    });
-
-    return { rating, reviewCount };
-  },
-});
-
 /* ---------------------------------------------------------------------------
    Migração dos preços.
 
@@ -894,42 +852,5 @@ export const backfillPrivatePrice = mutation({
     }
 
     return { total: eventos.length, copiados, semOrigem };
-  },
-});
-
-/**
- * Passo 2, só depois de o deploy seguinte tirar os campos do schema: limpa
- * `basePrice` e `originalPrice` dos documentos.
- *
- * Recusa-se a correr enquanto houver um evento sem `privatePrice` — apagar a
- * origem antes de a cópia estar feita deixava o evento sem preço nenhum.
- */
-export const dropLegacyPrices = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    const eventos = await ctx.db.query("events").collect();
-
-    const porCopiar = eventos.filter(
-      (e) => e.privatePrice === undefined && e.basePrice !== undefined,
-    );
-    if (porCopiar.length > 0) {
-      throw new Error(
-        `Há ${porCopiar.length} eventos sem privatePrice. Corre primeiro o backfill.`,
-      );
-    }
-
-    let limpos = 0;
-    for (const e of eventos) {
-      if (e.basePrice === undefined && e.originalPrice === undefined) continue;
-      await ctx.db.patch(e._id, {
-        basePrice: undefined,
-        originalPrice: undefined,
-        updatedAt: Date.now(),
-      });
-      limpos++;
-    }
-
-    return { limpos };
   },
 });

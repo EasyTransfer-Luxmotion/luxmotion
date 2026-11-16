@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { withDisplayedReviewStats } from "./lib/displayedReviewStats";
 import { resolveAddons } from "./lib/addons";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { generateSlug } from "./lib/utils";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
@@ -468,25 +468,6 @@ export const getBySlug = query({
   },
 });
 
-// One-off migration — run once via `npx convex run tours:migrateOriginalLanguageToPt`.
-// This site is PT-first, but tours were historically saved with originalLanguage "en"
-// (old admin-form default). That made the EN storefront short-circuit to the PT base
-// text instead of looking up a translation. Flip existing "en" tours to "pt".
-export const migrateOriginalLanguageToPt = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const allTours = await ctx.db.query("tours").collect();
-    let updated = 0;
-    for (const tour of allTours) {
-      if (tour.originalLanguage === "en") {
-        await ctx.db.patch(tour._id, { originalLanguage: "pt" });
-        updated++;
-      }
-    }
-    return { updated, total: allTours.length };
-  },
-});
-
 export const getById = query({
   args: { id: v.id("tours") },
   handler: async (ctx, args) => {
@@ -663,38 +644,6 @@ export const getTranslation = query({
       .first();
 
     return translation;
-  },
-});
-
-export const getAvailableLanguages = query({
-  args: { tourId: v.id("tours") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const tour = await ctx.db.get(args.tourId);
-    if (!tour) return [];
-
-    const translations = await ctx.db
-      .query("tourTranslations")
-      .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
-      .collect();
-
-    return [tour.originalLanguage, ...translations.map((t) => t.locale)];
-  },
-});
-
-export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    return await ctx.storage.generateUploadUrl();
-  },
-});
-
-export const getStorageUrl = query({
-  args: { storageId: vImagem },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    return await urlDaImagem(ctx, args.storageId);
   },
 });
 
@@ -1080,40 +1029,6 @@ export const remove = mutation({
   },
 });
 
-export const publish = mutation({
-  args: { id: v.id("tours") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const tour = await ctx.db.get(args.id);
-    if (!tour) throw new Error("Tour not found");
-
-    const now = Date.now();
-    await ctx.db.patch(args.id, {
-      status: "published",
-      publishedAt: tour.publishedAt ?? now,
-      updatedAt: now,
-    });
-
-    return args.id;
-  },
-});
-
-export const unpublish = mutation({
-  args: { id: v.id("tours") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const tour = await ctx.db.get(args.id);
-    if (!tour) throw new Error("Tour not found");
-
-    await ctx.db.patch(args.id, {
-      status: "draft",
-      updatedAt: Date.now(),
-    });
-
-    return args.id;
-  },
-});
-
 export const countFeatured = query({
   args: {},
   handler: async (ctx) => {
@@ -1253,31 +1168,5 @@ export const removeTranslation = mutation({
 
     await ctx.db.delete(translation._id);
     return translation._id;
-  },
-});
-
-export const updateRating = mutation({
-  args: { tourId: v.id("tours") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    const reviews = await ctx.db
-      .query("tourReviews")
-      .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
-      .collect();
-
-    const approvedReviews = reviews.filter((r) => r.isApproved);
-    const reviewCount = approvedReviews.length;
-    const rating =
-      reviewCount > 0
-        ? approvedReviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount
-        : 0;
-
-    await ctx.db.patch(args.tourId, {
-      rating: Math.round(rating * 10) / 10,
-      reviewCount,
-      updatedAt: Date.now(),
-    });
-
-    return { rating, reviewCount };
   },
 });

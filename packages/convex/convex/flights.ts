@@ -1,6 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, action } from "./_generated/server";
-import { exigirAdmin } from "./lib/admin";
+import { query, action } from "./_generated/server";
 
 // Cache para o token OAuth (em produção, considere usar uma tabela no Convex)
 interface TokenCache {
@@ -404,51 +403,6 @@ function buildFlightLookupResponse(args: {
     }),
   };
 }
-
-/**
- * Query para buscar informações de chegada de um voo
- */
-export const lookupFlight = query({
-  args: {
-    flightNumber: v.string(),
-    departureDate: v.string(), // formato: yyyy-MM-dd
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
-    try {
-      const depDate = normalizeDepartureDateInput(args.departureDate);
-
-      // Parse do número de voo
-      const parsed = parseFlightNumber(args.flightNumber);
-
-      // Obter token OAuth
-      const token = await getAmadeusToken();
-      const bearer = `Bearer ${token}`;
-
-      // Converter para IATA se necessário
-      const iataCarrier = await toIataIfNeeded(bearer, parsed.carrier);
-
-      // Buscar informações do voo
-      const flightData = await getFlightInfo(bearer, iataCarrier, parsed.number, depDate);
-
-      const data = flightData.data || [];
-      if (data.length === 0) {
-        throw new Error("Flight not found");
-      }
-
-      const flight = data[0];
-      const airlineName = await fetchAirlineName(bearer, iataCarrier);
-      return buildFlightLookupResponse({
-        carrierCode: iataCarrier,
-        normalizedFlightNumber: `${iataCarrier}${parsed.number}`,
-        airlineName,
-        flight,
-      });
-    } catch (error: any) {
-      throw new Error(error.message || "Failed to lookup flight");
-    }
-  },
-});
 
 /**
  * Query para buscar nome da companhia aérea

@@ -4,25 +4,6 @@ import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
 
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    const members = await ctx.db.query("teamMembers").collect();
-
-    const withUrls = await Promise.all(
-      members.map(async (member) => {
-        const imageUrl = member.imageId
-          ? await urlDaImagem(ctx, member.imageId)
-          : null;
-        return { ...member, imageUrl };
-      })
-    );
-
-    return withUrls.sort((a, b) => a.order - b.order);
-  },
-});
-
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
@@ -133,13 +114,5 @@ export const remove = mutation({
 
     await ctx.db.delete(args.id);
     return args.id;
-  },
-});
-
-export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx);
-    return await ctx.storage.generateUploadUrl();
   },
 });
