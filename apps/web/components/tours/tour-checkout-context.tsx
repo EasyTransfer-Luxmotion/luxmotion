@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react"
 import { clearTourCart, saveTourCart } from "@/lib/tour-cart"
+import type { EscolhaDeSaidas } from "@/components/events/escolha-saidas"
 
 export interface TourCheckoutPickup {
   title: string
@@ -33,6 +34,9 @@ export interface TourCheckoutTour {
   pickup?: TourCheckoutPickup
   /** For events, use meetingPoint (same shape as pickup) */
   meetingPoint?: TourCheckoutPickup
+  /** Evento partilhado com saídas (E3A): a ida, o regresso ou os dois. `price`
+   *  já é a soma das duas por pessoa. */
+  saidas?: EscolhaDeSaidas
 }
 
 export interface TourCheckoutBookingData {

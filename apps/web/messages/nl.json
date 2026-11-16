@@ -1382,6 +1382,19 @@
       "ctaPrivate": "Privétransfer boeken",
       "fineShared": "Executive voertuig afgestemd op het aantal verkochte plaatsen. Volledige terugbetaling als het minimum niet wordt gehaald.",
       "finePrivate": "Basisprijs per voertuig. Andere categorieën en ophaalpunten worden vóór de bevestiging berekend."
+    },
+    "departures": {
+      "title": "Rit",
+      "outbound": "Heenreis",
+      "return": "Terugreis",
+      "noOutbound": "Geen heenreis",
+      "noReturn": "Geen terugreis",
+      "pickOne": "Kies de heenreis, de terugreis of beide.",
+      "seatsLeft": "{count, plural, one {# plaats} other {# plaatsen}}",
+      "soldOut": "Uitverkocht",
+      "afterReturn": "Na de terugreis",
+      "beforeOutbound": "Voor de heenreis",
+      "none": "Er zijn momenteel geen ritten te koop."
     }
   },
   "blogsHero": {

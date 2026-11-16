@@ -4,7 +4,10 @@ import { Suspense, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Calendar, Clock, MapPin, Users } from "lucide-react"
+import { useQuery } from "convex/react"
+import { api } from "@workspace/convex/api"
 import type { Id } from "@workspace/convex/dataModel"
+import type { EscolhaDeSaidas } from "./escolha-saidas"
 import { TipTapRenderer } from "@/components/shared/tiptap-renderer"
 import { TourBookingCard } from "@/components/tours/tour-booking-card"
 import { useTourCheckout } from "@/components/tours/tour-checkout-context"
@@ -173,6 +176,9 @@ export function EventDetailsContent({ event }: EventDetailsContentProps) {
   const t = useTranslations("eventDetails")
   const locale = useLocale()
   const { openCheckout } = useTourCheckout()
+  /* As saídas partilhadas (E3A), ao vivo: os lugares livres mudam com as
+     reservas dos outros. Enquanto não chegam, o cartão fica como sempre. */
+  const saidas = useQuery(api.saidas.doEvento, event._id ? { eventId: event._id as Id<"events"> } : "skip")
   /* O auto-abrir do checkout lê os parâmetros do endereço, e isso impede a
      página de ser pré-gerada. Isolado aqui dentro, só esta parte espera pelo
      cliente — o conteúdo do event continua a sair no HTML. */
@@ -188,6 +194,7 @@ export function EventDetailsContent({ event }: EventDetailsContentProps) {
     sharingMode?: "private" | "shared"
     unitPrice?: number
     perVehicle?: boolean
+    saidas?: EscolhaDeSaidas
     selectedAddons?: Array<{
       addonId?: string
       universalAddonId?: string
@@ -211,6 +218,7 @@ export function EventDetailsContent({ event }: EventDetailsContentProps) {
         price: data.unitPrice ?? event.privatePrice,
         sharingMode: data.sharingMode,
         perVehicle: data.perVehicle,
+        ...(data.saidas && { saidas: data.saidas }),
         vehicleSeats: event.vehicle?.passengers,
         maxPassengers: event.maxPassengers,
         currency: event.currency ?? "€",
@@ -498,6 +506,7 @@ export function EventDetailsContent({ event }: EventDetailsContentProps) {
                   minPassengers={event.minPassengers}
                   maxPassengers={event.maxPassengers}
                   addons={event.addons}
+                  saidas={saidas}
                   onBook={handleBook}
                 />
               </div>
@@ -521,6 +530,7 @@ export function EventDetailsContent({ event }: EventDetailsContentProps) {
           minPassengers={event.minPassengers}
           maxPassengers={event.maxPassengers}
           addons={event.addons}
+          saidas={saidas}
           onBook={handleBook}
         />
       </div>

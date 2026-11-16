@@ -1382,6 +1382,19 @@
       "ctaPrivate": "Reservar traslado privado",
       "fineShared": "Vehículo ejecutivo adaptado al número de plazas vendidas. Reembolso íntegro si no se alcanza la salida mínima.",
       "finePrivate": "Precio base por vehículo. Otras categorías y orígenes se calculan antes de la confirmación."
+    },
+    "departures": {
+      "title": "Viaje",
+      "outbound": "Ida",
+      "return": "Vuelta",
+      "noOutbound": "Sin ida",
+      "noReturn": "Sin vuelta",
+      "pickOne": "Elige la ida, la vuelta o ambas.",
+      "seatsLeft": "{count, plural, one {# plaza} other {# plazas}}",
+      "soldOut": "Agotado",
+      "afterReturn": "Después de la vuelta",
+      "beforeOutbound": "Antes de la ida",
+      "none": "No hay viajes a la venta en este momento."
     }
   },
   "blogsHero": {

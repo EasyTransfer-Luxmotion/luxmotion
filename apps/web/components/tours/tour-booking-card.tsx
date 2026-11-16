@@ -5,6 +5,7 @@ import { Minus, Plus, CalendarClock, Users, Layers, ArrowRight, User, UsersRound
 import { useTranslations } from "next-intl"
 import { TourDateTimePicker } from "@/components/tours/tour-date-time-picker"
 import { EventDateTimePicker } from "@/components/events/event-date-time-picker"
+import { EscolhaSaidas, type EscolhaDeSaidas, type SaidaPublica } from "@/components/events/escolha-saidas"
 import { localDateTimeFields, validEventSelection } from "@/lib/event-date-time"
 import { emLisboa, relogioDeLisboa } from "@/lib/hora-lisboa"
 import { useHomeTheme } from "@/components/new-landing-page/home-theme"
@@ -57,6 +58,12 @@ interface TourBookingCardProps {
     confirmationHours?: number
   }
   addons?: BookingAddon[]
+  /**
+   * Saídas partilhadas do evento (E3A). Com `usaSaidas`, o partilhado vende-se
+   * por saídas: escolhe-se a ida, o regresso ou os dois, e o preço por pessoa
+   * é a soma. Sem isto o cartão fica como sempre (data do evento).
+   */
+  saidas?: { usaSaidas: boolean; saidas: SaidaPublica[] }
   onBook?: (data: BookingData) => void
   /** Chamada quando já há data e hora: o pai usa-a para guardar o
    *  carrinho pendente e acender a barra de baixo. */
@@ -83,6 +90,8 @@ interface BookingData {
   unitPrice?: number
   /** Quando verdadeiro, `unitPrice` NÃO se multiplica pelos passageiros. */
   perVehicle?: boolean
+  /** As saídas escolhidas, num evento partilhado com saídas. */
+  saidas?: EscolhaDeSaidas
   selectedAddons?: Array<{
     /** Um dos dois, nunca os dois: um extra próprio do tour ou um universal. */
     addonId?: string
@@ -145,7 +154,7 @@ function LinhaDeInfo({ rotulo, valor }: { rotulo: string; valor: string }) {
   )
 }
 
-export function TourBookingCard({ price, sharedPrice, currency = "€", rating, reviewCount, tourId, skipAvailability, fixedDateTime, eventEndDate, hideReviews, minPassengers, maxPassengers, service, addons, onBook, onSelectionReady }: TourBookingCardProps) {
+export function TourBookingCard({ price, sharedPrice, currency = "€", rating, reviewCount, tourId, skipAvailability, fixedDateTime, eventEndDate, hideReviews, minPassengers, maxPassengers: maxPassengersBase, service, addons, saidas, onBook, onSelectionReady }: TourBookingCardProps) {
   const t = useTranslations("tourDetails")
   const { format } = useMoney()
   // O picker escolhe a paleta por prop (não por var CSS). Só clareia dentro do
@@ -166,18 +175,48 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
      diferentes, e tratar as duas como "por pessoa" multiplicava o preço da
      viatura pelo número de passageiros. */
   const porViatura = temEscolha && sharingMode === "private"
-  const precoUnitario = temEscolha && sharingMode === "shared" ? sharedPrice! : price
+  /* Partilhado num evento com saídas: escolhe-se a viagem em vez de se usar a
+     data do evento, e o preço por pessoa é a soma das pernas escolhidas. */
+  const porSaidas = temEscolha && sharingMode === "shared" && saidas?.usaSaidas === true
+  const [escolha, setEscolha] = useState<EscolhaDeSaidas>({})
+  const pernas = [escolha.ida, escolha.regresso].filter((x): x is SaidaPublica => Boolean(x))
+  const precoUnitario = porSaidas
+    ? pernas.reduce((t, p) => t + p.preco, 0)
+    : temEscolha && sharingMode === "shared" ? sharedPrice! : price
+  /* O preço partilhado a mostrar com saídas: o da saída mais barata (uma
+     perna). O `sharedPrice` do evento era o de antes das saídas e não bate
+     com o que se paga. */
+  const precoPartilhado = saidas?.usaSaidas && saidas.saidas.length
+    ? Math.min(...saidas.saidas.map((x) => x.preco))
+    : sharedPrice
+  /* Em cima, sem viagem escolhida, o "desde" em vez de zero. */
+  const precoEmCima = porSaidas && pernas.length === 0 ? (precoPartilhado ?? 0) : precoUnitario
+  /* Não se pode levar mais gente do que os lugares livres da perna mais cheia. */
+  const livresNasPernas = pernas.length ? Math.min(...pernas.map((p) => p.livres)) : undefined
+  const maxPassengers = porSaidas && livresNasPernas !== undefined
+    ? Math.min(livresNasPernas, maxPassengersBase ?? Infinity)
+    : maxPassengersBase
 
   const isPrivateEvent = fixedDateTime !== undefined && (!temEscolha || sharingMode === "private")
   const dateTime = useMemo(() => {
+    if (porSaidas) {
+      const primeira = escolha.ida ?? escolha.regresso
+      return primeira
+        ? { date: relogioDeLisboa(primeira.partida), time: localDateTimeFields(primeira.partida).time }
+        : { date: null, time: null }
+    }
     if (fixedDateTime !== undefined && !isPrivateEvent) {
       return { date: relogioDeLisboa(fixedDateTime), time: localDateTimeFields(fixedDateTime).time }
     }
     return selectedDateTime
-  }, [fixedDateTime, isPrivateEvent, selectedDateTime])
-  const selectionIsValid = isPrivateEvent
-    ? validEventSelection(dateTime, fixedDateTime!, eventEndDate)
-    : Boolean(dateTime.date && dateTime.time)
+  }, [fixedDateTime, isPrivateEvent, selectedDateTime, porSaidas, escolha.ida, escolha.regresso])
+  const selectionIsValid = porSaidas
+    ? pernas.length > 0 &&
+      !(escolha.ida && escolha.regresso && escolha.regresso.partida <= escolha.ida.partida) &&
+      adults + children + infants <= (livresNasPernas ?? 0)
+    : isPrivateEvent
+      ? validEventSelection(dateTime, fixedDateTime!, eventEndDate)
+      : Boolean(dateTime.date && dateTime.time)
 
   const [dateRange, setDateRange] = useState(() => {
     const now = new Date()
@@ -318,6 +357,7 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
       sharingMode: temEscolha ? sharingMode : undefined,
       unitPrice: precoUnitario,
       perVehicle: porViatura,
+      ...(porSaidas && { saidas: escolha }),
       selectedAddons: selectedAddonsData?.length ? selectedAddonsData : undefined,
       addonsTotal: addonsTotal > 0 ? addonsTotal : undefined,
     })
@@ -336,7 +376,7 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
         </span>
         <div className="flex items-baseline gap-[10px] mt-1">
           <span className="text-[48px] font-semibold text-[var(--lm-accent,#C9A96E)] leading-[48px]" style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}>
-            {format(precoUnitario)}
+            {format(precoEmCima)}
           </span>
           {/* O "i" e o "por pessoa" na mesma caixa: assim o círculo centra-se
               com o texto ao lado, e não com a linha inteira, que é alta por
@@ -381,7 +421,7 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
             {([
               {
                 modo: "shared" as const,
-                preco: sharedPrice!,
+                preco: precoPartilhado!,
                 Icone: UsersRound,
                 rotulo: t("sharing.shared"),
                 unidade: t("perPerson"),
@@ -446,9 +486,11 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <CalendarClock className="size-4 text-[var(--lm-muted,#999)]" strokeWidth={1.2} />
-            <span className="text-[12px] font-semibold text-[var(--lm-muted,#999)] tracking-[1.35px] uppercase">{t("dateAndTime")}</span>
+            <span className="text-[12px] font-semibold text-[var(--lm-muted,#999)] tracking-[1.35px] uppercase">{porSaidas ? t("departures.title") : t("dateAndTime")}</span>
           </div>
-          {isPrivateEvent ? (
+          {porSaidas ? (
+            <EscolhaSaidas saidas={saidas!.saidas} escolha={escolha} aoMudar={setEscolha} pessoas={adults + children + infants} />
+          ) : isPrivateEvent ? (
             <EventDateTimePicker
               start={fixedDateTime!}
               end={eventEndDate}
@@ -476,7 +518,9 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
           )}
         </div>
 
-        {rota && <LinhaDeInfo rotulo={t("service.route")} valor={rota} />}
+        {/* Com saídas cada viagem já diz a rota e a hora: estas duas linhas, do
+            evento em geral, contradiziam-nas. */}
+        {rota && !porSaidas && <LinhaDeInfo rotulo={t("service.route")} valor={rota} />}
 
         {/* Em partilhado interessa a hora a que se parte e se volta; em privado
             a recolha é combinada, e o que interessa é o que a viatura leva. */}
@@ -487,7 +531,7 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
           </>
         ) : (
           <>
-            {horarios && (
+            {horarios && !porSaidas && (
               <LinhaDeInfo rotulo={t("service.departureReturn")} valor={horarios} />
             )}
 
@@ -542,7 +586,8 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
         <div className="border-t border-[rgba(var(--lm-text-rgb,255,255,255),0.06)] pt-4 pb-4 flex items-center justify-between">
           <span className="text-[12px] font-bold text-[var(--lm-muted,#999)] tracking-[1px] uppercase">{t("total")}</span>
           <span className="text-[32px] font-bold text-[var(--lm-text,#fff)]" style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}>
-            {format(total)}
+            {/* Sem viagem escolhida ainda não há total: "€ 0" parecia grátis. */}
+            {porSaidas && pernas.length === 0 ? "—" : format(total)}
           </span>
         </div>
 

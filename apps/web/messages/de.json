@@ -1382,6 +1382,19 @@
       "ctaPrivate": "Privattransfer buchen",
       "fineShared": "Executive-Fahrzeug passend zur Zahl der verkauften Plätze. Volle Erstattung, wenn die Mindestabfahrt nicht erreicht wird.",
       "finePrivate": "Grundpreis pro Fahrzeug. Andere Kategorien und Abholorte werden vor der Bestätigung berechnet."
+    },
+    "departures": {
+      "title": "Fahrt",
+      "outbound": "Hinfahrt",
+      "return": "Rückfahrt",
+      "noOutbound": "Ohne Hinfahrt",
+      "noReturn": "Ohne Rückfahrt",
+      "pickOne": "Wählen Sie Hinfahrt, Rückfahrt oder beides.",
+      "seatsLeft": "{count, plural, one {# Platz} other {# Plätze}}",
+      "soldOut": "Ausgebucht",
+      "afterReturn": "Nach der Rückfahrt",
+      "beforeOutbound": "Vor der Hinfahrt",
+      "none": "Derzeit sind keine Fahrten im Verkauf."
     }
   },
   "blogsHero": {

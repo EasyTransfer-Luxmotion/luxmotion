@@ -1384,6 +1384,19 @@
       "ctaPrivate": "Book private transfer",
       "fineShared": "Executive vehicle matched to the seats sold. Full refund if the minimum departure is not reached.",
       "finePrivate": "Base price per vehicle. Other categories and pickup points are quoted before confirmation."
+    },
+    "departures": {
+      "title": "Trip",
+      "outbound": "Outbound",
+      "return": "Return",
+      "noOutbound": "No outbound",
+      "noReturn": "No return",
+      "pickOne": "Choose the outbound, the return or both.",
+      "seatsLeft": "{count, plural, one {# seat} other {# seats}}",
+      "soldOut": "Sold out",
+      "afterReturn": "After the return",
+      "beforeOutbound": "Before the outbound",
+      "none": "No trips on sale right now."
     }
   },
   "blogsHero": {

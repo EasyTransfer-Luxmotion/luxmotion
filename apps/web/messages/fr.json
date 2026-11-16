@@ -1382,6 +1382,19 @@
       "ctaPrivate": "Réserver le transfert privé",
       "fineShared": "Véhicule exécutif adapté au nombre de places vendues. Remboursement intégral si le départ minimum n'est pas atteint.",
       "finePrivate": "Prix de base par véhicule. Les autres catégories et points de départ sont calculés avant la confirmation."
+    },
+    "departures": {
+      "title": "Trajet",
+      "outbound": "Aller",
+      "return": "Retour",
+      "noOutbound": "Sans aller",
+      "noReturn": "Sans retour",
+      "pickOne": "Choisissez l’aller, le retour ou les deux.",
+      "seatsLeft": "{count, plural, one {# place} other {# places}}",
+      "soldOut": "Complet",
+      "afterReturn": "Après le retour",
+      "beforeOutbound": "Avant l’aller",
+      "none": "Aucun trajet en vente pour le moment."
     }
   },
   "blogsHero": {

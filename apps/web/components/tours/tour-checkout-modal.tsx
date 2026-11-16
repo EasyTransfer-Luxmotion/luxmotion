@@ -11,7 +11,7 @@ import {
 } from "@workspace/ui/components/dialog"
 import { User, Users, Mail, FileText, MapPin, CheckCircle2, CreditCard, Banknote, ChevronLeft, X, MessageSquare, ArrowRight } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-is-mobile"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { useTourCheckout } from "@/components/tours/tour-checkout-context"
 import { PhoneInput } from "@/components/ui/phone-input"
 import { cn } from "@workspace/ui/lib/utils"
@@ -106,7 +106,12 @@ function OrderSummarySidebar({
   /* O `t` que chega por prop não interpola; a linha dos lugares precisa do
      número lá dentro. */
   const tSharing = useTranslations("tourDetails.sharing")
+  const tSaidas = useTranslations("tourDetails.departures")
+  const locale = useLocale()
   if (!tour) return null
+  /* Evento com saídas (E3A): cada perna com o seu dia e hora, em Lisboa. */
+  const quandoPerna = new Intl.DateTimeFormat(locale, { timeZone: "Europe/Lisbon", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+  const pernas = [tour.saidas?.ida, tour.saidas?.regresso].filter((x): x is NonNullable<typeof x> => Boolean(x))
   const dateTime =
     bookingData?.date && bookingData.time
       ? `${bookingData.date.toLocaleDateString()} - ${bookingData.time}`
@@ -137,7 +142,15 @@ function OrderSummarySidebar({
             <p className="font-semibold text-[#F7F4EF] text-[13px] sm:text-[14px] leading-tight line-clamp-2">
               {tour.title}
             </p>
-            <p className="text-[11px] sm:text-[12px] text-[#999] mt-1 leading-[1.2]">{dateTime}</p>
+            {pernas.length ? (
+              pernas.map((p) => (
+                <p key={p.id} className="text-[11px] sm:text-[12px] text-[#999] mt-1 leading-[1.2]">
+                  <span className="text-[#F7F4EF]">{p.sentido === "ida" ? tSaidas("outbound") : tSaidas("return")}</span> · {quandoPerna.format(p.partida)} · {p.origem} → {p.destino}
+                </p>
+              ))
+            ) : (
+              <p className="text-[11px] sm:text-[12px] text-[#999] mt-1 leading-[1.2]">{dateTime}</p>
+            )}
             {/* Por viatura não há "N × preço": vende-se o carro, e o que
                 interessa é quantos lugares tem. */}
             {tour.perVehicle ? (
@@ -351,6 +364,9 @@ export function TourCheckoutModal() {
         // Sem valores: o preço da base e dos extras é calculado no servidor a
         // partir do tour (convex/lib/precoTours.ts). Só vão as escolhas.
         sharingMode: tour.sharingMode,
+        // As saídas escolhidas (E3A); o servidor confirma os lugares e o preço.
+        ...(tour.saidas?.ida && { saidaIdaId: tour.saidas.ida.id as Id<"eventDepartures"> }),
+        ...(tour.saidas?.regresso && { saidaRegressoId: tour.saidas.regresso.id as Id<"eventDepartures"> }),
         selectedAddons: selectedAddons?.length ? selectedAddons : undefined,
         referralSlug: readReferralCookie() ?? undefined,
       })

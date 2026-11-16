@@ -1383,6 +1383,19 @@
       "ctaPrivate": "Reservar transfer privado",
       "fineShared": "Viatura executiva adaptada ao número de lugares vendidos. Reembolso integral se a partida mínima não for atingida.",
       "finePrivate": "Preço-base por viatura. Outras categorias e origens são calculadas antes da confirmação."
+    },
+    "departures": {
+      "title": "Viagem",
+      "outbound": "Ida",
+      "return": "Regresso",
+      "noOutbound": "Sem ida",
+      "noReturn": "Sem regresso",
+      "pickOne": "Escolhe a ida, o regresso ou os dois.",
+      "seatsLeft": "{count, plural, one {# lugar} other {# lugares}}",
+      "soldOut": "Esgotado",
+      "afterReturn": "Depois do regresso",
+      "beforeOutbound": "Antes da ida",
+      "none": "Não há viagens à venda de momento."
     }
   },
   "blogsHero": {
