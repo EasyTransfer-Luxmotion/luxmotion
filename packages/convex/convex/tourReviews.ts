@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { notificar } from "./lib/notificar";
 import { query, mutation } from "./_generated/server";
 import { exigirAdmin } from "./lib/admin";
 
@@ -162,6 +163,16 @@ export const submit = mutation({
       nationality: args.nationality,
       isApproved: false,
       createdAt: Date.now(),
+    });
+
+    const produto = args.tourId ? (await ctx.db.get(args.tourId))?.title : args.eventId ? (await ctx.db.get(args.eventId))?.title : undefined;
+    await notificar(ctx, {
+      chave: `avaliacao:${reviewId}`,
+      tipo: "avaliacao",
+      titulo: `Nova avaliação ${"★".repeat(Math.round(args.rating))}${"☆".repeat(5 - Math.round(args.rating))}`,
+      detalhe: [args.author.trim(), produto].filter(Boolean).join(" · "),
+      href: `/reviews?estado=porAprovar&avaliacao=${reviewId}`,
+      tom: args.rating <= 3 ? "aviso" : "normal",
     });
 
     return reviewId;

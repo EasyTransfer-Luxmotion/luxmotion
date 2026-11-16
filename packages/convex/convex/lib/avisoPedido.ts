@@ -13,6 +13,7 @@
 import type { MutationCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { TabelaLead } from "./pipedriveMapa";
+import { notificarPedido } from "./notificar";
 
 export async function avisarPedido(
   ctx: MutationCtx,
@@ -20,4 +21,6 @@ export async function avisarPedido(
   id: string,
 ): Promise<void> {
   await ctx.scheduler.runAfter(0, internal.avisoPedidos.enviarAviso, { tabela, id });
+  /* E o sininho do back-office (lib/notificar.ts). */
+  await notificarPedido(ctx, tabela, id);
 }

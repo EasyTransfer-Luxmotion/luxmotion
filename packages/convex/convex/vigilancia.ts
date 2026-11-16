@@ -18,7 +18,7 @@ const DEFAULT_FROM = "LuxMotion <onboarding@resend.dev>";
 const DESTINO_POR_OMISSAO = "easytransferpt@gmail.com";
 const ADMIN_POR_OMISSAO = "https://www.easytransferportugal.com/admin";
 
-export type ProblemaParceria = { nome: string; slug: string; problemas: string[] };
+export type ProblemaParceria = { id: string; nome: string; slug: string; problemas: string[] };
 
 export const problemasDosParceiros = internalQuery({
   args: {},
@@ -30,7 +30,7 @@ export const problemasDosParceiros = internalQuery({
         const problemas: string[] = [];
         if (frotaVisivel(activos, p).length === 0) problemas.push("o checkout não mostra carros nenhuns");
         if (!SLUG_VALIDO.test(p.slug)) problemas.push(`o endereço "/${p.slug}" tem caracteres que partem páginas e o sitemap (só minúsculas, números e hífens)`);
-        return { nome: p.name, slug: p.slug, problemas };
+        return { id: p._id as string, nome: p.name, slug: p.slug, problemas };
       })
       .filter((x) => x.problemas.length > 0);
   },
@@ -41,6 +41,10 @@ export const verificarParceiros = internalAction({
   handler: async (ctx): Promise<{ problemas: number }> => {
     const lista: ProblemaParceria[] = await ctx.runQuery(internal.vigilancia.problemasDosParceiros, {});
     if (lista.length === 0) return { problemas: 0 };
+    /* No sininho do back-office em todos os ambientes; o email só onde há Resend. */
+    await ctx.runMutation(internal.notificacoes.registarAvisosParcerias, {
+      lista: lista.map((x) => ({ id: x.id, nome: x.nome, problemas: x.problemas })),
+    });
     console.error(`[Vigilância] ${lista.length} parcerias com problemas: ${lista.map((x) => x.slug).join(", ")}`);
 
     const apiKey = process.env.RESEND_API_KEY;

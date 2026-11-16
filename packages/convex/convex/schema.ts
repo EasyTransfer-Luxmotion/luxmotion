@@ -1410,6 +1410,36 @@ export default defineSchema({
     .index("by_category", ["category"])
     .index("by_created", ["createdAt"]),
 
+  /* O sininho do back-office: o que entrou de novo (lib/notificar.ts). */
+  notificacoes: defineTable({
+    chave: v.string(),
+    tipo: v.union(
+      v.literal("reserva"),
+      v.literal("pedido"),
+      v.literal("candidatura"),
+      v.literal("lead"),
+      v.literal("avaliacao"),
+      v.literal("aviso"),
+    ),
+    titulo: v.string(),
+    detalhe: v.optional(v.string()),
+    href: v.string(),
+    valor: v.optional(v.number()),
+    tom: v.optional(v.union(v.literal("normal"), v.literal("aviso"))),
+    em: v.number(),
+  })
+    .index("by_chave", ["chave"])
+    .index("by_em", ["em"])
+    .index("by_tipo_em", ["tipo", "em"]),
+
+  /* O que cada pessoa da equipa já leu: tudo até lidasAte, mais as abertas
+     uma a uma depois disso. */
+  notificacoesLidas: defineTable({
+    conta: v.string(),
+    lidasAte: v.number(),
+    lidas: v.array(v.id("notificacoes")),
+  }).index("by_conta", ["conta"]),
+
   tourReviews: defineTable({
     tourId: v.optional(v.id("tours")),
     eventId: v.optional(v.id("events")),

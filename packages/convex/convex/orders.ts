@@ -1068,6 +1068,7 @@ export const startPaymentAction = action({
     console.log("[Orders] ANTES CASH BLOCK — method:", args.method, "isCash:", isCash);
     // 5. Se for cash: enviar webhook INLINE nesta action (sem chamar outra função — garante que o POST corre aqui)
     if (isCash) {
+      await ctx.runMutation(internal.notificacoes.registarReserva, { orderId: args.orderId, dinheiro: true });
       console.log("[Orders] DENTRO DO BLOCO CASH — A ENVIAR WEBHOOK (orderId ida):", args.orderId);
       const outboundOrder = await ctx.runQuery(api.orders.getById, { orderId: args.orderId });
       if (!outboundOrder) {

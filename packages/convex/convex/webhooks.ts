@@ -100,6 +100,9 @@ export const sendOrderPayload = internalAction({
        A própria mutation trava as repetições — este ponto é chamado de seis
        sítios, cada um a começar na tentativa 1, e uma re-entrega do Stripe
        criaria um segundo negócio ganho. */
+    /* O sininho do back-office; não se repete (lib/notificar.ts). */
+    await ctx.runMutation(internal.notificacoes.registarReserva, { orderId: args.orderId });
+
     const novoNoCrm = await ctx.runMutation(internal.pipedrive.enfileirarReserva, {
       orderId: args.orderId,
     });
