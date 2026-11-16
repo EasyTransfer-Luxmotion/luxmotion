@@ -1,6 +1,6 @@
 import { frotaVisivel } from "./lib/frota";
 import { parceriaPorSlug } from "./lib/parceriaPorSlug";
-import { factorDoParceiro } from "./lib/precoTransfer";
+import { comAjuste, factorDoParceiro } from "./lib/precoTransfer";
 import { v } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { isNightDeparture, priceVehicle } from "./lib/pricing";
@@ -153,8 +153,8 @@ export const listQuoted = query({
         /* O ajuste do parceiro, o mesmo que o pagamento usa (lib/precoTransfer.ts). */
         const f = factorDoParceiro(parceria);
         const pricing = priceVehicle({
-          pricePerKm: vehicle.pricePerKm * f,
-          minimumPrice: vehicle.minimumPrice * f,
+          pricePerKm: comAjuste(vehicle.pricePerKm, f),
+          minimumPrice: comAjuste(vehicle.minimumPrice, f),
           distance: args.distance,
           isNight,
           isNightReturn,

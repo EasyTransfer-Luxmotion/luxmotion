@@ -67,6 +67,11 @@ export function factorDoParceiro(p: Pick<Doc<"partnerships">, "ajustePreco"> | n
   return Number.isFinite(a) ? 1 + a / 100 : 1;
 }
 
+/* Ao cêntimo: 57 × 1,1 dava 62,699999… no checkout. */
+export function comAjuste(valor: number, f: number): number {
+  return f === 1 ? valor : Math.round(valor * f * 100) / 100;
+}
+
 export async function minimoDoTransfer(
   ctx: QueryCtx,
   ida: Doc<"orders">,
@@ -86,8 +91,8 @@ export async function minimoDoTransfer(
 
   const definicoes = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", "global")).first();
   const preco = priceVehicle({
-    pricePerKm: carro.pricePerKm * f,
-    minimumPrice: carro.minimumPrice * f,
+    pricePerKm: comAjuste(carro.pricePerKm, f),
+    minimumPrice: comAjuste(carro.minimumPrice, f),
     distance: distancia,
     isNight: isNightDeparture(ida.departureDate),
     isNightReturn: volta ? isNightDeparture(volta.departureDate) : false,
