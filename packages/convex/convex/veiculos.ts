@@ -160,6 +160,60 @@ export const parceiros = query({
   },
 });
 
+/*
+ * Em que parceiros aparece este carro (o passo "Parceiros" do editor). É a
+ * mesma informação do separador "Frota" da parceria, vista do lado do
+ * carro: cada parceria guarda os carros globais que esconde
+ * (partnerships.veiculosEscondidos, ver lib/frota.ts). Um carro de um
+ * parceiro só aparece nesse parceiro.
+ */
+export const ondeAparece = query({
+  args: { id: v.id("vehicles") },
+  handler: async (ctx, { id }) => {
+    await exigirAdmin(ctx);
+    const carro = await ctx.db.get(id);
+    if (!carro) return null;
+    const ps = await ctx.db.query("partnerships").collect();
+    return {
+      donoId: (carro.partnershipId ?? null) as string | null,
+      parcerias: ps
+        .map((p) => ({
+          id: p._id as string,
+          nome: p.name,
+          slug: p.slug,
+          publicada: p.status !== "inactive",
+          mostra: carro.partnershipId ? carro.partnershipId === p._id : !(p.veiculosEscondidos ?? []).includes(id),
+        }))
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt")),
+    };
+  },
+});
+
+/* Mostrar ou esconder um carro global num parceiro, ou em todos de uma vez
+   (sem `parceriaId`). Grava logo, como os extras: mexe nas parcerias, não no
+   carro. Muda a versão das parcerias tocadas — um editor de parceria aberto
+   vê que mudou em vez de gravar por cima. */
+export const mostrarEmParceiro = mutation({
+  args: { veiculoId: v.id("vehicles"), parceriaId: v.optional(v.id("partnerships")), mostrar: v.boolean() },
+  handler: async (ctx, { veiculoId, parceriaId, mostrar }) => {
+    await exigirAdmin(ctx);
+    const carro = await ctx.db.get(veiculoId);
+    if (!carro) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este veículo já não existe." });
+    if (carro.partnershipId) {
+      throw new ConvexError({ tipo: "invalido", mensagem: "Este carro é de um parceiro: só aparece nesse parceiro. Para o pôr em todos, mude o dono para EasyTransfer." });
+    }
+    const alvo = parceriaId ? [await ctx.db.get(parceriaId)] : await ctx.db.query("partnerships").collect();
+    const agora = Date.now();
+    for (const p of alvo) {
+      if (!p) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta parceria já não existe." });
+      const antes = p.veiculosEscondidos ?? [];
+      const depois = mostrar ? antes.filter((x) => x !== veiculoId) : antes.includes(veiculoId) ? antes : [...antes, veiculoId];
+      if (depois.length === antes.length) continue;
+      await ctx.db.patch(p._id, { veiculosEscondidos: depois, updatedAt: Math.max(agora, (p.updatedAt ?? p._creationTime) + 1) });
+    }
+  },
+});
+
 /* Distâncias típicas: aeroporto → centro, → Cascais, → Sintra, Lisboa →
    Évora, Lisboa → Porto. */
 const DISTANCIAS = [15, 30, 50, 130, 315];
