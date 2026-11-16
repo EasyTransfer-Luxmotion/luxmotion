@@ -90,12 +90,12 @@ export const listActive = query({
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
     
-    const filteredVehicles = vehicles.filter((vehicle) => {
-      if (partnershipId) {
-        return vehicle.partnershipId === partnershipId;
-      }
-      return !vehicle.partnershipId;
-    });
+    /* Com parceiro: a frota global mais os carros próprios dele. Só os
+       próprios deixava o checkout de todas as parcerias sem carros — em
+       produção nenhum parceiro tem carros (16/11/2026). */
+    const filteredVehicles = vehicles.filter((vehicle) =>
+      partnershipId ? !vehicle.partnershipId || vehicle.partnershipId === partnershipId : !vehicle.partnershipId,
+    );
 
     const sortedVehicles = filteredVehicles.sort((a, b) => a.order - b.order);
 
@@ -161,7 +161,8 @@ export const listQuoted = query({
     const isNightReturn = args.bookReturn ? isNightDeparture(args.returnDate) : false;
 
     const rows = all
-      .filter((v) => (partnershipId ? v.partnershipId === partnershipId : !v.partnershipId))
+      /* Com parceiro: a frota global mais os carros próprios dele (ver listActive). */
+      .filter((v) => (partnershipId ? !v.partnershipId || v.partnershipId === partnershipId : !v.partnershipId))
       .filter((v) => v.passengers >= passengers && v.luggage >= requiredBags)
       .sort((a, b) => a.order - b.order);
 

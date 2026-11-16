@@ -169,14 +169,10 @@ export default defineSchema({
     passengerRelationship: v.optional(v.string()),
 
     // Payment
-    paymentMethod: v.optional(
-      v.union(
-        v.literal("mbway"),
-        v.literal("mb"),
-        v.literal("ccard"),
-        v.literal("cash"),
-      ),
-    ),
+    /* Texto livre, como em development: o Stripe devolve o método real
+       ("link", "card"…) e já há orders gravadas assim — com a lista fechada
+       o deploy era recusado. */
+    paymentMethod: v.optional(v.string()),
     paymentStatus: v.optional(
       v.union(
         v.literal("pending"),
@@ -1573,14 +1569,10 @@ export default defineSchema({
     tipPercent: v.number(),
     tipAmount: v.number(),
     totalAmount: v.number(),
-    paymentMethod: v.optional(
-      v.union(
-        v.literal("mbway"),
-        v.literal("mb"),
-        v.literal("ccard"),
-        v.literal("cash"),
-      ),
-    ),
+    /* Texto livre, como em development: o Stripe devolve o método real
+       ("link", "card"…) e já há orders gravadas assim — com a lista fechada
+       o deploy era recusado. */
+    paymentMethod: v.optional(v.string()),
     paymentStatus: v.optional(
       v.union(
         v.literal("pending"),
