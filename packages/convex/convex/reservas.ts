@@ -321,6 +321,21 @@ export const detalhe = query({
       encontrada: true as const,
       reserva: {
         ...o,
+        /* O que só a ida tem, numa volta: o contacto (o checkout gravava-o
+           só na ida até 16/11/2026) e a parceria e a origem da visita (a volta
+           nasce sem elas, o pagamento fica na ida). Sem isto, uma volta
+           aparecia sem email nem telefone, e "Directo" num parceiro. */
+        customerEmail: o.customerEmail || outra?.customerEmail,
+        customerPhone: o.customerPhone || outra?.customerPhone,
+        customerNif: o.customerNif || outra?.customerNif,
+        bookedForAnotherPerson: o.bookedForAnotherPerson ?? outra?.bookedForAnotherPerson,
+        passengerName: o.passengerName || outra?.passengerName,
+        passengerEmail: o.passengerEmail || outra?.passengerEmail,
+        passengerWhatsapp: o.passengerWhatsapp || outra?.passengerWhatsapp,
+        passengerRelationship: o.passengerRelationship || outra?.passengerRelationship,
+        partnershipName: o.partnershipName ?? outra?.partnershipName,
+        adSource: o.adSource ?? outra?.adSource,
+        opprefId: o.opprefId ?? outra?.opprefId,
         cliente: o.customerName?.trim() || outra?.customerName?.trim() || null,
         anuncio: origemAnuncio(o) || null,
         perna: pernaDe(o, outra),

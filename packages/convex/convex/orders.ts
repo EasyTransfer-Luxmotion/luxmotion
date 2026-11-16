@@ -518,7 +518,7 @@ export const registContactInformation = mutation({
       passengerRelationship: args.passengerRelationship,
     });
 
-    await ctx.db.patch(args.orderId, {
+    const contacto = {
       customerName: args.name,
       customerEmail: args.email,
       customerPhone: args.phoneNumber,
@@ -529,7 +529,13 @@ export const registContactInformation = mutation({
       passengerWhatsapp: args.passengerWhatsapp ?? args.phoneNumber,
       passengerRelationship: args.passengerRelationship,
       updatedAt: Date.now(),
-    });
+    };
+    await ctx.db.patch(args.orderId, contacto);
+    /* E na outra perna de uma ida e volta. Só a ida o recebia: a volta ficava
+       sem nome, NIF nem passageiro (o email e o telefone só lhe chegavam no
+       pagamento), e o back-office mostrava-a sem contacto do cliente. */
+    const ida = await ctx.db.get(args.orderId);
+    if (ida?.relatedOrderId) await ctx.db.patch(ida.relatedOrderId, contacto);
 
     const order = await ctx.db.get(args.orderId);
     console.log("[Orders] registContactInformation - Saved order:", {
