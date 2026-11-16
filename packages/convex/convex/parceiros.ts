@@ -325,6 +325,10 @@ export const detalhe = query({
       cores: tema.colors ?? {},
       seoTitulo: conteudo.seoTitle ?? "",
       seoDescricao: conteudo.seoDescription ?? "",
+      veiculosEscondidos: (p.veiculosEscondidos ?? []) as string[],
+      /* A frota que o checkout do parceiro pode mostrar: a global (que se
+         liga e desliga aqui) e os carros só deste parceiro (lib/frota.ts). */
+      frota: await frotaParaOEditor(ctx, p._id),
       numeros: {
         reservas: nReservas,
         faturacao: centimos(faturacao),
@@ -338,6 +342,22 @@ export const detalhe = query({
     };
   },
 });
+
+async function frotaParaOEditor(ctx: QueryCtx, id: Id<"partnerships">) {
+  const todos = await ctx.db.query("vehicles").collect();
+  const linha = (v: Doc<"vehicles">) => ({
+    id: v._id as string,
+    nome: v.name,
+    exemplos: v.examples ?? null,
+    passageiros: v.passengers,
+    activo: v.status === "active",
+    ordem: v.order,
+  });
+  return {
+    globais: todos.filter((v) => !v.partnershipId).sort((a, b) => a.order - b.order).map(linha),
+    proprios: todos.filter((v) => v.partnershipId === id).sort((a, b) => a.order - b.order).map(linha),
+  };
+}
 
 /* Para o salto entre parcerias no editor: só nome e endereço. */
 export const nomes = query({
@@ -421,6 +441,8 @@ export const guardar = mutation({
       seoTitulo: v.string(),
       seoDescricao: v.string(),
       cores: v.record(v.string(), v.string()),
+      /* Opcional: um editor aberto antes da frota existir continua a gravar. */
+      veiculosEscondidos: v.optional(v.array(v.id("vehicles"))),
     }),
   },
   handler: async (ctx, { id, versao, dados }) => {
@@ -483,6 +505,7 @@ export const guardar = mutation({
       content: conteudo,
       logoId: dados.logo ?? undefined,
       heroImageId: dados.hero ?? undefined,
+      ...(dados.veiculosEscondidos && { veiculosEscondidos: dados.veiculosEscondidos }),
       updatedAt,
     });
     return { versao: updatedAt };

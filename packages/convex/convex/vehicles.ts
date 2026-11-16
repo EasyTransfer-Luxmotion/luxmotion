@@ -1,3 +1,4 @@
+import { frotaVisivel } from "./lib/frota";
 import { v } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { isNightDeparture, priceVehicle } from "./lib/pricing";
@@ -76,28 +77,19 @@ export const listPaged = query({
 export const listActive = query({
   args: { partnershipSlug: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    let partnershipId = null;
-    if (args.partnershipSlug) {
-      const partnership = await ctx.db
-        .query("partnerships")
-        .withIndex("by_slug", (q) => q.eq("slug", args.partnershipSlug!))
-        .unique();
-      partnershipId = partnership?._id;
-    }
+    const parceria = args.partnershipSlug
+      ? await ctx.db
+          .query("partnerships")
+          .withIndex("by_slug", (q) => q.eq("slug", args.partnershipSlug!))
+          .unique()
+      : null;
 
     const vehicles = await ctx.db
       .query("vehicles")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
-    
-    const filteredVehicles = vehicles.filter((vehicle) => {
-      if (partnershipId) {
-        return vehicle.partnershipId === partnershipId;
-      }
-      return !vehicle.partnershipId;
-    });
 
-    const sortedVehicles = filteredVehicles.sort((a, b) => a.order - b.order);
+    const sortedVehicles = frotaVisivel(vehicles, parceria);
 
     return Promise.all(
       sortedVehicles.map(async (vehicle) => ({
@@ -132,14 +124,12 @@ export const listQuoted = query({
     isAirportPickup: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    let partnershipId = null;
-    if (args.partnershipSlug) {
-      const partnership = await ctx.db
-        .query("partnerships")
-        .withIndex("by_slug", (q) => q.eq("slug", args.partnershipSlug!))
-        .unique();
-      partnershipId = partnership?._id;
-    }
+    const parceria = args.partnershipSlug
+      ? await ctx.db
+          .query("partnerships")
+          .withIndex("by_slug", (q) => q.eq("slug", args.partnershipSlug!))
+          .unique()
+      : null;
 
     const all = await ctx.db
       .query("vehicles")
@@ -160,10 +150,7 @@ export const listQuoted = query({
     const isNight = isNightDeparture(args.departureDate);
     const isNightReturn = args.bookReturn ? isNightDeparture(args.returnDate) : false;
 
-    const rows = all
-      .filter((v) => (partnershipId ? v.partnershipId === partnershipId : !v.partnershipId))
-      .filter((v) => v.passengers >= passengers && v.luggage >= requiredBags)
-      .sort((a, b) => a.order - b.order);
+    const rows = frotaVisivel(all, parceria).filter((v) => v.passengers >= passengers && v.luggage >= requiredBags);
 
     return Promise.all(
       rows.map(async (vehicle) => {

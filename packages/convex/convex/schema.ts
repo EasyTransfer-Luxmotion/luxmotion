@@ -440,6 +440,9 @@ export default defineSchema({
     /* A versão para o editor do dashboard (parceiros.guardar): duas pessoas
        com a mesma parceria aberta já não gravam uma por cima da outra. */
     updatedAt: v.optional(v.number()),
+    /* Carros da frota global que este parceiro não mostra no checkout (ver
+       lib/frota.ts). Vazio: mostra-os todos. */
+    veiculosEscondidos: v.optional(v.array(v.id("vehicles"))),
   }).index("by_slug", ["slug"]),
 
   // Global site-wide settings (singleton keyed by "global"). The transfer booking

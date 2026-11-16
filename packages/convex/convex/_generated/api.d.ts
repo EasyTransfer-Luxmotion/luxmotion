@@ -48,6 +48,7 @@ import type * as lib_bunny from "../lib/bunny.js";
 import type * as lib_catalogTranslations from "../lib/catalogTranslations.js";
 import type * as lib_corporateExperienceTranslations from "../lib/corporateExperienceTranslations.js";
 import type * as lib_displayedReviewStats from "../lib/displayedReviewStats.js";
+import type * as lib_frota from "../lib/frota.js";
 import type * as lib_geo from "../lib/geo.js";
 import type * as lib_imagens from "../lib/imagens.js";
 import type * as lib_markdownToTiptap from "../lib/markdownToTiptap.js";
@@ -150,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   "lib/catalogTranslations": typeof lib_catalogTranslations;
   "lib/corporateExperienceTranslations": typeof lib_corporateExperienceTranslations;
   "lib/displayedReviewStats": typeof lib_displayedReviewStats;
+  "lib/frota": typeof lib_frota;
   "lib/geo": typeof lib_geo;
   "lib/imagens": typeof lib_imagens;
   "lib/markdownToTiptap": typeof lib_markdownToTiptap;
