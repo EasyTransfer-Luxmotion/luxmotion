@@ -239,6 +239,12 @@ export const lista = query({
         parceiro: o.partnershipName ?? null,
         anuncio: origemAnuncio(o) || null,
         perna: pernaDe(o, outra),
+        /* Ida e volta ou só ida, em todas as linhas: sem etiqueta, uma viagem
+           só de ida não se distinguia de uma cujo regresso não se via. O
+           isRoundTrip cobre uma ida e volta cuja outra perna se perdeu. */
+        idaEVolta: o.isRoundTrip || Boolean(outra),
+        /* A data da outra perna, para a lista dizer quando é. */
+        outraViagem: outra?.departureDate ?? null,
         tour: Boolean(o.tourBookingId) || (o.orderNumber ?? "").startsWith("TB"),
         aviso: Boolean(o.pricingWarning),
       };
