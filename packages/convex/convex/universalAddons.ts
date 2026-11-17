@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { query, mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
@@ -125,7 +125,7 @@ export const update = mutation({
     await exigirAdmin(ctx);
     const { id, ...dados } = args;
     const existente = await ctx.db.get(id);
-    if (!existente) throw new Error("Universal addon not found");
+    if (!existente) throw new ConvexError("Este extra já não existe — talvez tenha sido apagado noutra janela.");
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     for (const [k, valor] of Object.entries(dados)) {
@@ -176,10 +176,10 @@ export const setDisabled = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const id = args.tourId ?? args.eventId;
-    if (!id) throw new Error("Missing tourId or eventId");
+    if (!id) throw new ConvexError("Falta dizer em que tour ou evento se liga o extra.");
 
     const dono = await ctx.db.get(id);
-    if (!dono) throw new Error("Owner not found");
+    if (!dono) throw new ConvexError("O tour ou evento já não existe — talvez tenha sido apagado noutra janela.");
 
     const actuais = new Set<Id<"universalAddons">>(dono.disabledUniversalAddons ?? []);
     if (args.disabled) actuais.add(args.addonId);

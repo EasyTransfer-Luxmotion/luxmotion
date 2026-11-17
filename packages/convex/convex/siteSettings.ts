@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { exigirAdmin } from "./lib/admin";
 
@@ -88,7 +88,7 @@ export const upsert = mutation({
         args.minAdvanceBookingHours > 720)
     ) {
       // 0 = no restriction; 720 = 30 days, a sane upper bound.
-      throw new Error("minAdvanceBookingHours must be between 0 and 720");
+      throw new ConvexError("A antecedência mínima tem de estar entre 0 e 720 horas.");
     }
     if (
       args.airportSurchargePercent !== undefined &&
@@ -96,7 +96,7 @@ export const upsert = mutation({
         args.airportSurchargePercent < 0 ||
         args.airportSurchargePercent > 100)
     ) {
-      throw new Error("airportSurchargePercent must be between 0 and 100");
+      throw new ConvexError("A sobretaxa de aeroporto tem de estar entre 0 e 100%.");
     }
     if (
       args.toursSearchRadiusKm !== undefined &&
@@ -105,7 +105,7 @@ export const upsert = mutation({
         args.toursSearchRadiusKm > 500)
     ) {
       // 1 km = same town only; 500 km covers mainland Portugal end to end.
-      throw new Error("toursSearchRadiusKm must be between 1 and 500");
+      throw new ConvexError("A distância de procura dos tours tem de estar entre 1 e 500 km.");
     }
     if (
       args.checkoutToursRadiusKm !== undefined &&
@@ -113,7 +113,7 @@ export const upsert = mutation({
         args.checkoutToursRadiusKm < 1 ||
         args.checkoutToursRadiusKm > 500)
     ) {
-      throw new Error("checkoutToursRadiusKm must be between 1 and 500");
+      throw new ConvexError("A distância dos tours no checkout tem de estar entre 1 e 500 km.");
     }
     if (
       args.checkoutUpsellRadiusKm !== undefined &&
@@ -121,7 +121,7 @@ export const upsert = mutation({
         args.checkoutUpsellRadiusKm < 1 ||
         args.checkoutUpsellRadiusKm > 500)
     ) {
-      throw new Error("checkoutUpsellRadiusKm must be between 1 and 500");
+      throw new ConvexError("A distância dos extras no checkout tem de estar entre 1 e 500 km.");
     }
 
     const existing = await ctx.db

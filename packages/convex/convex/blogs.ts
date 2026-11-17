@@ -1,4 +1,4 @@
-import { v, type ObjectType } from "convex/values";
+import { v, type ObjectType, ConvexError } from "convex/values";
 import { query, mutation, internalMutation, type MutationCtx } from "./_generated/server";
 import { generateSlug, calculateReadTime } from "./lib/utils";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
@@ -286,7 +286,7 @@ async function criarBlog(ctx: MutationCtx, args: ObjectType<typeof argscriarBlog
         .withIndex("by_featured", (q) => q.eq("isFeatured", true))
         .collect();
       if (featuredCount.length >= 6) {
-        throw new Error("Maximum of 6 featured blogs allowed");
+        throw new ConvexError("Já há 6 artigos em destaque, o máximo. Tire um do destaque primeiro.");
       }
     }
 
@@ -296,7 +296,7 @@ async function criarBlog(ctx: MutationCtx, args: ObjectType<typeof argscriarBlog
         .withIndex("by_service", (q) => q.eq("isService", true))
         .collect();
       if (serviceCount.length >= 3) {
-        throw new Error("Maximum of 3 service blogs allowed");
+        throw new ConvexError("Já há 3 artigos de serviço, o máximo. Tire um primeiro.");
       }
     }
 
@@ -374,7 +374,7 @@ const argsatualizarBlog = {
 async function atualizarBlog(ctx: MutationCtx, args: ObjectType<typeof argsatualizarBlog>) {
     const { id, isService: isServiceArg, ...data } = args;
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Blog not found");
+    if (!existing) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 
     if (data.isFeatured && !existing.isFeatured) {
       const featuredCount = await ctx.db
@@ -382,7 +382,7 @@ async function atualizarBlog(ctx: MutationCtx, args: ObjectType<typeof argsatual
         .withIndex("by_featured", (q) => q.eq("isFeatured", true))
         .collect();
       if (featuredCount.length >= 6) {
-        throw new Error("Maximum of 6 featured blogs allowed");
+        throw new ConvexError("Já há 6 artigos em destaque, o máximo. Tire um do destaque primeiro.");
       }
     }
 
@@ -394,7 +394,7 @@ async function atualizarBlog(ctx: MutationCtx, args: ObjectType<typeof argsatual
         .withIndex("by_service", (q) => q.eq("isService", true))
         .collect();
       if (serviceCount.length >= 3) {
-        throw new Error("Maximum of 3 service blogs allowed");
+        throw new ConvexError("Já há 3 artigos de serviço, o máximo. Tire um primeiro.");
       }
     }
 
@@ -438,7 +438,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const blog = await ctx.db.get(args.id);
-    if (!blog) throw new Error("Blog not found");
+    if (!blog) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 
     const translations = await ctx.db
       .query("blogTranslations")
@@ -502,7 +502,7 @@ export const toggleFeatured = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const blog = await ctx.db.get(args.id);
-    if (!blog) throw new Error("Blog not found");
+    if (!blog) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 
     if (!blog.isFeatured) {
       const featuredCount = await ctx.db
@@ -510,7 +510,7 @@ export const toggleFeatured = mutation({
         .withIndex("by_featured", (q) => q.eq("isFeatured", true))
         .collect();
       if (featuredCount.length >= 6) {
-        throw new Error("Maximum of 6 featured blogs allowed");
+        throw new ConvexError("Já há 6 artigos em destaque, o máximo. Tire um do destaque primeiro.");
       }
     }
 
@@ -528,7 +528,7 @@ export const publish = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const blog = await ctx.db.get(args.id);
-    if (!blog) throw new Error("Blog not found");
+    if (!blog) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 
     const now = Date.now();
     await ctx.db.patch(args.id, {
@@ -546,7 +546,7 @@ export const unpublish = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const blog = await ctx.db.get(args.id);
-    if (!blog) throw new Error("Blog not found");
+    if (!blog) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 
     await ctx.db.patch(args.id, {
       status: "draft",
@@ -569,10 +569,10 @@ const argsgravarTraducaoBlog = {
 
 async function gravarTraducaoBlog(ctx: MutationCtx, args: ObjectType<typeof argsgravarTraducaoBlog>) {
     const blog = await ctx.db.get(args.blogId);
-    if (!blog) throw new Error("Blog not found");
+    if (!blog) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 
     if (args.locale === blog.originalLanguage) {
-      throw new Error("Cannot create translation in the original language");
+      throw new ConvexError("Este é o idioma em que o texto foi escrito: não leva tradução.");
     }
 
     const existing = await ctx.db
@@ -638,7 +638,7 @@ export const removeTranslation = mutation({
       )
       .first();
 
-    if (!translation) throw new Error("Translation not found");
+    if (!translation) throw new ConvexError("Esta tradução já não existe — talvez tenha sido apagada noutra janela. Recarregue a página.");
 
     await ctx.db.delete(translation._id);
     return translation._id;

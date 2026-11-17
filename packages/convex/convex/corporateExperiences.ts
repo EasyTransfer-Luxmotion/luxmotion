@@ -1,5 +1,5 @@
 import { urlDaImagem, vImagem } from "./lib/imagens";
-import { v } from "convex/values"
+import { v, ConvexError } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import type { QueryCtx } from "./_generated/server"
 import type { Doc } from "./_generated/dataModel"
@@ -56,7 +56,7 @@ async function resolveUrls(
 
 function validateLanguage(locale: string) {
   if (!CORPORATE_LANGUAGES.some((language) => language.value === locale)) {
-    throw new Error("Unsupported language")
+    throw new ConvexError("Este idioma não é usado no site.")
   }
 }
 
@@ -178,13 +178,13 @@ export const update = mutation({
     await exigirAdmin(ctx);
     const { id, ...data } = args
     const existing = await ctx.db.get(id)
-    if (!existing) throw new Error("Experience not found")
+    if (!existing) throw new ConvexError("Esta experiência já não existe — talvez tenha sido apagada noutra janela.")
     if (data.originalLanguage !== undefined) {
       const originalLanguage = data.originalLanguage
       validateLanguage(originalLanguage)
       const translation = await ctx.db.query("corporateExperienceTranslations")
         .withIndex("by_experience_locale", (q) => q.eq("experienceId", id).eq("locale", originalLanguage)).first()
-      if (translation) throw new Error("Remove the translation in this language before making it the original language")
+      if (translation) throw new ConvexError("Apague primeiro a tradução neste idioma; só depois ele pode passar a ser o idioma original.")
     }
     await ctx.db.patch(id, { ...data, updatedAt: Date.now() })
     return id
@@ -207,7 +207,7 @@ export const remove = mutation({
   handler: async (ctx, { id }) => {
     await exigirAdmin(ctx);
     const exp = await ctx.db.get(id)
-    if (!exp) throw new Error("Experience not found")
+    if (!exp) throw new ConvexError("Esta experiência já não existe — talvez tenha sido apagada noutra janela.")
     // Capa e galeria não se apagam: os ficheiros podem ser partilhados com outros
     // registos (ver lib/imagens.ts).
     const translations = await ctx.db.query("corporateExperienceTranslations")
@@ -248,12 +248,12 @@ export const upsertTranslation = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const experience = await ctx.db.get(args.experienceId)
-    if (!experience) throw new Error("Experience not found")
+    if (!experience) throw new ConvexError("Esta experiência já não existe — talvez tenha sido apagada noutra janela.")
     validateLanguage(args.locale)
     if (args.locale === corporateOriginalLanguage(experience)) {
-      throw new Error("Cannot create translation in the original language")
+      throw new ConvexError("Este é o idioma em que o texto foi escrito: não leva tradução.")
     }
-    if (!args.titlePrefix.trim()) throw new Error("Title is required")
+    if (!args.titlePrefix.trim()) throw new ConvexError("Escreva o título neste idioma.")
     const existing = await ctx.db.query("corporateExperienceTranslations")
       .withIndex("by_experience_locale", (q) => q.eq("experienceId", args.experienceId).eq("locale", args.locale)).first()
     const data = { ...args, titlePrefix: args.titlePrefix.trim(), updatedAt: Date.now() }
@@ -271,7 +271,7 @@ export const removeTranslation = mutation({
     await exigirAdmin(ctx);
     const translation = await ctx.db.query("corporateExperienceTranslations")
       .withIndex("by_experience_locale", (q) => q.eq("experienceId", experienceId).eq("locale", locale)).first()
-    if (!translation) throw new Error("Translation not found")
+    if (!translation) throw new ConvexError("Esta tradução já não existe — talvez tenha sido apagada noutra janela. Recarregue a página.")
     await ctx.db.delete(translation._id)
     return translation._id
   },

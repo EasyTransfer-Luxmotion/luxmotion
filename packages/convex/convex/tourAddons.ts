@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";
@@ -98,7 +98,7 @@ export const update = mutation({
     await exigirAdmin(ctx);
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Addon not found");
+    if (!existing) throw new ConvexError("Este extra já não existe — talvez tenha sido apagado noutra janela.");
 
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     if (data.title !== undefined) updates.title = data.title;
@@ -120,7 +120,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const addon = await ctx.db.get(args.id);
-    if (!addon) throw new Error("Addon not found");
+    if (!addon) throw new ConvexError("Este extra já não existe — talvez tenha sido apagado noutra janela.");
 
     const translations = await ctx.db
       .query("tourAddonTranslations")
@@ -150,10 +150,10 @@ export const upsertTranslation = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const addon = await ctx.db.get(args.addonId);
-    if (!addon) throw new Error("Addon not found");
+    if (!addon) throw new ConvexError("Este extra já não existe — talvez tenha sido apagado noutra janela.");
 
     if (args.locale === addon.originalLanguage) {
-      throw new Error("Cannot create translation in the original language");
+      throw new ConvexError("Este é o idioma em que o texto foi escrito: não leva tradução.");
     }
 
     const existing = await ctx.db

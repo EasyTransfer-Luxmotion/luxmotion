@@ -41,10 +41,18 @@ export const publicar = action({
     const tipo = ((ficheiro.type || "").split(";")[0] ?? "").trim().toLowerCase();
     if (!EXTENSAO_POR_TIPO[tipo]) {
       await ctx.storage.delete(storageId);
-      throw new ConvexError(`Tipo de ficheiro não aceite: ${tipo || "desconhecido"}.`);
+      throw new ConvexError(`Este tipo de ficheiro não é aceite (${tipo || "desconhecido"}). Use JPG, PNG, WebP, GIF, MP4 ou WebM.`);
     }
 
-    const caminho = await publicarNoBunny(ficheiro);
+    let caminho: string;
+    try {
+      caminho = await publicarNoBunny(ficheiro);
+    } catch (e) {
+      /* Sem isto chegava ao browser "Server Error" (em produção o Convex
+         esconde a mensagem de um Error normal). O pormenor fica no log. */
+      console.error("[imagensBunny.publicar]", e);
+      throw new ConvexError("O serviço onde ficam as imagens (Bunny) não aceitou o ficheiro. Tente outra vez daqui a pouco.");
+    }
     // Só depois de o Bunny confirmar: se o envio falhar, o ficheiro fica no
     // Convex e o admin pode tentar outra vez.
     await ctx.storage.delete(storageId);

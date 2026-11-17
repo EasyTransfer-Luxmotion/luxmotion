@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { withDisplayedReviewStats } from "./lib/displayedReviewStats";
 import { resolveAddons } from "./lib/addons";
 import { query, mutation } from "./_generated/server";
@@ -485,7 +485,7 @@ export const create = mutation({
         .withIndex("by_featured", (q) => q.eq("isFeatured", true))
         .collect();
       if (featuredCount.length >= 6) {
-        throw new Error("Maximum of 6 featured events allowed");
+        throw new ConvexError("Já há 6 eventos em destaque, o máximo. Tire um do destaque primeiro.");
       }
     }
 
@@ -568,7 +568,7 @@ export const update = mutation({
     await exigirAdmin(ctx);
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
-    if (!existing) throw new Error("Event not found");
+    if (!existing) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
     if (data.isFeatured && !existing.isFeatured) {
       const featuredCount = await ctx.db
@@ -576,7 +576,7 @@ export const update = mutation({
         .withIndex("by_featured", (q) => q.eq("isFeatured", true))
         .collect();
       if (featuredCount.length >= 6) {
-        throw new Error("Maximum of 6 featured events allowed");
+        throw new ConvexError("Já há 6 eventos em destaque, o máximo. Tire um do destaque primeiro.");
       }
     }
 
@@ -607,7 +607,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const event = await ctx.db.get(args.id);
-    if (!event) throw new Error("Event not found");
+    if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
     const translations = await ctx.db
       .query("eventTranslations")
@@ -656,7 +656,7 @@ export const publish = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const event = await ctx.db.get(args.id);
-    if (!event) throw new Error("Event not found");
+    if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
     const now = Date.now();
     await ctx.db.patch(args.id, {
@@ -674,7 +674,7 @@ export const unpublish = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const event = await ctx.db.get(args.id);
-    if (!event) throw new Error("Event not found");
+    if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
     await ctx.db.patch(args.id, {
       status: "draft",
@@ -690,7 +690,7 @@ export const cancel = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const event = await ctx.db.get(args.id);
-    if (!event) throw new Error("Event not found");
+    if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
     await ctx.db.patch(args.id, {
       status: "cancelled",
@@ -718,7 +718,7 @@ export const toggleFeatured = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const event = await ctx.db.get(args.id);
-    if (!event) throw new Error("Event not found");
+    if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
     if (!event.isFeatured) {
       const featuredCount = await ctx.db
@@ -726,7 +726,7 @@ export const toggleFeatured = mutation({
         .withIndex("by_featured", (q) => q.eq("isFeatured", true))
         .collect();
       if (featuredCount.length >= 6) {
-        throw new Error("Maximum of 6 featured events allowed");
+        throw new ConvexError("Já há 6 eventos em destaque, o máximo. Tire um do destaque primeiro.");
       }
     }
 
@@ -754,10 +754,10 @@ export const upsertTranslation = mutation({
   handler: async (ctx, args) => {
     await exigirAdmin(ctx);
     const event = await ctx.db.get(args.eventId);
-    if (!event) throw new Error("Event not found");
+    if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
     if (args.locale === event.originalLanguage) {
-      throw new Error("Cannot create translation in the original language");
+      throw new ConvexError("Este é o idioma em que o texto foi escrito: não leva tradução.");
     }
 
     const existing = await ctx.db
@@ -814,7 +814,7 @@ export const removeTranslation = mutation({
       )
       .first();
 
-    if (!translation) throw new Error("Translation not found");
+    if (!translation) throw new ConvexError("Esta tradução já não existe — talvez tenha sido apagada noutra janela. Recarregue a página.");
 
     await ctx.db.delete(translation._id);
     return translation._id;
