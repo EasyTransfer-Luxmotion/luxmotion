@@ -200,7 +200,7 @@ export const mostrarEmParceiro = mutation({
     const carro = await ctx.db.get(veiculoId);
     if (!carro) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este veículo já não existe." });
     if (carro.partnershipId) {
-      throw new ConvexError({ tipo: "invalido", mensagem: "Este carro é de um parceiro: só aparece nesse parceiro. Para o pôr em todos, mude o dono para EasyTransfer." });
+      throw new ConvexError({ tipo: "invalido", mensagem: "Este carro está associado a uma parceria: só aparece no checkout dela. Para o pôr no site e nas parcerias, associe-o ao site principal." });
     }
     const alvo = parceriaId ? [await ctx.db.get(parceriaId)] : await ctx.db.query("partnerships").collect();
     const agora = Date.now();
@@ -311,7 +311,7 @@ export const guardar = mutation({
       if (!base) erros.upgradeFromVehicleId = "O veículo escolhido já não existe.";
       else if (id && base._id === id) erros.upgradeFromVehicleId = "Um veículo não pode ser upgrade de si próprio.";
       else if ((base.partnershipId ?? null) !== (d.partnershipId ?? null)) {
-        erros.upgradeFromVehicleId = "Só de um veículo do mesmo dono.";
+        erros.upgradeFromVehicleId = "Só de um veículo associado ao mesmo sítio (site principal ou a mesma parceria).";
       } else if (id && base.upgradeFromVehicleId === id) {
         erros.upgradeFromVehicleId = `${base.name} já é upgrade deste: ficavam em círculo.`;
       } else {

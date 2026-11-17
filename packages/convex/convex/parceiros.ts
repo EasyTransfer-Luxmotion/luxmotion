@@ -556,7 +556,7 @@ export const remover = mutation({
     if (veiculos.length) {
       throw new ConvexError({
         tipo: "emUso",
-        mensagem: `Tem ${veiculos.length === 1 ? "um veículo próprio" : `${veiculos.length} veículos próprios`} (${veiculos.map((x) => x.name).join(", ")}). Mude o dono em Catálogo → Veículos antes de a apagar.`,
+        mensagem: `Tem ${veiculos.length === 1 ? "um veículo associado" : `${veiculos.length} veículos associados`} (${veiculos.map((x) => x.name).join(", ")}). Associe-os ao site principal ou a outra parceria em Catálogo → Veículos antes de a apagar.`,
       });
     }
     /* As reservas e os pedidos ficam com o partnershipName gravado, por isso
