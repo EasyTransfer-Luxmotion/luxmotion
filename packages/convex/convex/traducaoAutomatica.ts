@@ -5,7 +5,8 @@ import { generateText } from "./lib/openai";
 
 /*
  * Tradução automática para o back-office: recebe o texto original de um
- * tour ou evento (o que está no editor, mesmo por gravar) e devolve-o
+ * tour, evento, experiência corporate, extra ou veículo (o que está no
+ * editor, mesmo por gravar) e devolve-o
  * traduzido. Não grava nada: o editor preenche o formulário do idioma e
  * quem traduz revê e carrega em "Gravar".
  *
@@ -39,8 +40,19 @@ function repor(no: No, novos: string[], i: { n: number }): No {
   return copia;
 }
 
-const sistema = (de: string, para: string) => `You are the in-house translator of EasyTransfer Portugal, a premium private transfer, tour and event company in Portugal.
-Translate the content of a tour or event page from ${IDIOMAS[de]} to ${IDIOMAS[para]}.
+/* O que se traduz muda o tom: um nome de carro no checkout não é a página
+   de um tour, e "Business Class" não se traduz como texto corrido. */
+const ASSUNTOS = {
+  tour: "a tour page on the website",
+  evento: "an event page on the website",
+  corporate: "a corporate experience page on the website (for companies booking team events)",
+  extra: "an optional extra or stop that customers add to a transfer or tour in the checkout; keep it short, like the original",
+  veiculo:
+    "a vehicle class shown in the transfer checkout: the class name (e.g. Business Class, Van, Mini Bus) and example models; translate class words only when the target language normally does, and never translate car makes or model names",
+} as const;
+
+const sistema = (de: string, para: string, assunto: keyof typeof ASSUNTOS) => `You are the in-house translator of EasyTransfer Portugal, a premium private transfer, tour and event company in Portugal.
+Translate the content of ${ASSUNTOS[assunto]}, from ${IDIOMAS[de]} to ${IDIOMAS[para]}.
 
 Rules:
 - Natural, warm and polished tone for travellers; not literal, not marketing fluff added.
@@ -59,6 +71,8 @@ export const traduzir = action({
     textos: v.record(v.string(), v.string()),
     listas: v.record(v.string(), v.array(v.string())),
     documento: v.optional(v.any()),
+    /* Opcional: o dashboard que só conhecia tours e eventos não o manda. */
+    assunto: v.optional(v.union(v.literal("tour"), v.literal("evento"), v.literal("corporate"), v.literal("extra"), v.literal("veiculo"))),
   },
   handler: async (ctx, a): Promise<{ textos: Record<string, string>; listas: Record<string, string[]>; documento: unknown | null }> => {
     await exigirAdmin(ctx);
@@ -84,7 +98,7 @@ export const traduzir = action({
     let resposta: { textos?: Record<string, unknown>; listas?: Record<string, unknown>; segments?: unknown };
     try {
       const out = await generateText({
-        system: sistema(a.de, a.para),
+        system: sistema(a.de, a.para, a.assunto ?? "tour"),
         user: JSON.stringify({ textos, listas, segments }),
         json: true,
       });
