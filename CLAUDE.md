@@ -156,9 +156,13 @@ Uma storage zone e uma CDN por ambiente, como o Convex — não partilham fichei
 **Imagens carregadas no admin** (no dashboard). O browser envia para o Convex como sempre e
 `imagensBunny.publicar` passa o ficheiro para o Bunny. No cliente usa-se sempre
 `usePublicarImagem()`. Nas funções Convex, **nunca** `ctx.storage.getUrl` nem
-`ctx.storage.delete` numa imagem de conteúdo: usar `urlDaImagem` e
-`apagarImagem` de `lib/imagens.ts`, que tratam os dois formatos (id antigo do
-Convex ou caminho `uploads/…` no Bunny).
+`ctx.storage.delete` numa imagem de conteúdo: usar `urlDaImagem` de
+`lib/imagens.ts`, que trata os dois formatos (id antigo do Convex ou caminho
+`uploads/…` no Bunny). **Não se apagam ficheiros de imagem**: apagar um tour,
+artigo ou experiência tira a referência e deixa o ficheiro. O mesmo ficheiro
+pode estar em vários registos (a migração juntou iguais, a biblioteca dos
+extras reutiliza fotos), e apagar uma experiência de teste já levou duas
+fotografias de veículos.
 
 **As candidaturas de motoristas e parceiros não vão para o Bunny.** São cartas
 de condução, seguros e comprovativos bancários; a CDN é pública e não revoga
