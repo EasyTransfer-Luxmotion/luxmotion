@@ -101,6 +101,7 @@ import type * as tourScarcity from "../tourScarcity.js";
 import type * as tourSchedules from "../tourSchedules.js";
 import type * as tourStops from "../tourStops.js";
 import type * as tours from "../tours.js";
+import type * as traducaoAutomatica from "../traducaoAutomatica.js";
 import type * as universalAddons from "../universalAddons.js";
 import type * as upsells from "../upsells.js";
 import type * as vehicles from "../vehicles.js";
@@ -209,6 +210,7 @@ declare const fullApi: ApiFromModules<{
   tourSchedules: typeof tourSchedules;
   tourStops: typeof tourStops;
   tours: typeof tours;
+  traducaoAutomatica: typeof traducaoAutomatica;
   universalAddons: typeof universalAddons;
   upsells: typeof upsells;
   vehicles: typeof vehicles;
