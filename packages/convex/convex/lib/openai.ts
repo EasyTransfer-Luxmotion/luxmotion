@@ -82,6 +82,8 @@ export async function generateText(params: {
   system: string;
   user: string;
   maxOutputTokens?: number;
+  /* Resposta só em JSON (as mensagens têm de dizer "JSON"). */
+  json?: boolean;
 }): Promise<TextResult> {
   const json = await post("/chat/completions", {
     model: textModel(),
@@ -90,6 +92,7 @@ export async function generateText(params: {
       { role: "user", content: params.user },
     ],
     max_completion_tokens: params.maxOutputTokens ?? 16000,
+    ...(params.json ? { response_format: { type: "json_object" } } : {}),
   });
 
   const choice = json?.choices?.[0];
