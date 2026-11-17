@@ -121,7 +121,9 @@ export function DriversSection() {
   const slidePercent = 100 / pageSize
 
   return (
-    <section className="bg-[#0D0D0D] flex flex-col items-center px-4 md:px-[82px] py-16 md:py-20">
+    /* id: o "Ver no site" dos Motoristas no back-office abre /about-us#drivers,
+       e sem ele a página abria no topo. */
+    <section id="drivers" className="scroll-mt-[56px] bg-[#0D0D0D] flex flex-col items-center px-4 md:px-[82px] py-16 md:py-20">
       <div className="flex flex-col gap-6 items-center w-full max-w-[1280px]">
         <div className="flex flex-col items-center w-full gap-2">
           <div className="flex gap-2 items-center justify-center w-full">
