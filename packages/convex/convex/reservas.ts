@@ -17,7 +17,7 @@ import { exigirAdmin, lerAcesso, permite, temCapacidade } from "./lib/admin";
  *    a cada mudança, para mostrar dez reservas.
  *  - As mudanças de estado seguem uma matriz escrita aqui, e não "qualquer
  *    estado para qualquer estado".
- *  - Confirmar um pagamento é uma só transacção: o estado, as transacções, o
+ *  - Confirmar um pagamento é uma só transação: o estado, as transações, o
  *    regresso e o registo mudam juntos, e o webhook é agendado na mesma. O
  *    adminUpdateOrderStatus verificava "já está paga?" e só depois pagava, em
  *    passos separados: dois cliques ao mesmo tempo passavam os dois.
@@ -42,7 +42,7 @@ type Vista = keyof typeof VISTAS;
 
 /*
  * As mudanças de estado permitidas, a partir de cada estado. "paid" não está
- * em nenhuma: chega-se lá por confirmarPagamento, que tem efeitos (transacção,
+ * em nenhuma: chega-se lá por confirmarPagamento, que tem efeitos (transação,
  * regresso, extras, webhook à operação) e não pode ser uma mudança de estado
  * como as outras.
  *
@@ -382,7 +382,7 @@ export const detalhe = query({
         em: r.em,
       })),
       /* Só os botões que o cargo deixa usar: quem só vê Reservas, ou está a
-         «ver como», não tem acções; confirmar e reenviar pedem a capacidade
+         «ver como», não tem ações; confirmar e reenviar pedem a capacidade
          "pagamentos". O servidor recusa na mesma, mas um botão que dá erro
          não serve a ninguém. */
       accoes: {
@@ -490,8 +490,8 @@ export const mudarEstado = mutation({
 /*
  * Pagamento recebido por fora do checkout (dinheiro, transferência, um link
  * pago à parte). Corre a mesma cadeia de um pagamento a sério
- * (payments.updatePaymentStatus: estado, transacções, regresso, extras do
- * checkout) e agenda o webhook à operação — tudo na mesma transacção que o
+ * (payments.updatePaymentStatus: estado, transações, regresso, extras do
+ * checkout) e agenda o webhook à operação — tudo na mesma transação que o
  * registo. Se a reserva já estava paga, não faz nada e diz isso.
  */
 export const confirmarPagamento = mutation({
@@ -570,7 +570,7 @@ export const confirmarPagamento = mutation({
       aviso: { estado: "agendado", tentativas: 0, em: agora },
       em: agora,
     });
-    /* Agendado na mesma transacção: se algo acima falhar, não sai aviso
+    /* Agendado na mesma transação: se algo acima falhar, não sai aviso
        nenhum; se sair, o pagamento ficou gravado. O sendOrderPayload tem as
        suas próprias tentativas e vai anotando o resultado neste registo. */
     await ctx.scheduler.runAfter(0, internal.webhooks.sendOrderPayload, { orderId: o._id, aviso: registoId });

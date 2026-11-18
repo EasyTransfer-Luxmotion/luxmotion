@@ -99,7 +99,7 @@ export function eModulo(x: string): x is ModuloPermissao {
 }
 
 /*
- * Acções sensíveis, à parte dos módulos: o que um ecrã deixa fazer não diz
+ * Ações sensíveis, à parte dos módulos: o que um ecrã deixa fazer não diz
  * tudo. A Operação muda reservas mas não as marca como pagas; o Comercial vê
  * reservas sem a faturação. Cada uma é verificada no servidor, nas funções
  * que a fazem (exigirAdmin com capacidade, ou pode/temCapacidade).

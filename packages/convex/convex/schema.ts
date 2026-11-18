@@ -364,7 +364,7 @@ export default defineSchema({
     resultado: v.union(v.literal("feito"), v.literal("jaEstava")),
     /* O que mais aconteceu: o regresso que mudou junto, o webhook agendado. */
     nota: v.optional(v.string()),
-    /* O aviso à operação (webhooks.sendOrderPayload) que esta acção pediu, e
+    /* O aviso à operação (webhooks.sendOrderPayload) que esta ação pediu, e
        como correu. "semDestino": o ambiente não tem o endereço (development e
        staging, de propósito). */
     aviso: v.optional(
@@ -1803,7 +1803,7 @@ export default defineSchema({
         nivel: v.union(v.literal("ver"), v.literal("editar")),
       }),
     ),
-    /* Acções sensíveis (lib/permissoes.ts → CAPACIDADES). Vazio: nenhuma. */
+    /* Ações sensíveis (lib/permissoes.ts → CAPACIDADES). Vazio: nenhuma. */
     capacidades: v.optional(v.array(v.string())),
     criadoEm: v.number(),
     actualizadoEm: v.number(),

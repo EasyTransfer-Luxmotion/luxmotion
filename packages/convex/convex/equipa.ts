@@ -302,7 +302,7 @@ export const guardarCargo = mutation({
       permissoes.push({ modulo: p.modulo, nivel: p.nivel });
     }
 
-    for (const c of a.capacidades ?? []) if (!eCapacidade(c)) throw new ConvexError(`Acção desconhecida: ${c}.`);
+    for (const c of a.capacidades ?? []) if (!eCapacidade(c)) throw new ConvexError(`Ação desconhecida: ${c}.`);
     const capacidadesNovas = a.capacidades ? [...new Set(a.capacidades.filter(eCapacidade))] : undefined;
 
     if (nome && !erros.nome) {

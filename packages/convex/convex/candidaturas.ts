@@ -10,7 +10,7 @@ import { safeStorageDelete } from "./lib/storage";
  *
  * Os estados são os das duas tabelas — recebida, em análise, aprovada,
  * recusada — e juntam-se nos mesmos três grupos dos Pedidos. Aprovar não cria
- * motorista nem parceiro: o plano pede que isso seja uma acção explícita
+ * motorista nem parceiro: o plano pede que isso seja uma ação explícita
  * (PED-08/09), e continua a fazer-se à parte.
  *
  * Os documentos (carta TVDE, seguro, comprovativos de morada e bancários, o

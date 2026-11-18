@@ -199,7 +199,7 @@ export async function exigirAdmin(
   ctx: CtxLeitura,
   modulo?: Exigencia,
   nivel: Nivel = "editar",
-  /* Uma acção sensível a mais (lib/permissoes.ts → CAPACIDADES): apagar,
+  /* Uma ação sensível a mais (lib/permissoes.ts → CAPACIDADES): apagar,
      confirmar um pagamento. */
   capacidade?: Capacidade,
 ): Promise<UserIdentity> {

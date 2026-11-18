@@ -11,7 +11,7 @@ import { urlDaImagem } from "./lib/imagens";
  * antigo fazia ao gravar.
  *
  * O que muda:
- *  - Gravar é uma transacção só: o tour, as paragens e o horário. O
+ *  - Gravar é uma transação só: o tour, as paragens e o horário. O
  *    formulário antigo gravava o tour e depois apagava/criava paragens uma a
  *    uma — uma falha a meio deixava metade gravado.
  *  - O assistente antigo só gravava no último dos dez passos; aqui grava-se
