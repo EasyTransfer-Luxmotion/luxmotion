@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { pode } from "./lib/admin";
+import { codigoDoAeroporto } from "./lib/precoTransfer";
 
 /*
  * O Início do dashboard: os serviços de um dia, por hora.
@@ -19,8 +20,25 @@ const ESTADOS_DE_SERVICO = new Set(["paid", "confirmed", "completed"]);
    lista de Reservas continua a ter tudo. */
 const MAXIMO = 200;
 
-function local(p: { location?: string; name?: string } | undefined): string {
-  return p?.name?.trim() || p?.location?.trim() || "—";
+/*
+ * O nome curto de um local, para as rotas e os serviços do Início.
+ *
+ * Aeroportos pelo código (o dashboard mostra o avião e "LIS"), reconhecidos
+ * pelas coordenadas: um cliente com o browser em ucraniano gravou o aeroporto
+ * de Lisboa como "Міжнародний аеропорт Портела, Alameda das Comunidades
+ * Portuguesas, 1700-111 Lisboa, Портуґалія", que enchia o painel das rotas e
+ * não se juntava às outras viagens do mesmo aeroporto. Sem nome curto (o
+ * Google nem sempre o dá), fica o primeiro troço da morada.
+ */
+function local(p: { location?: string; name?: string; lat?: number; lng?: number; placeId?: string } | undefined): string {
+  if (!p) return "—";
+  const codigo = codigoDoAeroporto(p);
+  if (codigo) return `Aeroporto (${codigo})`;
+  const nome = p.name?.trim() || p.location?.split(",")[0]?.trim() || p.location?.trim();
+  if (!nome) return "—";
+  /* "2655 Ericeira" e "Ericeira" são o mesmo sítio: o código postal à
+     frente partia a mesma rota em duas. */
+  return nome.replace(/^\d{4}(-\d{3})?\s+/, "") || nome;
 }
 
 export const servicos = query({
