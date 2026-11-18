@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { avaliarAcesso, exigirAdmin } from "./lib/admin";
+import { pode, exigirAdmin } from "./lib/admin";
 import { urlDaImagem, vImagem } from "./lib/imagens";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { legacyUpsellTranslations } from "./lib/upsellTranslations";
@@ -135,7 +135,7 @@ async function alcance(ctx: QueryCtx) {
 export const lista = query({
   args: { tipo: vTipo },
   handler: async (ctx, { tipo }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "extras"))) return null;
     const [paragens, experiencias, universais] = await Promise.all([
       ctx.db.query("upsellStops").withIndex("by_order").collect(),
       ctx.db.query("upsellExperiences").withIndex("by_order").collect(),
@@ -217,7 +217,7 @@ export const lista = query({
 export const detalheParagem = query({
   args: { id: v.id("upsellStops") },
   handler: async (ctx, { id }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "extras"))) return null;
     const x = await ctx.db.get(id);
     if (!x) return { encontrado: false as const };
     return {
@@ -234,7 +234,7 @@ export const detalheParagem = query({
 export const detalheExperiencia = query({
   args: { id: v.id("upsellExperiences") },
   handler: async (ctx, { id }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "extras"))) return null;
     const x = await ctx.db.get(id);
     if (!x) return { encontrado: false as const };
     return {
@@ -251,7 +251,7 @@ export const detalheExperiencia = query({
 export const detalheUniversal = query({
   args: { id: v.id("universalAddons") },
   handler: async (ctx, { id }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "extras"))) return null;
     const x = await ctx.db.get(id);
     if (!x) return { encontrado: false as const };
     const a = (await alcance(ctx))(x);
@@ -293,7 +293,7 @@ export const guardarParagem = mutation({
     }),
   },
   handler: async (ctx, { id, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const actual = id ? await ctx.db.get(id) : null;
     if (id && !actual) erroNaoExiste();
     if (actual && versao !== actual.updatedAt) erroConflito();
@@ -366,7 +366,7 @@ export const guardarExperiencia = mutation({
     }),
   },
   handler: async (ctx, { id, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const actual = id ? await ctx.db.get(id) : null;
     if (id && !actual) erroNaoExiste();
     if (actual && versao !== actual.updatedAt) erroConflito();
@@ -436,7 +436,7 @@ export const guardarUniversal = mutation({
     }),
   },
   handler: async (ctx, { id, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const actual = id ? await ctx.db.get(id) : null;
     if (id && !actual) erroNaoExiste();
     if (actual && versao !== actual.updatedAt) erroConflito();
@@ -488,7 +488,7 @@ async function lerQualquer(ctx: QueryCtx, tipo: Tipo, id: string) {
 export const mudarEstado = mutation({
   args: { tipo: vTipo, id: v.string(), estado: v.union(v.literal("draft"), v.literal("published")) },
   handler: async (ctx, { tipo, id, estado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const x = await lerQualquer(ctx, tipo, id);
     if (estado === "published") {
       const falta =
@@ -508,7 +508,7 @@ export const mudarEstado = mutation({
 export const reordenar = mutation({
   args: { tipo: vTipo, ids: v.array(v.string()) },
   handler: async (ctx, { tipo, ids }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const todos = await ctx.db.query(TABELA[tipo]).collect();
     const existentes = new Set(todos.map((x) => x._id as string));
     /* A lista tem de ser a completa: uma lista antiga (outro separador)
@@ -536,7 +536,7 @@ export const reordenar = mutation({
 export const remover = mutation({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx, { tipo, id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     const x = nid ? await ctx.db.get(nid) : null;
     if (!x) return;

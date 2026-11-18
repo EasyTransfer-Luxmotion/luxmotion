@@ -30,7 +30,7 @@ export const detalhe = query({
   /* O dia de hoje vem do browser (AAAA-MM-DD, Lisboa), como no Início. */
   args: { hoje: v.string() },
   handler: async (ctx, { hoje }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "definicoes", "ver");
     const [site, mkt] = await Promise.all([
       ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", CHAVE)).first(),
       ctx.db.query("marketingStats").withIndex("by_key", (q) => q.eq("key", CHAVE)).first(),
@@ -108,7 +108,7 @@ export const guardar = mutation({
     }),
   },
   handler: async (ctx, { versao, dados: d }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "definicoes");
     const erros: Record<string, string> = {};
     const entre = (campo: string, n: number, min: number, max: number, inteiro = true, msg?: string) => {
       if (!Number.isFinite(n) || (inteiro && !Number.isInteger(n)) || n < min || n > max) erros[campo] = msg ?? `${inteiro ? "Um número inteiro" : "Um número"} de ${min} a ${max}.`;

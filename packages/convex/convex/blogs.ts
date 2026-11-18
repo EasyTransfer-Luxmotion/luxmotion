@@ -41,7 +41,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog", "ver");
     const blogs = await ctx.db.query("blogs").collect();
 
     // Enrich with availableLanguages (needed for the Languages column) — cheap
@@ -331,7 +331,7 @@ async function criarBlog(ctx: MutationCtx, args: ObjectType<typeof argscriarBlog
 export const create = mutation({
   args: argscriarBlog,
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     return await criarBlog(ctx, args);
   },
 });
@@ -422,7 +422,7 @@ async function atualizarBlog(ctx: MutationCtx, args: ObjectType<typeof argsatual
 export const update = mutation({
   args: argsatualizarBlog,
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     return await atualizarBlog(ctx, args);
   },
 });
@@ -436,7 +436,7 @@ export const updateInterno = internalMutation({
 export const remove = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     const blog = await ctx.db.get(args.id);
     if (!blog) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -468,7 +468,7 @@ export const generateUploadUrl = mutation({
 export const getImageUrl = mutation({
   args: { storageId: vImagem },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     return await urlDaImagem(ctx, args.storageId);
   },
 });
@@ -476,7 +476,7 @@ export const getImageUrl = mutation({
 export const countFeatured = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog", "ver");
     const featured = await ctx.db
       .query("blogs")
       .withIndex("by_featured", (q) => q.eq("isFeatured", true))
@@ -488,7 +488,7 @@ export const countFeatured = query({
 export const countServices = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog", "ver");
     const services = await ctx.db
       .query("blogs")
       .withIndex("by_service", (q) => q.eq("isService", true))
@@ -500,7 +500,7 @@ export const countServices = query({
 export const toggleFeatured = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     const blog = await ctx.db.get(args.id);
     if (!blog) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -526,7 +526,7 @@ export const toggleFeatured = mutation({
 export const publish = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     const blog = await ctx.db.get(args.id);
     if (!blog) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -544,7 +544,7 @@ export const publish = mutation({
 export const unpublish = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     const blog = await ctx.db.get(args.id);
     if (!blog) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -613,7 +613,7 @@ async function gravarTraducaoBlog(ctx: MutationCtx, args: ObjectType<typeof args
 export const upsertTranslation = mutation({
   args: argsgravarTraducaoBlog,
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     return await gravarTraducaoBlog(ctx, args);
   },
 });
@@ -630,7 +630,7 @@ export const removeTranslation = mutation({
     locale: v.string()
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     const translation = await ctx.db
       .query("blogTranslations")
       .withIndex("by_blog_locale", (q) =>

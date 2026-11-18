@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { avaliarAcesso } from "./lib/admin";
+import { pode } from "./lib/admin";
 
 /*
  * O Início do dashboard: os serviços de um dia, por hora.
@@ -27,7 +27,7 @@ export const servicos = query({
   /* AAAA-MM-DD em Lisboa, vindo do browser (ver contadores.porTratar). */
   args: { dia: v.string() },
   handler: async (ctx, { dia }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "reservas"))) return null;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return { linhas: [], mais: false };
 
     const docs = await ctx.db
@@ -158,7 +158,7 @@ export const estatisticas = query({
     hoje: v.string(),
   },
   handler: async (ctx, { periodo, hoje }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "reservas"))) return null;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(hoje)) return null;
 
     /* Os baldes do gráfico e o início do período (e do anterior, para a

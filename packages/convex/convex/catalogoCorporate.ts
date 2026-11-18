@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { avaliarAcesso, exigirAdmin } from "./lib/admin";
+import { pode, exigirAdmin } from "./lib/admin";
 import { urlDaImagem } from "./lib/imagens";
 import { CORPORATE_LANGUAGES, corporateOriginalLanguage } from "./lib/corporateExperienceTranslations";
 
@@ -50,7 +50,7 @@ function impedimentos(x: Pick<Doc<"corporateExperiences">, "titlePrefix" | "titl
 export const lista = query({
   args: {},
   handler: async (ctx) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "corporate"))) return null;
     const xs = await ctx.db.query("corporateExperiences").withIndex("by_sort").collect();
     const tr = await ctx.db.query("corporateExperienceTranslations").collect();
     return Promise.all(
@@ -80,7 +80,7 @@ export const lista = query({
 export const detalhe = query({
   args: { id: v.id("corporateExperiences") },
   handler: async (ctx, { id }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "corporate"))) return null;
     const x = await ctx.db.get(id);
     if (!x) return { encontrado: false as const };
     const capaUrl = x.coverImageId ? await urlDaImagem(ctx, x.coverImageId) : null;
@@ -118,7 +118,7 @@ const limpar = (xs: string[]) => xs.map((x) => x.trim()).filter(Boolean);
 export const guardar = mutation({
   args: { id: v.optional(v.id("corporateExperiences")), versao: v.optional(v.number()), dados: vDados },
   handler: async (ctx, { id, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate");
     const actual = id ? await ctx.db.get(id) : null;
     if (id && !actual) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta experiência já não existe." });
     if (actual && versao !== actual.updatedAt) {
@@ -161,7 +161,7 @@ export const guardar = mutation({
 export const mudarEstado = mutation({
   args: { id: v.id("corporateExperiences"), estado: v.union(v.literal("draft"), v.literal("published")) },
   handler: async (ctx, { id, estado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate");
     const x = await ctx.db.get(id);
     if (!x) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta experiência já não existe." });
     if (estado === "published") {
@@ -178,7 +178,7 @@ export const mudarEstado = mutation({
 export const reordenar = mutation({
   args: { ids: v.array(v.id("corporateExperiences")) },
   handler: async (ctx, { ids }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate");
     const todos = await ctx.db.query("corporateExperiences").collect();
     if (ids.length !== todos.length || new Set(ids).size !== ids.length || !todos.every((x) => ids.includes(x._id))) {
       throw new ConvexError({ tipo: "conflito", mensagem: "A lista mudou entretanto. Recarregue e volte a ordenar." });
@@ -191,7 +191,7 @@ export const reordenar = mutation({
 export const remover = mutation({
   args: { id: v.id("corporateExperiences") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate");
     const x = await ctx.db.get(id);
     if (!x) return;
     /* Capa e galeria não se apagam. Foi aqui que, ao apagar uma experiência de teste,

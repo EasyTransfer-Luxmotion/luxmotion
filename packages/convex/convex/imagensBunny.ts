@@ -12,6 +12,7 @@ import {
 } from "./lib/bunny";
 import { TABELAS } from "./lib/tabelasImagens";
 import { exigirAdmin } from "./lib/admin";
+import { exigirAdminAccao } from "./lib/adminAccao";
 
 /*
  * Runtime de Node por causa da memória: o admin aceita vídeos, e o ficheiro
@@ -33,7 +34,7 @@ import { exigirAdmin } from "./lib/admin";
 export const publicar = action({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, { storageId }): Promise<{ caminho: string; url: string | null }> => {
-    await exigirAdmin(ctx);
+    await exigirAdminAccao(ctx);
 
     const ficheiro = await ctx.storage.get(storageId);
     if (!ficheiro) throw new ConvexError("O ficheiro carregado já não existe.");

@@ -104,7 +104,7 @@ export const lista = query({
     porPagina: v.number(),
   },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "candidaturas", "ver");
     const todas = await lerTodas(ctx);
     const porTipo = {
       motoristas: todas.filter((x) => x.tipo === "motoristas" && x.grupo === "porTratar").length,
@@ -167,7 +167,7 @@ function ficheiros(tipo: Tipo, d: Doc<"driverApplications"> | Doc<"partnerApplic
 export const detalhe = query({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx, { tipo, id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "candidaturas", "ver");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     const d = nid ? ((await ctx.db.get(nid)) as Doc<"driverApplications"> | Doc<"partnerApplications"> | null) : null;
     if (!d) return null;
@@ -204,7 +204,7 @@ export const detalhe = query({
 export const mudarEstado = mutation({
   args: { tipo: vTipo, id: v.string(), estado: vEstado },
   handler: async (ctx, { tipo, id, estado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "candidaturas");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     if (!nid || !(await ctx.db.get(nid))) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta candidatura já não existe." });
     await ctx.db.patch(nid, { status: estado, reviewedAt: Date.now() });
@@ -215,7 +215,7 @@ export const mudarEstado = mutation({
 export const notas = mutation({
   args: { tipo: vTipo, id: v.string(), notas: v.string() },
   handler: async (ctx, { tipo, id, notas }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "candidaturas");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     if (!nid || !(await ctx.db.get(nid))) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta candidatura já não existe." });
     if (notas.length > 5000) throw new ConvexError({ tipo: "invalido", mensagem: "Notas compridas de mais (máximo 5000 caracteres)." });
@@ -232,7 +232,7 @@ export const notas = mutation({
 export const remover = mutation({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx, { tipo, id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "candidaturas");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     const d = nid ? ((await ctx.db.get(nid)) as Doc<"driverApplications"> | Doc<"partnerApplications"> | null) : null;
     if (!nid || !d) return { documentos: 0 };

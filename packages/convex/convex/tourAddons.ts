@@ -6,7 +6,7 @@ import { exigirAdmin } from "./lib/admin";
 export const listByTour = query({
   args: { tourId: v.id("tours") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"], "ver");
     const addons = await ctx.db
       .query("tourAddons")
       .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
@@ -32,7 +32,7 @@ export const listByTour = query({
 export const listByEvent = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"], "ver");
     const addons = await ctx.db
       .query("tourAddons")
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
@@ -70,7 +70,7 @@ export const create = mutation({
     status: v.union(v.literal("draft"), v.literal("published")),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
     const now = Date.now();
     return await ctx.db.insert("tourAddons", {
       ...args,
@@ -95,7 +95,7 @@ export const update = mutation({
     status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new ConvexError("Este extra já não existe — talvez tenha sido apagado noutra janela.");
@@ -118,7 +118,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("tourAddons") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
     const addon = await ctx.db.get(args.id);
     if (!addon) throw new ConvexError("Este extra já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -148,7 +148,7 @@ export const upsertTranslation = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
     const addon = await ctx.db.get(args.addonId);
     if (!addon) throw new ConvexError("Este extra já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -190,7 +190,7 @@ export const upsertTranslation = mutation({
 export const removeTranslation = mutation({
   args: { addonId: v.id("tourAddons"), locale: v.string() },
   handler: async (ctx, { addonId, locale }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
     const existing = await ctx.db
       .query("tourAddonTranslations")
       .withIndex("by_addon_locale", (q) => q.eq("addonId", addonId).eq("locale", locale))

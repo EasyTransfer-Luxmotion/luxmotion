@@ -58,7 +58,7 @@ const ordenar = (xs: Doc<"pastExperiences">[]) => [...xs].sort((a, b) => b.creat
 export const lista = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "portefolio", "ver");
     const [docs, mapa] = await Promise.all([ctx.db.query("pastExperiences").collect(), destinos(ctx)]);
     /* O lugar no site: só as publicadas com fotografia, como o site conta. */
     const noSite = ordenar(docs).filter((d) => d.status === "published" && d.imageId);
@@ -99,7 +99,7 @@ export const lista = query({
 export const destinosPossiveis = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "portefolio", "ver");
     return [...(await destinos(ctx)).values()].filter((d) => d.publicado).sort((a, b) => a.tipo.localeCompare(b.tipo) || a.titulo.localeCompare(b.titulo, "pt"));
   },
 });
@@ -130,7 +130,7 @@ function validar(d: typeof vDados.type): Record<string, string> {
 export const guardar = mutation({
   args: { id: v.optional(v.id("pastExperiences")), versao: v.optional(v.number()), dados: vDados },
   handler: async (ctx, { id, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "portefolio");
     const erros = validar(dados);
     if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
     const registo = {
@@ -162,7 +162,7 @@ export const guardar = mutation({
 export const publicar = mutation({
   args: { id: v.id("pastExperiences"), publicado: v.boolean() },
   handler: async (ctx, { id, publicado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "portefolio");
     const doc = await ctx.db.get(id);
     if (!doc) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta experiência já não existe." });
     if (publicado && !doc.imageId) throw new ConvexError({ tipo: "invalido", mensagem: "Sem fotografia não aparece no site. Carregue uma antes de publicar." });
@@ -175,7 +175,7 @@ export const publicar = mutation({
 export const porEmPrimeiro = mutation({
   args: { id: v.id("pastExperiences") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "portefolio");
     const doc = await ctx.db.get(id);
     if (!doc) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta experiência já não existe." });
     const agora = Date.now();
@@ -186,7 +186,7 @@ export const porEmPrimeiro = mutation({
 export const remover = mutation({
   args: { id: v.id("pastExperiences") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "portefolio");
     /* A fotografia não se apaga: pode estar noutro registo (lib/imagens.ts). */
     if (await ctx.db.get(id)) await ctx.db.delete(id);
   },

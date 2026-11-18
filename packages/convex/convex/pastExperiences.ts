@@ -7,7 +7,7 @@ import { exigirAdmin } from "./lib/admin";
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "portefolio", "ver");
     let rows = await ctx.db.query("pastExperiences").collect();
 
     rows = applySearch(rows, a.search, [(r) => r.title, (r) => r.location]);
@@ -73,7 +73,7 @@ export const create = mutation({
     status: v.union(v.literal("draft"), v.literal("published")),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "portefolio");
     const now = Date.now();
     return await ctx.db.insert("pastExperiences", {
       ...args,
@@ -103,7 +103,7 @@ export const update = mutation({
     status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "portefolio");
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Experience not found");
@@ -120,7 +120,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("pastExperiences") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "portefolio");
     const experience = await ctx.db.get(args.id);
     if (!experience) throw new Error("Experience not found");
 

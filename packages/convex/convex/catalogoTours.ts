@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { avaliarAcesso, exigirAdmin } from "./lib/admin";
+import { pode, exigirAdmin } from "./lib/admin";
 import { urlDaImagem } from "./lib/imagens";
 
 /*
@@ -226,7 +226,7 @@ async function horarioDe(ctx: QueryCtx, tourId: Id<"tours">) {
 export const lista = query({
   args: {},
   handler: async (ctx) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "tours"))) return null;
     const tours = await ctx.db.query("tours").collect();
     const traducoes = await ctx.db.query("tourTranslations").collect();
     return Promise.all(
@@ -255,7 +255,7 @@ export const lista = query({
 export const detalhe = query({
   args: { id: v.id("tours") },
   handler: async (ctx, { id }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "tours"))) return null;
     const t = await ctx.db.get(id);
     if (!t) return { encontrado: false as const };
     const [paragens, horario, traducoes, extras, reservas, destaques] = await Promise.all([
@@ -364,7 +364,7 @@ export const guardar = mutation({
     horario: v.union(vHorario, v.null()),
   },
   handler: async (ctx, { id, versao, dados, paragens, horario }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const actual = id ? await ctx.db.get(id) : null;
     if (id && !actual) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este tour já não existe." });
     if (actual && versao !== actual.updatedAt) {
@@ -409,7 +409,7 @@ export const guardar = mutation({
 export const mudarEstado = mutation({
   args: { id: v.id("tours"), estado: v.union(v.literal("draft"), v.literal("published"), v.literal("archived")) },
   handler: async (ctx, { id, estado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const t = await ctx.db.get(id);
     if (!t) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este tour já não existe." });
     if (estado === "published") {
@@ -436,7 +436,7 @@ export const mudarEstado = mutation({
 export const marcar = mutation({
   args: { id: v.id("tours"), marca: v.union(v.literal("destaque"), v.literal("bestseller")), valor: v.boolean() },
   handler: async (ctx, { id, marca, valor }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const t = await ctx.db.get(id);
     if (!t) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este tour já não existe." });
     if (marca === "destaque" && valor && !t.isFeatured) {
@@ -450,7 +450,7 @@ export const marcar = mutation({
 export const remover = mutation({
   args: { id: v.id("tours") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const t = await ctx.db.get(id);
     if (!t) return;
     const reservas = await ctx.db.query("tourBookings").withIndex("by_tour", (q) => q.eq("tourId", id)).first();

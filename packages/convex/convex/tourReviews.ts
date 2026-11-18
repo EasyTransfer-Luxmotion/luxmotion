@@ -20,7 +20,7 @@ export const listApprovedByEvent = query({
 export const listPending = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes", "ver");
     const reviews = await ctx.db
       .query("tourReviews")
       .withIndex("by_approved", (q) => q.eq("isApproved", false))
@@ -56,7 +56,7 @@ export const listPending = query({
 export const listApproved = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes", "ver");
     const reviews = await ctx.db
       .query("tourReviews")
       .withIndex("by_approved", (q) => q.eq("isApproved", true))
@@ -182,7 +182,7 @@ export const submit = mutation({
 export const approve = mutation({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes");
     const review = await ctx.db.get(args.id);
     if (!review) throw new Error("Review not found");
 
@@ -203,7 +203,7 @@ export const approve = mutation({
 export const reject = mutation({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes");
     const review = await ctx.db.get(args.id);
     if (!review) throw new Error("Review not found");
 
@@ -227,7 +227,7 @@ export const reject = mutation({
 export const toggleFeatured = mutation({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes");
     const review = await ctx.db.get(args.id);
     if (!review) throw new Error("Review not found");
     if (!review.isApproved) throw new Error("Only approved reviews can be featured");
@@ -257,7 +257,7 @@ export const update = mutation({
     createdAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes");
     const { id, ...data } = args;
     const review = await ctx.db.get(id);
     if (!review) throw new Error("Review not found");

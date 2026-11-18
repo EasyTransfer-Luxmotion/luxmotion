@@ -159,7 +159,7 @@ export const lista = query({
     porPagina: v.number(),
   },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos", "ver");
     const todos = await lerTodos(ctx);
 
     /* Contagens para os separadores: por tratar de cada tipo, e os grupos do
@@ -200,7 +200,7 @@ export const lista = query({
 export const detalhe = query({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx, { tipo, id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos", "ver");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     const d = nid ? ((await ctx.db.get(nid)) as Qualquer | null) : null;
     if (!d) return null;
@@ -228,7 +228,7 @@ export const detalhe = query({
 export const mudarEstado = mutation({
   args: { tipo: vTipo, id: v.string(), estado: v.string() },
   handler: async (ctx, { tipo, id, estado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos");
     if (!ESTADOS[tipo].includes(estado)) throw new ConvexError({ tipo: "invalido", mensagem: "Estado que este pedido não aceita." });
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     const d = nid ? await ctx.db.get(nid) : null;
@@ -244,7 +244,7 @@ export const mudarEstado = mutation({
 export const notas = mutation({
   args: { id: v.id("corporateRequests"), notas: v.string() },
   handler: async (ctx, { id, notas }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos");
     if (!(await ctx.db.get(id))) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este pedido já não existe." });
     if (notas.length > 5000) throw new ConvexError({ tipo: "invalido", mensagem: "Notas compridas de mais (máximo 5000 caracteres)." });
     await ctx.db.patch(id, { internalNotes: notas.trim() || undefined });
@@ -254,7 +254,7 @@ export const notas = mutation({
 export const remover = mutation({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx, { tipo, id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     if (!nid) return;
     if (await ctx.db.get(nid)) await ctx.db.delete(nid);
@@ -266,7 +266,7 @@ export const remover = mutation({
 export const newsletter = query({
   args: { pesquisa: v.optional(v.string()), pagina: v.number(), porPagina: v.number() },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos", "ver");
     const q = semAcentos(a.pesquisa?.trim() ?? "");
     const todos = (await ctx.db.query("newsletterSubscriptions").collect())
       .filter((x) => !q || [x.email, x.name, x.source].some((c) => c && semAcentos(c).includes(q)))

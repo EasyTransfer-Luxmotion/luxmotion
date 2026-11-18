@@ -72,7 +72,7 @@ export const upsert = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "escassez");
     const numbers = [
       args.year,
       args.totalCapacity,

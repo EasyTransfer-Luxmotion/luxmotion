@@ -53,7 +53,7 @@ export const submit = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos", "ver");
     const submissions = await ctx.db
       .query("schoolQuoteSubmissions")
       .withIndex("by_created")
@@ -72,7 +72,7 @@ export const setStatus = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos");
     await ctx.db.patch(args.id, { status: args.status });
   },
 });
@@ -80,7 +80,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("schoolQuoteSubmissions") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos");
     await ctx.db.delete(args.id);
   },
 });

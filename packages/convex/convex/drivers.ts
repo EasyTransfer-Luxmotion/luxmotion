@@ -7,7 +7,7 @@ import { exigirAdmin } from "./lib/admin";
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "motoristas", "ver");
     // Mirror `list`: full collection sorted by order asc as the baseline.
     let rows = (await ctx.db.query("drivers").collect()).sort((x, y) => x.order - y.order);
 
@@ -68,7 +68,7 @@ export const create = mutation({
     order: v.number(),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "motoristas");
     const now = Date.now();
     return await ctx.db.insert("drivers", {
       ...args,
@@ -94,7 +94,7 @@ export const update = mutation({
     order: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "motoristas");
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Driver not found");
@@ -111,7 +111,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("drivers") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "motoristas");
     const driver = await ctx.db.get(args.id);
     if (!driver) throw new Error("Driver not found");
 

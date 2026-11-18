@@ -38,7 +38,7 @@ function diaEmLisboa(ms: number): string {
 export const detalhe = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "escassez", "ver");
     const doc = await lerDoc(ctx);
     const valores = doc
       ? {
@@ -86,7 +86,7 @@ export const guardar = mutation({
     }),
   },
   handler: async (ctx, { versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "escassez");
 
     const erros: Record<string, string> = {};
     const inteiro = (n: number) => Number.isFinite(n) && Number.isInteger(n) && n >= 0;

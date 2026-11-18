@@ -49,7 +49,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos", "ver");
     const events = await ctx.db.query("events").collect();
 
     // Default ordering mirrors `list`: newest first.
@@ -347,7 +347,7 @@ export const getTranslation = query({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos", "ver");
     const translation = await ctx.db
       .query("eventTranslations")
       .withIndex("by_event_locale", (q) =>
@@ -478,7 +478,7 @@ export const create = mutation({
     confirmationHours: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     if (args.isFeatured) {
       const featuredCount = await ctx.db
         .query("events")
@@ -565,7 +565,7 @@ export const update = mutation({
     confirmationHours: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
@@ -605,7 +605,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const event = await ctx.db.get(args.id);
     if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -654,7 +654,7 @@ export const remove = mutation({
 export const publish = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const event = await ctx.db.get(args.id);
     if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -672,7 +672,7 @@ export const publish = mutation({
 export const unpublish = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const event = await ctx.db.get(args.id);
     if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -688,7 +688,7 @@ export const unpublish = mutation({
 export const cancel = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const event = await ctx.db.get(args.id);
     if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -704,7 +704,7 @@ export const cancel = mutation({
 export const countFeatured = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos", "ver");
     const featured = await ctx.db
       .query("events")
       .withIndex("by_featured", (q) => q.eq("isFeatured", true))
@@ -716,7 +716,7 @@ export const countFeatured = query({
 export const toggleFeatured = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const event = await ctx.db.get(args.id);
     if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -752,7 +752,7 @@ export const upsertTranslation = mutation({
     seoDescription: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -806,7 +806,7 @@ export const removeTranslation = mutation({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const translation = await ctx.db
       .query("eventTranslations")
       .withIndex("by_event_locale", (q) =>
@@ -836,7 +836,7 @@ export const removeTranslation = mutation({
 export const backfillPrivatePrice = mutation({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const eventos = await ctx.db.query("events").collect();
     let copiados = 0;
     let semOrigem = 0;

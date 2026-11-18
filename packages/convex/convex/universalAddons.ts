@@ -19,7 +19,7 @@ const ambito = v.union(
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"], "ver");
     const linhas = await ctx.db.query("universalAddons").collect();
     return await Promise.all(
       linhas
@@ -42,7 +42,7 @@ export const listForOwner = query({
     eventId: v.optional(v.id("events")),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"], "ver");
     const dono = args.tourId
       ? await ctx.db.get(args.tourId)
       : args.eventId
@@ -92,7 +92,7 @@ export const create = mutation({
     status: v.union(v.literal("draft"), v.literal("published")),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
     const agora = Date.now();
     const quantos = (await ctx.db.query("universalAddons").collect()).length;
     return await ctx.db.insert("universalAddons", {
@@ -122,7 +122,7 @@ export const update = mutation({
     status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
     const { id, ...dados } = args;
     const existente = await ctx.db.get(id);
     if (!existente) throw new ConvexError("Este extra já não existe — talvez tenha sido apagado noutra janela.");
@@ -145,7 +145,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("universalAddons") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
     const tours = await ctx.db.query("tours").collect();
     for (const t of tours) {
       if (!t.disabledUniversalAddons?.includes(args.id)) continue;
@@ -174,7 +174,7 @@ export const setDisabled = mutation({
     disabled: v.boolean(),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
     const id = args.tourId ?? args.eventId;
     if (!id) throw new ConvexError("Falta dizer em que tour ou evento se liga o extra.");
 
@@ -247,7 +247,7 @@ async function agruparRepetidos(ctx: {
 export const previewMigration = query({
   args: {},
   handler: async (ctx): Promise<Grupo[]> => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"], "ver");
     const { toursNormais, toursUltra, eventos, porTitulo } = await agruparRepetidos(
       ctx as never,
     );
@@ -295,7 +295,7 @@ export const previewMigration = query({
 export const migrateGroups = mutation({
   args: { titles: v.array(v.string()) },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
     const { toursNormais, toursUltra, eventos, porTitulo } = await agruparRepetidos(
       ctx as never,
     );

@@ -56,7 +56,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours", "ver");
     const tours = await ctx.db.query("tours").collect();
 
     // Default ordering mirrors `list`: newest first.
@@ -635,7 +635,7 @@ export const getTranslation = query({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours", "ver");
     const translation = await ctx.db
       .query("tourTranslations")
       .withIndex("by_tour_locale", (q) =>
@@ -756,7 +756,7 @@ export const create = mutation({
     maxPassengers: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     if (args.isFeatured) {
       const featuredCount = await ctx.db
         .query("tours")
@@ -907,7 +907,7 @@ export const update = mutation({
     maxPassengers: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new ConvexError("Este tour já não existe — talvez tenha sido apagado noutra janela.");
@@ -947,7 +947,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("tours") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const tour = await ctx.db.get(args.id);
     if (!tour) throw new ConvexError("Este tour já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -1032,7 +1032,7 @@ export const remove = mutation({
 export const countFeatured = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours", "ver");
     const featured = await ctx.db
       .query("tours")
       .withIndex("by_featured", (q) => q.eq("isFeatured", true))
@@ -1044,7 +1044,7 @@ export const countFeatured = query({
 export const toggleFeatured = mutation({
   args: { id: v.id("tours") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const tour = await ctx.db.get(args.id);
     if (!tour) throw new ConvexError("Este tour já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -1070,7 +1070,7 @@ export const toggleFeatured = mutation({
 export const toggleBestseller = mutation({
   args: { id: v.id("tours") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const tour = await ctx.db.get(args.id);
     if (!tour) throw new ConvexError("Este tour já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -1098,7 +1098,7 @@ export const upsertTranslation = mutation({
     cancellationPolicy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const tour = await ctx.db.get(args.tourId);
     if (!tour) throw new ConvexError("Este tour já não existe — talvez tenha sido apagado noutra janela.");
 
@@ -1156,7 +1156,7 @@ export const removeTranslation = mutation({
     locale: v.string(),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const translation = await ctx.db
       .query("tourTranslations")
       .withIndex("by_tour_locale", (q) =>

@@ -5,7 +5,7 @@ import { exigirAdmin } from "./lib/admin";
 export const listByTour = query({
   args: { tourId: v.id("tours") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours", "ver");
     const schedules = await ctx.db
       .query("tourSchedules")
       .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
@@ -142,7 +142,7 @@ export const create = mutation({
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const tour = await ctx.db.get(args.tourId);
     if (!tour) throw new Error("Tour not found");
 
@@ -174,7 +174,7 @@ export const update = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Schedule not found");
@@ -191,7 +191,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("tourSchedules") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const schedule = await ctx.db.get(args.id);
     if (!schedule) throw new Error("Schedule not found");
 

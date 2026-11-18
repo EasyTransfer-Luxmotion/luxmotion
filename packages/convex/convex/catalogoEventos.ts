@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { avaliarAcesso, exigirAdmin } from "./lib/admin";
+import { pode, exigirAdmin } from "./lib/admin";
 import { urlDaImagem } from "./lib/imagens";
 
 /*
@@ -132,7 +132,7 @@ async function viaturas(ctx: QueryCtx) {
 export const lista = query({
   args: {},
   handler: async (ctx) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "eventos"))) return null;
     const eventos = await ctx.db.query("events").collect();
     const traducoes = await ctx.db.query("eventTranslations").collect();
     const vs = await ctx.db.query("vehicles").collect();
@@ -160,7 +160,7 @@ export const lista = query({
 export const detalhe = query({
   args: { id: v.id("events") },
   handler: async (ctx, { id }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "eventos"))) return null;
     const e = await ctx.db.get(id);
     if (!e) return { encontrado: false as const };
     const [traducoes, extras, reservas, destaques] = await Promise.all([
@@ -191,7 +191,7 @@ export const detalhe = query({
 export const paraNovo = query({
   args: {},
   handler: async (ctx) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "eventos"))) return null;
     return { viaturas: await viaturas(ctx) };
   },
 });
@@ -211,7 +211,7 @@ function slugDe(titulo: string): string {
 export const guardar = mutation({
   args: { id: v.optional(v.id("events")), versao: v.optional(v.number()), dados: vDados },
   handler: async (ctx, { id, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const actual = id ? await ctx.db.get(id) : null;
     if (id && !actual) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este evento já não existe." });
     if (actual && versao !== actual.updatedAt) {
@@ -266,7 +266,7 @@ function destinos(e: Pick<Doc<"events">, "status" | "eventDate" | "endDate">): D
 export const mudarEstado = mutation({
   args: { id: v.id("events"), estado: vEstado },
   handler: async (ctx, { id, estado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const e = await ctx.db.get(id);
     if (!e) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este evento já não existe." });
     if (e.status === estado) return { versao: e.updatedAt };
@@ -292,7 +292,7 @@ export const mudarEstado = mutation({
 export const marcarDestaque = mutation({
   args: { id: v.id("events"), valor: v.boolean() },
   handler: async (ctx, { id, valor }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const e = await ctx.db.get(id);
     if (!e) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este evento já não existe." });
     if (valor && !e.isFeatured) {
@@ -306,7 +306,7 @@ export const marcarDestaque = mutation({
 export const remover = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const e = await ctx.db.get(id);
     if (!e) return;
     if (await ctx.db.query("tourBookings").withIndex("by_event", (q) => q.eq("eventId", id)).first()) {

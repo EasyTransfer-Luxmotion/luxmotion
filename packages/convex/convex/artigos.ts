@@ -57,7 +57,7 @@ export const lista = query({
     porPagina: v.number(),
   },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog", "ver");
     /* As traduções só dos artigos desta página. Lia-as todas: em produção
        eram 174 com o texto inteiro, 7,5 MB a cada abertura e a cada
        alteração, e o Convex recusa uma consulta que passe dos 16 MB. */
@@ -124,7 +124,7 @@ export const lista = query({
 export const detalhe = query({
   args: { id: v.string() },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog", "ver");
     const nid = ctx.db.normalizeId("blogs", id);
     const b = nid ? await ctx.db.get(nid) : null;
     if (!b) return null;
@@ -195,7 +195,7 @@ export const detalhe = query({
 export const autores = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog", "ver");
     const equipa = await ctx.db.query("teamMembers").collect();
     return await Promise.all(
       equipa
@@ -292,7 +292,7 @@ const igualJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringi
 export const guardar = mutation({
   args: { id: v.optional(v.id("blogs")), versao: v.optional(v.number()), dados: vDados },
   handler: async (ctx, { id, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     const erros = await validar(ctx, dados, id);
     if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
     const agora = Date.now();
@@ -329,7 +329,7 @@ export const guardar = mutation({
 export const mudarEstado = mutation({
   args: { id: v.id("blogs"), estado: v.union(v.literal("published"), v.literal("draft"), v.literal("archived")) },
   handler: async (ctx, { id, estado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     const b = await ctx.db.get(id);
     if (!b) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este artigo já não existe." });
     if (estado === "published") {
@@ -352,7 +352,7 @@ export const mudarEstado = mutation({
 export const remover = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     const b = await ctx.db.get(id);
     if (!b) return;
     const traducoes = await ctx.db.query("blogTranslations").withIndex("by_blog", (q) => q.eq("blogId", id)).collect();
@@ -373,7 +373,7 @@ export const guardarTraducao = mutation({
     dados: v.object({ titulo: v.string(), resumo: v.string(), conteudo: v.any(), seoTitulo: v.string(), seoDescricao: v.string() }),
   },
   handler: async (ctx, { blogId, locale, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     const b = await ctx.db.get(blogId);
     if (!b) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este artigo já não existe." });
     if (!(IDIOMAS as readonly string[]).includes(locale) || locale === b.originalLanguage) {
@@ -412,7 +412,7 @@ export const guardarTraducao = mutation({
 export const removerTraducao = mutation({
   args: { blogId: v.id("blogs"), locale: v.string() },
   handler: async (ctx, { blogId, locale }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog");
     const t = await ctx.db
       .query("blogTranslations")
       .withIndex("by_blog_locale", (q) => q.eq("blogId", blogId).eq("locale", locale))
@@ -440,7 +440,7 @@ function explicar(r: Doc<"blogGenerationRuns">): string | null {
 export const automacao = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog", "ver");
     const corridas = await ctx.db.query("blogGenerationRuns").withIndex("by_started").order("desc").take(15);
     const agora = Date.now();
     return {

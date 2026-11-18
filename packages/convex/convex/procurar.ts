@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { avaliarAcesso } from "./lib/admin";
+import { pode } from "./lib/admin";
 
 /*
  * O ⌘K do dashboard: encontrar uma reserva pelo número e abri-la.
@@ -20,7 +20,7 @@ function rotaDe(o: { departure?: { location?: string }; arrival?: { location?: s
 export const reservas = query({
   args: { texto: v.string() },
   handler: async (ctx, { texto }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "reservas"))) return null;
     const prefixo = texto.trim().toUpperCase().replace(/\s+/g, "");
     if (prefixo.length < 3) return [];
     const docs = await ctx.db
@@ -43,7 +43,7 @@ export const reservas = query({
 export const reserva = query({
   args: { numero: v.string() },
   handler: async (ctx, { numero }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "reservas"))) return null;
     const o = await ctx.db
       .query("orders")
       .withIndex("by_order_number", (q) => q.eq("orderNumber", numero.trim().toUpperCase()))

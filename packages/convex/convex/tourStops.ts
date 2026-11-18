@@ -48,7 +48,7 @@ export const create = mutation({
     lng: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const tour = await ctx.db.get(args.tourId);
     if (!tour) throw new Error("Tour not found");
 
@@ -87,7 +87,7 @@ export const update = mutation({
     lng: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Tour stop not found");
@@ -104,7 +104,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("tourStops") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "tours");
     const stop = await ctx.db.get(args.id);
     if (!stop) throw new Error("Tour stop not found");
 

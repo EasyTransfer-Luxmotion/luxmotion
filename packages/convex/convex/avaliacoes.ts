@@ -34,7 +34,7 @@ export const lista = query({
     porPagina: v.number(),
   },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes", "ver");
     /* As avaliações lêem-se todas (666 em produção, 300 KB): são precisas
        para as contagens. Os tours e eventos não: eram mais 680 KB a cada
        abertura, só pelos títulos. Agora só os desta página — ou todos quando
@@ -123,7 +123,7 @@ async function ler(ctx: MutationCtx, id: Id<"tourReviews">) {
 export const aprovar = mutation({
   args: { id: v.id("tourReviews"), aprovada: v.boolean() },
   handler: async (ctx, { id, aprovada }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes");
     const r = await ler(ctx, id);
     /* Deixar de estar aprovada tira-a também do destaque: os testemunhos só
        mostram aprovadas, e ficava um destaque escondido. */
@@ -135,7 +135,7 @@ export const aprovar = mutation({
 export const destacar = mutation({
   args: { id: v.id("tourReviews"), destaque: v.boolean() },
   handler: async (ctx, { id, destaque }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes");
     const r = await ler(ctx, id);
     if (destaque && !r.isApproved) throw new ConvexError({ tipo: "invalido", mensagem: "Aprove a avaliação antes de a pôr em destaque." });
     await ctx.db.patch(id, { isFeatured: destaque });
@@ -148,7 +148,7 @@ export const guardar = mutation({
     dados: v.object({ autor: v.string(), nacionalidade: v.string(), nota: v.number(), texto: v.string(), data: v.number() }),
   },
   handler: async (ctx, { id, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes");
     const r = await ler(ctx, id);
     const erros: Record<string, string> = {};
     if (!dados.autor.trim()) erros.autor = "Escreva o nome de quem avaliou.";
@@ -176,7 +176,7 @@ export const guardar = mutation({
 export const remover = mutation({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes");
     const r = await ctx.db.get(id);
     if (!r) return;
     await ctx.db.delete(id);
@@ -189,7 +189,7 @@ export const remover = mutation({
 export const uma = query({
   args: { id: v.string() },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "avaliacoes", "ver");
     const nid = ctx.db.normalizeId("tourReviews", id);
     const r = nid ? await ctx.db.get(nid) : null;
     if (!r) return null;

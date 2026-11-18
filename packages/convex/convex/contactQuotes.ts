@@ -43,7 +43,7 @@ export const submit = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos", "ver");
     const rows = await ctx.db
       .query("contactQuotes")
       .withIndex("by_created")
@@ -55,7 +55,7 @@ export const list = query({
 export const setStatus = mutation({
   args: { id: v.id("contactQuotes"), status: statusValidator },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos");
     await ctx.db.patch(args.id, { status: args.status })
   },
 })
@@ -63,7 +63,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("contactQuotes") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos");
     await ctx.db.delete(args.id)
   },
 })

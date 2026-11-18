@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { avaliarAcesso, exigirAdmin } from "./lib/admin";
+import { exigirAdmin, lerAcesso, permite, type Acesso } from "./lib/admin";
+import type { ModuloPermissao } from "./lib/permissoes";
 import { construirPedido, construirReserva, notificar, nomeDe } from "./lib/notificar";
 
 /*
@@ -29,6 +30,24 @@ async function lidasDe(ctx: QueryCtx, conta: string) {
     .first();
 }
 
+/* Cada pessoa só vê no sino o que o cargo lhe deixa abrir: uma reserva
+   no sino de quem não tem Reservas abria um ecrã que lhe dizia "sem acesso",
+   e o título já mostrava o nome e o valor. */
+const MODULO_DO_TIPO: Record<Doc<"notificacoes">["tipo"], ModuloPermissao> = {
+  reserva: "reservas",
+  pedido: "pedidos",
+  candidatura: "candidaturas",
+  lead: "leads",
+  avaliacao: "avaliacoes",
+  aviso: "parcerias",
+};
+
+function tiposVisiveis(acesso: Acesso): Set<string> {
+  return new Set(
+    (Object.keys(MODULO_DO_TIPO) as Doc<"notificacoes">["tipo"][]).filter((t) => permite(acesso, MODULO_DO_TIPO[t])),
+  );
+}
+
 function contaDe(identidade: { email?: string; tokenIdentifier: string }): string {
   return identidade.email?.trim().toLowerCase() || identidade.tokenIdentifier;
 }
@@ -54,23 +73,29 @@ export const recentes = query({
     /* null em vez de erro, como o contadores.porTratar: o sininho está na
        moldura do dashboard e um erro aqui deitava abaixo o back-office. */
     const identidade = await ctx.auth.getUserIdentity();
-    if (avaliarAcesso(identidade) !== "admin" || !identidade) return null;
+    const acesso = await lerAcesso(ctx);
+    if (acesso.estado !== "admin" || !identidade) return null;
+    const visiveis = tiposVisiveis(acesso);
+    const todos = visiveis.size === Object.keys(MODULO_DO_TIPO).length;
     const estado = await lidasDe(ctx, contaDe(identidade));
     const desde = estado?.lidasAte ?? 0;
     const abertas = new Set<string>(estado?.lidas ?? []);
 
     const limite = Math.max(1, Math.min(30, Math.floor(a.limite ?? 8)));
     const [ultimas, novas] = await Promise.all([
-      ctx.db.query("notificacoes").withIndex("by_em").order("desc").take(limite),
+      /* Com o sino filtrado lê-se mais para sobrar o suficiente depois do
+         filtro; quem vê tudo (o caso de hoje) lê o mesmo que antes. */
+      ctx.db.query("notificacoes").withIndex("by_em").order("desc").take(todos ? limite : limite * 10),
       ctx.db
         .query("notificacoes")
         .withIndex("by_em", (q) => q.gt("em", desde))
         .order("desc")
-        .take(LIMITE + abertas.size),
+        .take((LIMITE + abertas.size) * (todos ? 1 : 3)),
     ]);
-    const porLerLista = novas.filter((n) => !abertas.has(n._id));
+    const ultimasVisiveis = ultimas.filter((n) => visiveis.has(n.tipo)).slice(0, limite);
+    const porLerLista = novas.filter((n) => visiveis.has(n.tipo) && !abertas.has(n._id));
     return {
-      linhas: ultimas.map((n) => linha(n, n.em <= desde || abertas.has(n._id))),
+      linhas: ultimasVisiveis.map((n) => linha(n, n.em <= desde || abertas.has(n._id))),
       porLer: Math.min(porLerLista.length, LIMITE),
       /* A mais recente por ler: o browser abana o sino quando muda. */
       ultimaPorLer: porLerLista[0]?.em ?? null,
@@ -89,6 +114,7 @@ export const lista = query({
   },
   handler: async (ctx, a) => {
     const identidade = await exigirAdmin(ctx);
+    const visiveis = tiposVisiveis(await lerAcesso(ctx));
     const estado = await lidasDe(ctx, contaDe(identidade));
     const desde = estado?.lidasAte ?? 0;
     const abertas = new Set<string>(estado?.lidas ?? []);
@@ -100,7 +126,7 @@ export const lista = query({
     const todas = a.tipo
       ? await ctx.db.query("notificacoes").withIndex("by_tipo_em", (q) => q.eq("tipo", a.tipo!).gt("em", corte)).order("desc").take(1000)
       : await ctx.db.query("notificacoes").withIndex("by_em", (q) => q.gt("em", corte)).order("desc").take(1000);
-    const filtradas = a.soPorLer ? todas.filter((n) => !lida(n)) : todas;
+    const filtradas = todas.filter((n) => visiveis.has(n.tipo) && (!a.soPorLer || !lida(n)));
 
     const porPagina = Math.max(1, Math.min(100, Math.floor(a.porPagina)));
     const paginas = Math.max(1, Math.ceil(filtradas.length / porPagina));

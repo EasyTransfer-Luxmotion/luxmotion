@@ -31,7 +31,7 @@ export const subscribe = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "pedidos", "ver");
     const subs = await ctx.db
       .query("newsletterSubscriptions")
       .withIndex("by_created")

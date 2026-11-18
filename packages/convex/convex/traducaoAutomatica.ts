@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { action } from "./_generated/server";
 import { exigirAdmin } from "./lib/admin";
+import { exigirAdminAccao } from "./lib/adminAccao";
 import { generateText } from "./lib/openai";
 
 /*
@@ -75,7 +76,7 @@ export const traduzir = action({
     assunto: v.optional(v.union(v.literal("tour"), v.literal("evento"), v.literal("corporate"), v.literal("extra"), v.literal("veiculo"))),
   },
   handler: async (ctx, a): Promise<{ textos: Record<string, string>; listas: Record<string, string[]>; documento: unknown | null }> => {
-    await exigirAdmin(ctx);
+    await exigirAdminAccao(ctx, ["tours", "eventos", "corporate", "extras", "veiculos"]);
     if (!IDIOMAS[a.de] || !IDIOMAS[a.para] || a.de === a.para) {
       throw new ConvexError({ tipo: "invalido", mensagem: "Idioma que não se traduz." });
     }

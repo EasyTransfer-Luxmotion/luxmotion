@@ -63,7 +63,7 @@ function validateLanguage(locale: string) {
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate", "ver");
     let rows = await ctx.db.query("corporateExperiences").collect()
 
     rows = applySearch(rows, a.search, [
@@ -108,7 +108,7 @@ export const listPublished = query({
 export const get = query({
   args: { id: v.id("corporateExperiences") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate", "ver");
     const exp = await ctx.db.get(id)
     if (!exp) return null
     return await resolveUrls(ctx, exp)
@@ -138,7 +138,7 @@ export const create = mutation({
     sortOrder: v.number(),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate");
     const originalLanguage = corporateOriginalLanguage(args)
     validateLanguage(originalLanguage)
     const now = Date.now()
@@ -175,7 +175,7 @@ export const update = mutation({
     sortOrder: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate");
     const { id, ...data } = args
     const existing = await ctx.db.get(id)
     if (!existing) throw new ConvexError("Esta experiência já não existe — talvez tenha sido apagada noutra janela.")
@@ -197,7 +197,7 @@ export const setStatus = mutation({
     status: statusValidator,
   },
   handler: async (ctx, { id, status }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate");
     await ctx.db.patch(id, { status, updatedAt: Date.now() })
   },
 })
@@ -205,7 +205,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("corporateExperiences") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate");
     const exp = await ctx.db.get(id)
     if (!exp) throw new ConvexError("Esta experiência já não existe — talvez tenha sido apagada noutra janela.")
     // Capa e galeria não se apagam: os ficheiros podem ser partilhados com outros
@@ -221,7 +221,7 @@ export const remove = mutation({
 export const getTranslation = query({
   args: { experienceId: v.id("corporateExperiences"), locale: v.string() },
   handler: async (ctx, { experienceId, locale }) => {
-    await exigirAdmin(ctx)
+    await exigirAdmin(ctx, "corporate", "ver")
     return await ctx.db
       .query("corporateExperienceTranslations")
       .withIndex("by_experience_locale", (q) => q.eq("experienceId", experienceId).eq("locale", locale))
@@ -246,7 +246,7 @@ export const upsertTranslation = mutation({
     whatsIncluded: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate");
     const experience = await ctx.db.get(args.experienceId)
     if (!experience) throw new ConvexError("Esta experiência já não existe — talvez tenha sido apagada noutra janela.")
     validateLanguage(args.locale)
@@ -268,7 +268,7 @@ export const upsertTranslation = mutation({
 export const removeTranslation = mutation({
   args: { experienceId: v.id("corporateExperiences"), locale: v.string() },
   handler: async (ctx, { experienceId, locale }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "corporate");
     const translation = await ctx.db.query("corporateExperienceTranslations")
       .withIndex("by_experience_locale", (q) => q.eq("experienceId", experienceId).eq("locale", locale)).first()
     if (!translation) throw new ConvexError("Esta tradução já não existe — talvez tenha sido apagada noutra janela. Recarregue a página.")

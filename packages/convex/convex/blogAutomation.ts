@@ -35,6 +35,7 @@ import {
   structuralSignature,
 } from "./lib/markdownToTiptap";
 import { exigirAdmin } from "./lib/admin";
+import { exigirAdminAccao } from "./lib/adminAccao";
 
 /**
  * Automação de artigos de blog.
@@ -250,7 +251,7 @@ async function listarCorridas(ctx: QueryCtx, args: ObjectType<typeof argslistarC
 export const listRuns = query({
   args: argslistarCorridas,
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "blog", "ver");
     return await listarCorridas(ctx, args);
   },
 });
@@ -711,7 +712,7 @@ export const generateNow = action({
     keepDraft: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<{ ok: boolean; error?: string }> => {
-    await exigirAdmin(ctx);
+    await exigirAdminAccao(ctx, "blog");
     // Esta action gasta dinheiro e o Convex não tem autenticação: recusa se já
     // houver uma geração a decorrer.
     const runs = await ctx.runQuery(internal.blogAutomation.listRunsInterno, { limit: 5 });
@@ -746,7 +747,7 @@ export const generateNow = action({
 export const retryHeroImage = action({
   args: { blogId: v.id("blogs") },
   handler: async (ctx, args): Promise<{ ok: boolean; error?: string }> => {
-    await exigirAdmin(ctx);
+    await exigirAdminAccao(ctx, "blog");
     const blog = await ctx.runQuery(api.blogs.getById, { id: args.blogId });
     if (!blog) return { ok: false, error: "Artigo não encontrado." };
 

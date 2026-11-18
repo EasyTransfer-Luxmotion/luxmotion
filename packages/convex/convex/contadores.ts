@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, type QueryCtx } from "./_generated/server";
-import { avaliarAcesso } from "./lib/admin";
+import { lerAcesso, permite } from "./lib/admin";
+import type { ModuloPermissao } from "./lib/permissoes";
 
 /*
  * Os números ao lado dos módulos na sidebar do dashboard: Pedidos e
@@ -67,9 +68,13 @@ export const porTratar = query({
        error.tsx, e um erro aqui (sessão ainda a chegar, email tirado do
        ADMIN_EMAILS com a página aberta) deitava abaixo o back-office inteiro.
        Sem acesso não se devolve número nenhum. */
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    const acesso = await lerAcesso(ctx);
+    if (acesso.estado !== "admin") return null;
+    /* Cada número só para quem pode abrir o módulo; os outros ficam a 0 (a
+       sidebar nem mostra esses módulos). Não se lê o que não se mostra. */
+    const ve = (m: ModuloPermissao) => permite(acesso, m);
 
-    const pedidos = await somar(ctx, [
+    const pedidos = !ve("pedidos") ? 0 : await somar(ctx, [
       ["contactSubmissions", "new"],
       ["contactSubmissions", undefined],
       ["tourInquiries", "new"],
@@ -82,23 +87,23 @@ export const porTratar = query({
       ["corporateRequests", "submitted"],
     ]);
 
-    const candidaturas = await somar(ctx, [
+    const candidaturas = !ve("candidaturas") ? 0 : await somar(ctx, [
       ["driverApplications", "submitted"],
       ["partnerApplications", "submitted"],
     ]);
 
     const [avaliacoes, leads, reservasHoje] = await Promise.all([
-      ctx.db
+      !ve("avaliacoes") ? 0 : ctx.db
         .query("tourReviews")
         .withIndex("by_approved", (q) => q.eq("isApproved", false))
         .take(LIMITE)
         .then((d) => d.length),
-      ctx.db
+      !ve("leads") ? 0 : ctx.db
         .query("partnerLeads")
         .withIndex("by_status", (q) => q.eq("status", "new"))
         .take(LIMITE)
         .then((d) => d.length),
-      dia && /^\d{4}-\d{2}-\d{2}$/.test(dia) ? servicosDoDia(ctx, dia) : Promise.resolve(0),
+      ve("reservas") && dia && /^\d{4}-\d{2}-\d{2}$/.test(dia) ? servicosDoDia(ctx, dia) : Promise.resolve(0),
     ]);
 
     return { pedidos, candidaturas, avaliacoes, leads, reservasHoje, limite: LIMITE };

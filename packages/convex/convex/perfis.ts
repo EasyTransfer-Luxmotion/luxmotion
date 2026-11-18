@@ -33,6 +33,12 @@ async function lerTodos(ctx: QueryCtx, tipo: Tipo): Promise<Perfil[]> {
   return docs.sort((a, b) => a.order - b.order || a._creationTime - b._creationTime);
 }
 
+/* Equipa e Motoristas são dois módulos com cargos diferentes, no mesmo
+   ficheiro: quem só trata dos motoristas não mexe nos perfis da equipa. */
+function moduloDe(tipo: Tipo) {
+  return tipo === "equipa" ? ("equipaSite" as const) : ("motoristas" as const);
+}
+
 function idDe(ctx: QueryCtx, tipo: Tipo, id: string) {
   return tipo === "equipa" ? ctx.db.normalizeId("teamMembers", id) : ctx.db.normalizeId("drivers", id);
 }
@@ -40,7 +46,7 @@ function idDe(ctx: QueryCtx, tipo: Tipo, id: string) {
 export const lista = query({
   args: { tipo: vTipo },
   handler: async (ctx, { tipo }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, moduloDe(tipo), "ver");
     const docs = await lerTodos(ctx, tipo);
     const linhas = await Promise.all(
       docs.map(async (d) => {
@@ -160,7 +166,7 @@ export const guardar = mutation({
     dados: vDados,
   },
   handler: async (ctx, { tipo, id, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, moduloDe(tipo));
     const erros = validar(tipo, dados);
     if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
 
@@ -191,7 +197,7 @@ export const guardar = mutation({
 export const ordenar = mutation({
   args: { tipo: vTipo, ids: v.array(v.string()) },
   handler: async (ctx, { tipo, ids }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, moduloDe(tipo));
     const todos = await lerTodos(ctx, tipo);
     const pos = new Map(ids.map((id, i) => [id, i]));
     const nova = [...todos].sort((a, b) => (pos.get(a._id) ?? 1e9) - (pos.get(b._id) ?? 1e9));
@@ -204,7 +210,7 @@ export const ordenar = mutation({
 export const publicar = mutation({
   args: { tipo: vTipo, id: v.string(), publicado: v.boolean() },
   handler: async (ctx, { tipo, id, publicado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, moduloDe(tipo));
     const nid = idDe(ctx, tipo, id);
     const doc = nid ? ((await ctx.db.get(nid)) as Perfil | null) : null;
     if (!nid || !doc) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este perfil já não existe." });
@@ -234,7 +240,7 @@ export const publicar = mutation({
 export const remover = mutation({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx: MutationCtx, { tipo, id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, moduloDe(tipo));
     const nid = idDe(ctx, tipo, id);
     /* A fotografia não se apaga: pode estar noutro registo (lib/imagens.ts). */
     if (nid && (await ctx.db.get(nid))) await ctx.db.delete(nid);

@@ -7,6 +7,7 @@ import type { Id } from "./_generated/dataModel";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { resolveReferral } from "./lib/referral";
 import { exigirAdmin } from "./lib/admin";
+import { exigirAdminAccao } from "./lib/adminAccao";
 
 /* Reservas de transfer pagas em dinheiro -> n8n. Só por variável, e com nome
    próprio: usava o mesmo nome do destino de `webhooks.ts`, com outro endereço
@@ -1231,7 +1232,7 @@ export const updatePaymentStatus = internalMutation({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "reservas", "ver");
     // Newest first by default — most recent orders are what the admin acts on.
     const all = await ctx.db.query("orders").order("desc").collect();
 
@@ -1318,7 +1319,7 @@ export const adminUpdateOrderStatus = action({
     ctx,
     { orderId, status },
   ): Promise<{ success: boolean; triggered: boolean }> => {
-    await exigirAdmin(ctx);
+    await exigirAdminAccao(ctx, "reservas");
     const order = await ctx.runQuery(api.orders.getById, { orderId });
     if (!order) throw new Error("Order not found");
 

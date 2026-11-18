@@ -159,7 +159,7 @@ export const listForDestination = query({
 export const listStopsPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras", "ver");
     const all = await ctx.db.query("upsellStops").collect();
     let rows = [...all].sort((x, y) => x.order - y.order);
 
@@ -213,7 +213,7 @@ const stopFields = {
 export const createStop = mutation({
   args: stopFields,
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const now = Date.now();
     // Novo entra no fim da lista, para o admin não ter de reordenar tudo.
     const last = await ctx.db.query("upsellStops").collect();
@@ -246,7 +246,7 @@ export const updateStop = mutation({
     order: v.optional(v.number()),
   },
   handler: async (ctx, { id, ...patch }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Upsell stop not found");
     // A imagem antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
@@ -258,7 +258,7 @@ export const updateStop = mutation({
 export const removeStop = mutation({
   args: { id: v.id("upsellStops") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Upsell stop not found");
     // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
@@ -273,7 +273,7 @@ export const removeStop = mutation({
 export const listExperiencesPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras", "ver");
     const all = await ctx.db.query("upsellExperiences").collect();
     let rows = [...all].sort((x, y) => x.order - y.order);
 
@@ -333,7 +333,7 @@ const experienceFields = {
 export const createExperience = mutation({
   args: experienceFields,
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const now = Date.now();
     const last = await ctx.db.query("upsellExperiences").collect();
     const order =
@@ -371,7 +371,7 @@ export const updateExperience = mutation({
     order: v.optional(v.number()),
   },
   handler: async (ctx, { id, ...patch }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Upsell experience not found");
     // A imagem antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
@@ -383,7 +383,7 @@ export const updateExperience = mutation({
 export const removeExperience = mutation({
   args: { id: v.id("upsellExperiences") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "extras");
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Upsell experience not found");
     // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).

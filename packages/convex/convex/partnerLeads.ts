@@ -40,7 +40,7 @@ export const submit = mutation({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "leads", "ver");
     // Mirror `list`: newest-first baseline (by_created reversed).
     let rows = (
       await ctx.db.query("partnerLeads").withIndex("by_created").collect()
@@ -70,7 +70,7 @@ export const listPaged = query({
 export const setStatus = mutation({
   args: { id: v.id("partnerLeads"), status: statusValidator },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "leads");
     await ctx.db.patch(args.id, { status: args.status })
   },
 })
@@ -78,7 +78,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("partnerLeads") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "leads");
     await ctx.db.delete(args.id)
   },
 })

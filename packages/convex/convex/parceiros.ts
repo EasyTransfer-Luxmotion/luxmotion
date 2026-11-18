@@ -138,7 +138,7 @@ export const lista = query({
     porPagina: v.number(),
   },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "parcerias", "ver");
     const [parcerias, reservas, pedidos, activos] = await Promise.all([
       ctx.db.query("partnerships").collect(),
       lerReservas(ctx),
@@ -249,7 +249,7 @@ export const detalhe = query({
      em cache muda ao virar o mês. */
   args: { id: v.string(), mes: v.string() },
   handler: async (ctx, { id, mes }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "parcerias", "ver");
     const nid = ctx.db.normalizeId("partnerships", id);
     const p = nid ? await ctx.db.get(nid) : null;
     if (!p) return null;
@@ -374,7 +374,7 @@ async function frotaParaOEditor(ctx: QueryCtx, id: Id<"partnerships">) {
 export const nomes = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "parcerias", "ver");
     return (await ctx.db.query("partnerships").collect())
       .map((p) => ({ id: p._id as string, nome: p.name, slug: p.slug, publicada: publicada(p) }))
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
@@ -385,7 +385,7 @@ export const nomes = query({
 export const verificarSlug = query({
   args: { slug: v.string(), excepto: v.optional(v.string()) },
   handler: async (ctx, { slug, excepto }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "parcerias", "ver");
     const erro = erroDoSlug(slug);
     if (erro) return { livre: false, erro };
     const outra = await slugOcupado(ctx, slug, (excepto && ctx.db.normalizeId("partnerships", excepto)) || undefined);
@@ -409,7 +409,7 @@ export const criar = mutation({
     tema: v.any(),
   },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "parcerias");
     const nome = a.nome.trim();
     const slug = a.slug.trim();
     const erros: Record<string, string> = {};
@@ -459,7 +459,7 @@ export const guardar = mutation({
     }),
   },
   handler: async (ctx, { id, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "parcerias");
     const p = await ctx.db.get(id);
     if (!p) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta parceria já não existe." });
 
@@ -536,7 +536,7 @@ export const guardar = mutation({
 export const publicar = mutation({
   args: { id: v.id("partnerships"), publicada: v.boolean() },
   handler: async (ctx, { id, publicada: sim }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "parcerias");
     const p = await ctx.db.get(id);
     if (!p) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta parceria já não existe." });
     /* Mexe na versão: quem tiver o editor aberto vê que mudou. */
@@ -547,7 +547,7 @@ export const publicar = mutation({
 export const remover = mutation({
   args: { id: v.id("partnerships") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "parcerias");
     if (!(await ctx.db.get(id))) return;
     /* Um veículo de um parceiro só aparece no checkout dele (veiculos.ts):
        apagar o parceiro deixava-o preso a um dono que não existe. Nenhum em
@@ -586,7 +586,7 @@ export const leads = query({
     porPagina: v.number(),
   },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "leads", "ver");
     /* 2 leads em produção a 2026-11-15: lê-se tudo. */
     const todas = await ctx.db.query("partnerLeads").withIndex("by_created").order("desc").collect();
     const porGrupo = {
@@ -627,7 +627,7 @@ export const leads = query({
 export const lead = query({
   args: { id: v.string() },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "leads", "ver");
     const nid = ctx.db.normalizeId("partnerLeads", id);
     const l = nid ? await ctx.db.get(nid) : null;
     if (!l) return null;
@@ -661,7 +661,7 @@ export const lead = query({
 export const mudarEstadoLead = mutation({
   args: { id: v.id("partnerLeads"), estado: v.string() },
   handler: async (ctx, { id, estado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "leads");
     if (!(ESTADOS_LEAD as readonly string[]).includes(estado)) throw new ConvexError({ tipo: "invalido", mensagem: "Estado que uma lead não aceita." });
     if (!(await ctx.db.get(id))) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta lead já não existe." });
     await ctx.db.patch(id, { status: estado as (typeof ESTADOS_LEAD)[number] });
@@ -671,7 +671,7 @@ export const mudarEstadoLead = mutation({
 export const removerLead = mutation({
   args: { id: v.id("partnerLeads") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "leads");
     if (await ctx.db.get(id)) await ctx.db.delete(id);
   },
 });

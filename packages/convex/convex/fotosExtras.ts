@@ -111,7 +111,7 @@ async function lerExtras(ctx: QueryCtx) {
 export const lista = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"], "ver");
     const [biblioteca, extras] = await Promise.all([ctx.db.query("addonImages").collect(), lerExtras(ctx)]);
 
     type Foto = {
@@ -176,7 +176,7 @@ async function garantirNaBiblioteca(ctx: MutationCtx, caminho: string, nome: str
 export const registar = mutation({
   args: { caminho: vImagem, nome: v.string() },
   handler: async (ctx, { caminho, nome }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"]);
     /* Só caminhos do Bunny: um upload novo chega sempre como uploads/… */
     if (!caminho.startsWith("uploads/")) throw new ConvexError({ tipo: "invalido", mensagem: "Caminho de imagem inválido." });
     return await garantirNaBiblioteca(ctx, caminho, limparNome(nome));
@@ -187,7 +187,7 @@ export const registar = mutation({
 export const renomear = mutation({
   args: { caminho: vImagem, nome: v.string() },
   handler: async (ctx, { caminho, nome }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"]);
     const n = limparNome(nome);
     const linha = await linhaDe(ctx, caminho);
     if (linha) await ctx.db.patch(linha._id, { label: n });
@@ -213,7 +213,7 @@ async function mudarFoto(ctx: MutationCtx, ref: { tipo: Tipo; id: string }, cami
 export const atribuir = mutation({
   args: { caminho: vImagem, extras: v.array(vRef), nome: v.optional(v.string()) },
   handler: async (ctx, { caminho, extras, nome }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"]);
     if (extras.length === 0) return { atribuidos: 0 };
     for (const ref of extras) await mudarFoto(ctx, ref, caminho);
     await garantirNaBiblioteca(ctx, caminho, nome?.trim() || "Sem nome");
@@ -229,7 +229,7 @@ export const atribuir = mutation({
 export const trocar = mutation({
   args: { de: vImagem, para: vImagem },
   handler: async (ctx, { de, para }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"]);
     if (de === para) return { trocados: 0 };
     const todos = await lerExtras(ctx);
     const extras = todos.filter((x) => x.imageId === de);
@@ -247,7 +247,7 @@ export const trocar = mutation({
 export const tirarDoExtra = mutation({
   args: { extra: vRef },
   handler: async (ctx, { extra }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"]);
     await mudarFoto(ctx, extra, undefined);
   },
 });
@@ -260,7 +260,7 @@ export const tirarDoExtra = mutation({
 export const tirarDaBiblioteca = mutation({
   args: { caminho: vImagem },
   handler: async (ctx, { caminho }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"]);
     const usos = (await lerExtras(ctx)).filter((x) => x.imageId === caminho).length;
     if (usos > 0) {
       throw new ConvexError({

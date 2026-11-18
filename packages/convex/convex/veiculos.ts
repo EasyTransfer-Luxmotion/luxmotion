@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { avaliarAcesso, exigirAdmin } from "./lib/admin";
+import { pode, exigirAdmin } from "./lib/admin";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { NIGHT_TAX_MIN_EUR, NIGHT_TAX_PERCENT, priceVehicle } from "./lib/pricing";
 import { urlDaImagem, vImagem } from "./lib/imagens";
@@ -73,7 +73,7 @@ async function usos(ctx: QueryCtx, id: Id<"vehicles">, todos: Doc<"vehicles">[])
 export const lista = query({
   args: {},
   handler: async (ctx) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "veiculos"))) return null;
     const todos = await ctx.db.query("vehicles").withIndex("by_order").collect();
     const parceiros = await nomesDosParceiros(ctx);
     const eventos = await ctx.db.query("events").collect();
@@ -105,7 +105,7 @@ export const lista = query({
 export const detalhe = query({
   args: { id: v.id("vehicles") },
   handler: async (ctx, { id }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "veiculos"))) return null;
     const x = await ctx.db.get(id);
     if (!x) return { encontrado: false as const };
     const todos = await ctx.db.query("vehicles").withIndex("by_order").collect();
@@ -134,7 +134,7 @@ export const detalhe = query({
 export const paraNovo = query({
   args: {},
   handler: async (ctx) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "veiculos"))) return null;
     const todos = await ctx.db.query("vehicles").withIndex("by_order").collect();
     return {
       ordem: todos.length ? Math.max(...todos.map((y) => y.order)) + 1 : 0,
@@ -154,7 +154,7 @@ export const paraNovo = query({
 export const parceiros = query({
   args: {},
   handler: async (ctx) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "veiculos"))) return null;
     const ps = await ctx.db.query("partnerships").collect();
     return ps.map((p) => ({ _id: p._id, nome: p.name })).sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
   },
@@ -170,7 +170,7 @@ export const parceiros = query({
 export const ondeAparece = query({
   args: { id: v.id("vehicles") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos", "ver");
     const carro = await ctx.db.get(id);
     if (!carro) return null;
     const ps = await ctx.db.query("partnerships").collect();
@@ -196,7 +196,7 @@ export const ondeAparece = query({
 export const mostrarEmParceiro = mutation({
   args: { veiculoId: v.id("vehicles"), parceriaId: v.optional(v.id("partnerships")), mostrar: v.boolean() },
   handler: async (ctx, { veiculoId, parceriaId, mostrar }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos");
     const carro = await ctx.db.get(veiculoId);
     if (!carro) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este veículo já não existe." });
     if (carro.partnershipId) {
@@ -221,7 +221,7 @@ const DISTANCIAS = [15, 30, 50, 130, 315];
 export const simular = query({
   args: { precoKm: v.number(), minimo: v.number() },
   handler: async (ctx, a) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "veiculos"))) return null;
     if (!(a.precoKm > 0) || !(a.minimo >= 0)) return null;
     const definicoes = await ctx.db
       .query("siteSettings")
@@ -292,7 +292,7 @@ export const guardar = mutation({
     dados: vDados,
   },
   handler: async (ctx, { id, versao, dados }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos");
     const d = { ...dados, name: dados.name.trim(), examples: dados.examples?.trim() || undefined };
 
     const erros = validar(d);
@@ -353,7 +353,7 @@ export const guardar = mutation({
 export const mudarEstado = mutation({
   args: { id: v.id("vehicles"), estado: vEstado },
   handler: async (ctx, { id, estado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos");
     const x = await ctx.db.get(id);
     if (!x) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este veículo já não existe." });
     await ctx.db.patch(id, { status: estado, actualizadoEm: Date.now() });
@@ -363,7 +363,7 @@ export const mudarEstado = mutation({
 export const reordenar = mutation({
   args: { ids: v.array(v.id("vehicles")) },
   handler: async (ctx, { ids }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos");
     const todos = await ctx.db.query("vehicles").collect();
     /* A lista tem de ser a completa: uma lista antiga (outro separador)
        baralhava os que faltassem. */
@@ -378,7 +378,7 @@ export const reordenar = mutation({
 export const remover = mutation({
   args: { id: v.id("vehicles") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos");
     const x = await ctx.db.get(id);
     if (!x) return;
     const u = await usos(ctx, id, await ctx.db.query("vehicles").collect());

@@ -13,7 +13,7 @@ import { exigirAdmin } from "./lib/admin";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos", "ver");
     const vehicles = await ctx.db
       .query("vehicles")
       .withIndex("by_order")
@@ -40,7 +40,7 @@ export const list = query({
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos", "ver");
     const vehicles = await ctx.db.query("vehicles").withIndex("by_order").collect();
 
     // Enrich with partnershipName (needed for search/filter) — cheap db.get per row.
@@ -202,7 +202,7 @@ export const create = mutation({
     upgradeFromVehicleId: v.optional(v.id("vehicles")),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos");
     return await ctx.db.insert("vehicles", { ...args, actualizadoEm: Date.now() });
   },
 });
@@ -239,7 +239,7 @@ export const update = mutation({
     upgradeFromVehicleId: v.optional(v.id("vehicles")),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos");
     const { id, ...data } = args;
     // A imagem antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.patch(id, { ...data, actualizadoEm: Date.now() });
@@ -249,7 +249,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("vehicles") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "veiculos");
     // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.delete(args.id);
   },

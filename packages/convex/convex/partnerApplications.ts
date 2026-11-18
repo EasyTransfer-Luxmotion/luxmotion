@@ -88,7 +88,7 @@ export const submit = mutation({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "candidaturas", "ver");
     const applications = await ctx.db
       .query("partnerApplications")
       .withIndex("by_created")
@@ -100,7 +100,7 @@ export const list = query({
 export const get = query({
   args: { id: v.id("partnerApplications") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "candidaturas", "ver");
     const application = await ctx.db.get(args.id)
     if (!application) return null
 
@@ -128,7 +128,7 @@ export const setStatus = mutation({
     status: statusValidator,
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "candidaturas");
     await ctx.db.patch(args.id, {
       status: args.status,
       reviewedAt: Date.now(),
@@ -139,7 +139,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("partnerApplications") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "candidaturas");
     const a = await ctx.db.get(args.id)
     if (!a) return
     /* Os documentos vão com a candidatura (ver driverApplications.remove). */

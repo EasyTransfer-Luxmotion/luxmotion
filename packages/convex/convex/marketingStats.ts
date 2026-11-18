@@ -49,7 +49,7 @@ export const upsert = mutation({
     checkoutBookedTodayMax: v.number(),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "definicoes");
     const allValues = [
       args.trustpilotReviewCount,
       args.heroDailyTravelersMin,

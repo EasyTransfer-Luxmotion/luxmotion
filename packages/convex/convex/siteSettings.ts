@@ -80,7 +80,7 @@ export const upsert = mutation({
     checkoutUpsellRadiusKm: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "definicoes");
     if (
       args.minAdvanceBookingHours !== undefined &&
       (!Number.isFinite(args.minAdvanceBookingHours) ||

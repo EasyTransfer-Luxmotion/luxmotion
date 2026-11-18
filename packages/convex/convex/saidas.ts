@@ -20,7 +20,7 @@ const vEstado = v.union(v.literal("aberta"), v.literal("fechada"), v.literal("ca
 export const lista = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, { eventId }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos", "ver");
     const evento = await ctx.db.get(eventId);
     if (!evento) return null;
     const viatura = evento.vehicleId ? await ctx.db.get(evento.vehicleId) : null;
@@ -78,7 +78,7 @@ export const guardar = mutation({
     lugares: v.number(),
   },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const evento = await ctx.db.get(a.eventId);
     if (!evento) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este evento já não existe." });
     const origem = a.origem.trim();
@@ -137,7 +137,7 @@ export const guardar = mutation({
 export const mudarEstado = mutation({
   args: { id: v.id("eventDepartures"), estado: vEstado },
   handler: async (ctx, { id, estado }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const s = await ctx.db.get(id);
     if (!s) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta saída já não existe." });
     if (s.estado === "cancelada" && estado !== "cancelada") {
@@ -151,7 +151,7 @@ export const mudarEstado = mutation({
 export const remover = mutation({
   args: { id: v.id("eventDepartures") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "eventos");
     const s = await ctx.db.get(id);
     if (!s) return;
     if ((await reservasDaSaida(ctx, s)).length > 0) {

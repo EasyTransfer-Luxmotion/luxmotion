@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { avaliarAcesso, exigirAdmin } from "./lib/admin";
+import { pode, exigirAdmin } from "./lib/admin";
 
 /*
  * Reservas no dashboard (E2 do plano de reconstrução do back-office).
@@ -153,7 +153,7 @@ export const lista = query({
     porPagina: v.number(),
   },
   handler: async (ctx, a) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "reservas"))) return null;
 
     const dia = a.dia && /^\d{4}-\d{2}-\d{2}$/.test(a.dia) ? a.dia : null;
     let docs = dia ? await lerDia(ctx, a.vista, dia) : await lerVista(ctx, a.vista);
@@ -259,7 +259,7 @@ export const lista = query({
 export const contagens = query({
   args: {},
   handler: async (ctx) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "reservas"))) return null;
     const [reservas, porPagar, canceladas] = await Promise.all(
       (["reservas", "porPagar", "canceladas"] as const).map((vista) => lerVista(ctx, vista).then((d) => d.length)),
     );
@@ -291,7 +291,7 @@ function resumo(o: Doc<"orders">) {
 export const detalhe = query({
   args: { numero: v.string() },
   handler: async (ctx, { numero }) => {
-    if (avaliarAcesso(await ctx.auth.getUserIdentity()) !== "admin") return null;
+    if (!(await pode(ctx, "reservas"))) return null;
     const o = await ctx.db
       .query("orders")
       .withIndex("by_order_number", (q) => q.eq("orderNumber", numero.trim().toUpperCase()))
@@ -396,7 +396,7 @@ export const mudarEstado = mutation({
     operacao: v.string(),
   },
   handler: async (ctx, a) => {
-    const quem = await exigirAdmin(ctx);
+    const quem = await exigirAdmin(ctx, "reservas");
     validarOperacao(a.operacao);
 
     const antes = await jaFeita(ctx, a.operacao);
@@ -474,7 +474,7 @@ export const confirmarPagamento = mutation({
     operacao: v.string(),
   },
   handler: async (ctx, a) => {
-    const quem = await exigirAdmin(ctx);
+    const quem = await exigirAdmin(ctx, "reservas");
     validarOperacao(a.operacao);
 
     const antes = await jaFeita(ctx, a.operacao);
@@ -571,7 +571,7 @@ export const anotarAviso = internalMutation({
 export const reenviarAviso = mutation({
   args: { reservaId: v.id("orders"), operacao: v.string() },
   handler: async (ctx, a) => {
-    const quem = await exigirAdmin(ctx);
+    const quem = await exigirAdmin(ctx, "reservas");
     validarOperacao(a.operacao);
     const antes = await jaFeita(ctx, a.operacao);
     if (antes) return { resultado: antes.resultado };

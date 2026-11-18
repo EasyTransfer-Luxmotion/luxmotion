@@ -1784,4 +1784,50 @@ export default defineSchema({
       }),
     ),
   }),
+
+  /*
+   * A equipa interna e o que cada um vê no back-office (lib/permissoes.ts).
+   * Não confundir com teamMembers, que são os perfis públicos da página Sobre
+   * nós. Antes havia só o ADMIN_EMAILS, e quem estava lá via tudo — margens e
+   * dados pessoais incluídos. Os emails do ADMIN_EMAILS continuam a ser os
+   * donos: têm tudo e não dependem destas tabelas, para ninguém ficar à porta
+   * por um cargo mal configurado.
+   */
+  cargos: defineTable({
+    nome: v.string(),
+    descricao: v.optional(v.string()),
+    /* Um nível por módulo; o módulo que não aparece é "sem acesso". */
+    permissoes: v.array(
+      v.object({
+        modulo: v.string(),
+        nivel: v.union(v.literal("ver"), v.literal("editar")),
+      }),
+    ),
+    criadoEm: v.number(),
+    actualizadoEm: v.number(),
+  }).index("by_nome", ["nome"]),
+
+  colaboradores: defineTable({
+    /* Em minúsculas: é o que se compara com o email verificado do Clerk. */
+    email: v.string(),
+    nome: v.string(),
+    cargoId: v.id("cargos"),
+    /* Suspenso: deixa de entrar já, sem perder o cargo nem o histórico. */
+    estado: v.union(v.literal("activo"), v.literal("suspenso")),
+    criadoEm: v.number(),
+    actualizadoEm: v.number(),
+    ultimaEntradaEm: v.optional(v.number()),
+  })
+    .index("by_email", ["email"])
+    .index("by_cargo", ["cargoId"]),
+
+  /* Quem mudou o quê na equipa interna. Dar acesso a margens ou a dados
+     pessoais tem de deixar rasto. */
+  registoEquipa: defineTable({
+    ator: v.string(),
+    accao: v.string(),
+    alvo: v.string(),
+    detalhe: v.optional(v.string()),
+    em: v.number(),
+  }).index("by_em", ["em"]),
 });

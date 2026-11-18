@@ -7,7 +7,7 @@ import { exigirAdmin } from "./lib/admin";
 export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "equipaSite", "ver");
     let rows = await ctx.db.query("teamMembers").collect();
 
     rows = applySearch(rows, a.search, [(r) => r.name, (r) => r.role]);
@@ -68,7 +68,7 @@ export const create = mutation({
     order: v.number(),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "equipaSite");
     const now = Date.now();
     return await ctx.db.insert("teamMembers", {
       ...args,
@@ -89,7 +89,7 @@ export const update = mutation({
     order: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "equipaSite");
     const { id, ...data } = args;
     const existing = await ctx.db.get(id);
     if (!existing) throw new Error("Team member not found");
@@ -106,7 +106,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("teamMembers") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx);
+    await exigirAdmin(ctx, "equipaSite");
     const member = await ctx.db.get(args.id);
     if (!member) throw new Error("Team member not found");
 
