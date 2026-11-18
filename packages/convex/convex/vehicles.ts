@@ -249,7 +249,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("vehicles") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "veiculos");
+    await exigirAdmin(ctx, "veiculos", "editar", "apagar");
     // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
     await ctx.db.delete(args.id);
   },

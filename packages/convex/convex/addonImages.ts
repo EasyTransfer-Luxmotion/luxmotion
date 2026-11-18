@@ -133,7 +133,7 @@ export const rename = mutation({
 export const remove = mutation({
   args: { storageId: vImagem },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"]);
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"], "editar", "apagar");
     const linha = await ctx.db
       .query("addonImages")
       .withIndex("by_storage", (q) => q.eq("storageId", args.storageId))

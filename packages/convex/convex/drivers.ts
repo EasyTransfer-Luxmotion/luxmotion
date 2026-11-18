@@ -111,7 +111,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("drivers") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "motoristas");
+    await exigirAdmin(ctx, "motoristas", "editar", "apagar");
     const driver = await ctx.db.get(args.id);
     if (!driver) throw new Error("Driver not found");
 

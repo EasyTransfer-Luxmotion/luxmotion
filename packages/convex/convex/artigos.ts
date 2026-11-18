@@ -352,7 +352,7 @@ export const mudarEstado = mutation({
 export const remover = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "blog");
+    await exigirAdmin(ctx, "blog", "editar", "apagar");
     const b = await ctx.db.get(id);
     if (!b) return;
     const traducoes = await ctx.db.query("blogTranslations").withIndex("by_blog", (q) => q.eq("blogId", id)).collect();

@@ -547,7 +547,7 @@ export const publicar = mutation({
 export const remover = mutation({
   args: { id: v.id("partnerships") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "parcerias");
+    await exigirAdmin(ctx, "parcerias", "editar", "apagar");
     if (!(await ctx.db.get(id))) return;
     /* Um veículo de um parceiro só aparece no checkout dele (veiculos.ts):
        apagar o parceiro deixava-o preso a um dono que não existe. Nenhum em
@@ -671,7 +671,7 @@ export const mudarEstadoLead = mutation({
 export const removerLead = mutation({
   args: { id: v.id("partnerLeads") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "leads");
+    await exigirAdmin(ctx, "leads", "editar", "apagar");
     if (await ctx.db.get(id)) await ctx.db.delete(id);
   },
 });

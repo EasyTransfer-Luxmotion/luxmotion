@@ -1803,6 +1803,8 @@ export default defineSchema({
         nivel: v.union(v.literal("ver"), v.literal("editar")),
       }),
     ),
+    /* Acções sensíveis (lib/permissoes.ts → CAPACIDADES). Vazio: nenhuma. */
+    capacidades: v.optional(v.array(v.string())),
     criadoEm: v.number(),
     actualizadoEm: v.number(),
   }).index("by_nome", ["nome"]),
@@ -1816,10 +1818,29 @@ export default defineSchema({
     estado: v.union(v.literal("activo"), v.literal("suspenso")),
     criadoEm: v.number(),
     actualizadoEm: v.number(),
+    /* Sem isto, ainda não entrou: aparece como "Convidado". */
     ultimaEntradaEm: v.optional(v.number()),
+    /* O último convite por email e quantos já saíram (equipa.convidar). */
+    conviteEnviadoEm: v.optional(v.number()),
+    convitesEnviados: v.optional(v.number()),
+    /* Como correu o envio: "semEmail" onde não há RESEND_API_KEY
+       (development e staging, de propósito). */
+    conviteEstado: v.optional(v.union(v.literal("aEnviar"), v.literal("enviado"), v.literal("falhou"), v.literal("semEmail"))),
   })
     .index("by_email", ["email"])
     .index("by_cargo", ["cargoId"]),
+
+  /*
+   * "Ver como": quem gere a equipa pode ver o back-office com as permissões
+   * de um cargo, para confirmar que ele está bem feito. Fica do lado do
+   * servidor (lib/admin.ts lê isto), por isso vale para todas as funções e é
+   * sempre só de leitura. Acaba sozinha ao fim de uma hora.
+   */
+  simulacoes: defineTable({
+    email: v.string(),
+    cargoId: v.id("cargos"),
+    ate: v.number(),
+  }).index("by_email", ["email"]),
 
   /* Quem mudou o quê na equipa interna. Dar acesso a margens ou a dados
      pessoais tem de deixar rasto. */

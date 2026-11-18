@@ -306,7 +306,7 @@ export const marcarDestaque = mutation({
 export const remover = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "eventos");
+    await exigirAdmin(ctx, "eventos", "editar", "apagar");
     const e = await ctx.db.get(id);
     if (!e) return;
     if (await ctx.db.query("tourBookings").withIndex("by_event", (q) => q.eq("eventId", id)).first()) {

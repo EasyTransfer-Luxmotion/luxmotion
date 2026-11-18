@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { pode } from "./lib/admin";
+import { lerAcesso, permite, temCapacidade } from "./lib/admin";
 import { codigoDoAeroporto } from "./lib/precoTransfer";
 
 /*
@@ -45,7 +45,7 @@ export const servicos = query({
   /* AAAA-MM-DD em Lisboa, vindo do browser (ver contadores.porTratar). */
   args: { dia: v.string() },
   handler: async (ctx, { dia }) => {
-    if (!(await pode(ctx, "reservas"))) return null;
+    if (!permite(await lerAcesso(ctx), "reservas")) return null;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return { linhas: [], mais: false };
 
     const docs = await ctx.db
@@ -176,7 +176,11 @@ export const estatisticas = query({
     hoje: v.string(),
   },
   handler: async (ctx, { periodo, hoje }) => {
-    if (!(await pode(ctx, "reservas"))) return null;
+    const acesso = await lerAcesso(ctx);
+    if (!permite(acesso, "reservas")) return null;
+    /* Sem "ver valores" (lib/permissoes.ts) os euros saem a zero e o
+       dashboard esconde-os: ficam as contagens, as rotas e as origens. */
+    const valores = temCapacidade(acesso, "valores");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(hoje)) return null;
 
     /* Os baldes do gráfico e o início do período (e do anterior, para a
@@ -337,21 +341,27 @@ export const estatisticas = query({
       iniciados: c.iniciados,
     });
 
+    const zero = <T extends { faturacao: number }>(x: T): T => (valores ? x : { ...x, faturacao: 0 });
+    const resumoV = (c: ReturnType<typeof contas>) => {
+      const r = resumo(c);
+      return valores ? r : { ...r, faturacao: 0, valorMedio: null };
+    };
     return {
+      valores,
       periodo: periodo as Periodo,
       granularidade,
       baldes,
-      agora: resumo(agora),
-      antes: inicioAntes ? resumo(antes) : null,
+      agora: resumoV(agora),
+      antes: inicioAntes ? resumoV(antes) : null,
       serie,
-      faturacao: faturacaoSerie.map((x) => Math.round(x * 100) / 100),
+      faturacao: faturacaoSerie.map((x) => (valores ? Math.round(x * 100) / 100 : 0)),
       origens: ordenar(origens),
       viaturas: ordenar(viaturas),
-      metodos: [...metodos.values()].map(arredondar).sort((a, b) => b.faturacao - a.faturacao),
-      parceiros: [...parceiros.values()].map(arredondar).sort((a, b) => b.reservas - a.reservas || b.faturacao - a.faturacao),
+      metodos: [...metodos.values()].map(arredondar).map(zero).sort((a, b) => b.faturacao - a.faturacao || b.reservas - a.reservas),
+      parceiros: [...parceiros.values()].map(arredondar).map(zero).sort((a, b) => b.reservas - a.reservas || b.faturacao - a.faturacao),
       semMetodo: SEM_METODO,
       semParceiro: SEM_PARCEIRO,
-      rotas: [...rotas.values()].sort((a, b) => b.reservas - a.reservas || b.faturacao - a.faturacao).slice(0, 8),
+      rotas: [...rotas.values()].sort((a, b) => b.reservas - a.reservas || b.faturacao - a.faturacao).slice(0, 8).map(zero),
     };
   },
 });

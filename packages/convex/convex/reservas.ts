@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { pode, exigirAdmin } from "./lib/admin";
+import { exigirAdmin, lerAcesso, permite, temCapacidade } from "./lib/admin";
 
 /*
  * Reservas no dashboard (E2 do plano de reconstrução do back-office).
@@ -153,7 +153,9 @@ export const lista = query({
     porPagina: v.number(),
   },
   handler: async (ctx, a) => {
-    if (!(await pode(ctx, "reservas"))) return null;
+    const acesso = await lerAcesso(ctx);
+    if (!permite(acesso, "reservas")) return null;
+    const valores = temCapacidade(acesso, "valores");
 
     const dia = a.dia && /^\d{4}-\d{2}-\d{2}$/.test(a.dia) ? a.dia : null;
     let docs = dia ? await lerDia(ctx, a.vista, dia) : await lerVista(ctx, a.vista);
@@ -196,7 +198,8 @@ export const lista = query({
       });
     }
 
-    const ordenar = a.ordenar ?? "criada";
+    /* Ordenar pelo total diria a ordem dos valores a quem não os pode ver. */
+    const ordenar = a.ordenar === "total" && !valores ? "criada" : (a.ordenar ?? "criada");
     const sentido = a.sentido ?? (ordenar === "viagem" && a.quando === "proximas" ? "asc" : "desc");
     const chave = (o: Doc<"orders">): string | number =>
       ordenar === "viagem" ? o.departureDate : ordenar === "total" ? (o.totalAmount ?? 0) : o._creationTime;
@@ -235,7 +238,7 @@ export const lista = query({
         origem: local(o.departure),
         destino: local(o.arrival),
         passageiros: o.passengers,
-        total: o.totalAmount ?? null,
+        total: valores ? (o.totalAmount ?? null) : null,
         parceiro: o.partnershipName ?? null,
         anuncio: origemAnuncio(o) || null,
         perna: pernaDe(o, outra),
@@ -250,7 +253,7 @@ export const lista = query({
       };
     });
 
-    return { linhas, total, pagina, paginas, porPagina, origens, metodos, pagamentos };
+    return { linhas, total, pagina, paginas, porPagina, origens, metodos, pagamentos, valores };
   },
 });
 
@@ -259,7 +262,7 @@ export const lista = query({
 export const contagens = query({
   args: {},
   handler: async (ctx) => {
-    if (!(await pode(ctx, "reservas"))) return null;
+    if (!permite(await lerAcesso(ctx), "reservas")) return null;
     const [reservas, porPagar, canceladas] = await Promise.all(
       (["reservas", "porPagar", "canceladas"] as const).map((vista) => lerVista(ctx, vista).then((d) => d.length)),
     );
@@ -276,6 +279,23 @@ const ROTULO: Record<Estado, string> = {
   cancelled: "Cancelada",
 };
 
+/*
+ * A reserva sem euros, para quem não tem "ver valores": tira todos os campos
+ * de preço, a qualquer profundidade (os extras e as experiências levam o
+ * preço de cada um). Pela forma do nome e não por uma lista, para um campo
+ * de preço novo não escapar.
+ */
+const DE_VALOR = /^(price|prices|amount|total|subtotal|fee|fees|cost|surcharge|discount|tip|tax|commission|valor|preco|pricingWarning)|(Price|Amount|Total|Fee|Fees|Cost|Surcharge|Discount|Tip|Tax|Commission)/;
+function semValores<T>(x: T): T {
+  if (Array.isArray(x)) return x.map(semValores) as T;
+  if (x && typeof x === "object") {
+    const r: Record<string, unknown> = {};
+    for (const [k, val] of Object.entries(x)) if (!DE_VALOR.test(k)) r[k] = semValores(val);
+    return r as T;
+  }
+  return x;
+}
+
 function resumo(o: Doc<"orders">) {
   return {
     _id: o._id,
@@ -291,7 +311,9 @@ function resumo(o: Doc<"orders">) {
 export const detalhe = query({
   args: { numero: v.string() },
   handler: async (ctx, { numero }) => {
-    if (!(await pode(ctx, "reservas"))) return null;
+    const acesso = await lerAcesso(ctx);
+    if (!permite(acesso, "reservas")) return null;
+    const valores = temCapacidade(acesso, "valores");
     const o = await ctx.db
       .query("orders")
       .withIndex("by_order_number", (q) => q.eq("orderNumber", numero.trim().toUpperCase()))
@@ -319,8 +341,9 @@ export const detalhe = query({
 
     return {
       encontrada: true as const,
+      valores,
       reserva: {
-        ...o,
+        ...(valores ? o : semValores(o)),
         /* O que só a ida tem, numa volta: o contacto (o checkout gravava-o
            só na ida até 16/11/2026) e a parceria e a origem da visita (a volta
            nasce sem elas, o pagamento fica na ida). Sem isto, uma volta
@@ -344,7 +367,7 @@ export const detalhe = query({
       extras: extras.map(resumo),
       pagamentos: pagamentos
         .sort((a, b) => b.timestamp - a.timestamp)
-        .map((t) => ({ _id: t._id, valor: t.amount, metodo: t.paymentMethod, estado: t.status, em: t.timestamp })),
+        .map((t) => ({ _id: t._id, valor: valores ? t.amount : null, metodo: t.paymentMethod, estado: t.status, em: t.timestamp })),
       registo: registo.map((r) => ({
         _id: r._id,
         accao: r.accao,
@@ -474,7 +497,7 @@ export const confirmarPagamento = mutation({
     operacao: v.string(),
   },
   handler: async (ctx, a) => {
-    const quem = await exigirAdmin(ctx, "reservas");
+    const quem = await exigirAdmin(ctx, "reservas", "editar", "pagamentos");
     validarOperacao(a.operacao);
 
     const antes = await jaFeita(ctx, a.operacao);
@@ -571,7 +594,7 @@ export const anotarAviso = internalMutation({
 export const reenviarAviso = mutation({
   args: { reservaId: v.id("orders"), operacao: v.string() },
   handler: async (ctx, a) => {
-    const quem = await exigirAdmin(ctx, "reservas");
+    const quem = await exigirAdmin(ctx, "reservas", "editar", "pagamentos");
     validarOperacao(a.operacao);
     const antes = await jaFeita(ctx, a.operacao);
     if (antes) return { resultado: antes.resultado };

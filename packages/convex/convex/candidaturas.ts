@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { exigirAdmin } from "./lib/admin";
+import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
 import { safeStorageDelete } from "./lib/storage";
 
 /*
@@ -168,6 +168,11 @@ export const detalhe = query({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx, { tipo, id }) => {
     await exigirAdmin(ctx, "candidaturas", "ver");
+    /* Os documentos e os dados bancários só para quem o cargo deixa
+       (capacidade "documentos"): cartas de condução, seguros, comprovativos
+       bancários e o IBAN são o que mais estraga se sair do sítio. Sem ela, a
+       lista diz que existem mas não os abre. */
+    const veDocumentos = temCapacidade(await lerAcesso(ctx), "documentos");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     const d = nid ? ((await ctx.db.get(nid)) as Doc<"driverApplications"> | Doc<"partnerApplications"> | null) : null;
     if (!d) return null;
@@ -176,18 +181,23 @@ export const detalhe = query({
     const arquivos = await Promise.all(
       ficheiros(tipo, d).map(async (f) => {
         const meta = await ctx.db.system.get(f.id);
+        const bloqueado = f.grupo === "documentos" && !veDocumentos;
         return {
           chave: f.chave,
           rotulo: f.rotulo,
           grupo: f.grupo,
-          url: await ctx.storage.getUrl(f.id),
+          url: bloqueado ? null : await ctx.storage.getUrl(f.id),
+          bloqueado,
           tipoFicheiro: meta?.contentType ?? null,
           tamanho: meta?.size ?? null,
         };
       }),
     );
-    const { _id, _creationTime, ...resto } = d;
+    const { _id, _creationTime, ...completo } = d;
     void _creationTime;
+    const resto = veDocumentos
+      ? completo
+      : { ...completo, billingIban: completo.billingIban ? "•••• (sem acesso)" : completo.billingIban };
     return {
       tipo,
       id: _id as string,
@@ -196,6 +206,7 @@ export const detalhe = query({
       estados: ESTADOS,
       doc: resto,
       arquivos,
+      veDocumentos,
       zonas: tipo === "motoristas" ? [zona((d as Doc<"driverApplications">).operatingZone)] : (d as Doc<"partnerApplications">).operatingZones.map(zona),
     };
   },
@@ -232,7 +243,7 @@ export const notas = mutation({
 export const remover = mutation({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx, { tipo, id }) => {
-    await exigirAdmin(ctx, "candidaturas");
+    await exigirAdmin(ctx, "candidaturas", "editar", "apagar");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     const d = nid ? ((await ctx.db.get(nid)) as Doc<"driverApplications"> | Doc<"partnerApplications"> | null) : null;
     if (!nid || !d) return { documentos: 0 };

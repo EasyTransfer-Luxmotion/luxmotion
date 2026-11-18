@@ -186,7 +186,7 @@ export const porEmPrimeiro = mutation({
 export const remover = mutation({
   args: { id: v.id("pastExperiences") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "portefolio");
+    await exigirAdmin(ctx, "portefolio", "editar", "apagar");
     /* A fotografia não se apaga: pode estar noutro registo (lib/imagens.ts). */
     if (await ctx.db.get(id)) await ctx.db.delete(id);
   },

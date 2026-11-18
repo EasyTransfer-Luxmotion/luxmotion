@@ -1,8 +1,19 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, verificar } from "./lib/admin";
-import { eModulo, MODULOS_PERMISSAO, tituloDoModulo, type ModuloPermissao, type Nivel } from "./lib/permissoes";
+import {
+  CHAVES_CAPACIDADE,
+  eCapacidade,
+  eModulo,
+  MODULOS_PERMISSAO,
+  tituloDaCapacidade,
+  tituloDoModulo,
+  type Capacidade,
+  type ModuloPermissao,
+  type Nivel,
+} from "./lib/permissoes";
 
 /*
  * Equipa: os membros (quem entra no back-office) e os cargos (o que cada
@@ -85,6 +96,35 @@ function permissoesValidas(c: Doc<"cargos">) {
   return c.permissoes.filter((p): p is { modulo: ModuloPermissao; nivel: Nivel } => eModulo(p.modulo));
 }
 
+function capacidadesValidas(c: Doc<"cargos">): Capacidade[] {
+  return (c.capacidades ?? []).filter(eCapacidade);
+}
+
+function diferencasCapacidades(antes: readonly string[], depois: readonly string[]): string {
+  const mudou: string[] = [];
+  for (const k of CHAVES_CAPACIDADE) {
+    const a = antes.includes(k);
+    const d = depois.includes(k);
+    if (a !== d) mudou.push(`${tituloDaCapacidade(k)}: ${a ? "sim" : "não"} → ${d ? "sim" : "não"}`);
+  }
+  return mudou.join("; ");
+}
+
+/* O estado de um membro como a equipa o vê: "convidado" até entrar pela
+   primeira vez. Não se grava: deduz-se da última entrada. */
+function situacao(p: Doc<"colaboradores">): "activo" | "convidado" | "suspenso" {
+  if (p.estado === "suspenso") return "suspenso";
+  return p.ultimaEntradaEm ? "activo" : "convidado";
+}
+
+function convite(p: Doc<"colaboradores">) {
+  return {
+    enviadoEm: p.conviteEnviadoEm ?? null,
+    enviados: p.convitesEnviados ?? 0,
+    estado: p.conviteEstado ?? null,
+  };
+}
+
 export const lista = query({
   args: {},
   handler: async (ctx) => {
@@ -107,6 +147,7 @@ export const lista = query({
             nome: c.nome,
             descricao: c.descricao ?? null,
             permissoes: permissoesValidas(c),
+            capacidades: capacidadesValidas(c),
             pessoas: membros.length,
             membros,
             actualizadoEm: c.actualizadoEm,
@@ -121,6 +162,8 @@ export const lista = query({
           cargoId: p.cargoId,
           cargo: nomeCargo.get(p.cargoId) ?? null,
           estado: p.estado,
+          situacao: situacao(p),
+          convite: convite(p),
           /* Também nos donos: o cargo não conta enquanto o email lá estiver. */
           dono: listaDonos.includes(p.email),
           criadoEm: p.criadoEm,
@@ -154,11 +197,12 @@ export const cargo = query({
       nome: c.nome,
       descricao: c.descricao ?? null,
       permissoes: permissoesValidas(c),
+      capacidades: capacidadesValidas(c),
       versao: c.actualizadoEm,
       criadoEm: c.criadoEm,
       membros: membros
         .sort((a, b) => a.nome.localeCompare(b.nome, "pt"))
-        .map((p) => ({ id: p._id, nome: p.nome, email: p.email, estado: p.estado, ultimaEntradaEm: p.ultimaEntradaEm ?? null })),
+        .map((p) => ({ id: p._id, nome: p.nome, email: p.email, estado: p.estado, situacao: situacao(p), ultimaEntradaEm: p.ultimaEntradaEm ?? null })),
       historico: await historico(ctx, { cargoId: c._id }),
     };
   },
@@ -178,6 +222,8 @@ export const membro = query({
       email: p.email,
       cargoId: p.cargoId,
       estado: p.estado,
+      situacao: situacao(p),
+      convite: convite(p),
       dono: donos().includes(p.email),
       versao: p.actualizadoEm,
       criadoEm: p.criadoEm,
@@ -233,6 +279,9 @@ export const guardarCargo = mutation({
     nome: v.string(),
     descricao: v.optional(v.string()),
     permissoes: vPermissoes,
+    /* Opcional para os ecrãs de antes das capacidades: sem ele, ficam as
+       que o cargo tinha. */
+    capacidades: v.optional(v.array(v.string())),
   },
   handler: async (ctx, a) => {
     const acesso = await lerAcesso(ctx);
@@ -253,6 +302,9 @@ export const guardarCargo = mutation({
       permissoes.push({ modulo: p.modulo, nivel: p.nivel });
     }
 
+    for (const c of a.capacidades ?? []) if (!eCapacidade(c)) throw new ConvexError(`Acção desconhecida: ${c}.`);
+    const capacidadesNovas = a.capacidades ? [...new Set(a.capacidades.filter(eCapacidade))] : undefined;
+
     if (nome && !erros.nome) {
       const todos = await ctx.db.query("cargos").collect();
       const igual = todos.find((c) => c._id !== a.id && c.nome.toLocaleLowerCase("pt") === nome.toLocaleLowerCase("pt"));
@@ -262,12 +314,13 @@ export const guardarCargo = mutation({
 
     const agora = Date.now();
     if (!a.id) {
-      const id = await ctx.db.insert("cargos", { nome, descricao, permissoes, criadoEm: agora, actualizadoEm: agora });
+      const capacidades = capacidadesNovas ?? [];
+      const id = await ctx.db.insert("cargos", { nome, descricao, permissoes, capacidades, criadoEm: agora, actualizadoEm: agora });
       await registar(ctx, {
         ator: acesso.email!,
         accao: "Criou o cargo",
         alvo: nome,
-        detalhe: diferencas(new Map(), mapa(permissoes)) || "Sem acessos",
+        detalhe: [diferencas(new Map(), mapa(permissoes)), diferencasCapacidades([], capacidades)].filter(Boolean).join("; ") || "Sem acessos",
         cargoId: id,
       });
       return { id, versao: agora };
@@ -279,11 +332,13 @@ export const guardarCargo = mutation({
     await protegerAutor(ctx, acesso.email!, acesso.dono, async (cargoId) =>
       cargoId === a.id ? mapa(permissoes) : null,
     );
-    await ctx.db.patch(a.id, { nome, descricao, permissoes, actualizadoEm: agora });
+    const capacidades = capacidadesNovas ?? antes.capacidades ?? [];
+    await ctx.db.patch(a.id, { nome, descricao, permissoes, capacidades, actualizadoEm: agora });
     const partes = [
       antes.nome !== nome ? `Nome: ${antes.nome} → ${nome}` : "",
       (antes.descricao ?? "") !== (descricao ?? "") ? "Descrição alterada" : "",
       diferencas(mapa(antes.permissoes as { modulo: string; nivel: Nivel }[]), mapa(permissoes)),
+      diferencasCapacidades(antes.capacidades ?? [], capacidades),
     ].filter(Boolean);
     if (partes.length) {
       await registar(ctx, { ator: acesso.email!, accao: "Alterou o cargo", alvo: nome, detalhe: partes.join("; "), cargoId: a.id });
@@ -361,6 +416,8 @@ export const guardarColaborador = mutation({
         colaboradorId: id,
         cargoId: cargo._id,
       });
+      await ctx.db.patch(id, { conviteEstado: "aEnviar" });
+      await ctx.scheduler.runAfter(0, internal.equipa.enviarConvite, { colaboradorId: id, por: acesso.nome ?? acesso.email! });
       return { id, versao: agora };
     }
 
@@ -425,11 +482,12 @@ export const mudarEstadoColaborador = mutation({
  * Salta os nomes que já existem, por isso repetir não estraga o que alguém
  * entretanto mudou.
  */
-const CARGOS_INICIAIS: { nome: string; descricao: string; permissoes: Partial<Record<ModuloPermissao, Nivel>> }[] = [
+const CARGOS_INICIAIS: { nome: string; descricao: string; permissoes: Partial<Record<ModuloPermissao, Nivel>>; capacidades: Capacidade[] }[] = [
   {
     nome: "Administração",
     descricao: "Tudo, incluindo a equipa interna.",
     permissoes: Object.fromEntries(MODULOS_PERMISSAO.map((m) => [m, "editar"])),
+    capacidades: [...CHAVES_CAPACIDADE],
   },
   {
     nome: "Comercial",
@@ -446,6 +504,7 @@ const CARGOS_INICIAIS: { nome: string; descricao: string; permissoes: Partial<Re
       veiculos: "ver",
       avaliacoes: "ver",
     },
+    capacidades: ["valores"],
   },
   {
     nome: "Operação",
@@ -460,11 +519,13 @@ const CARGOS_INICIAIS: { nome: string; descricao: string; permissoes: Partial<Re
       eventos: "ver",
       parcerias: "ver",
     },
+    capacidades: ["pagamentos", "documentos"],
   },
   {
     nome: "Financeiro",
     descricao: "Vê reservas, pagamentos e parcerias. Não altera nada.",
     permissoes: { reservas: "ver", parcerias: "ver", definicoes: "ver" },
+    capacidades: ["valores"],
   },
 ];
 
@@ -477,10 +538,133 @@ export const criarCargosIniciais = internalMutation({
     for (const c of CARGOS_INICIAIS) {
       if (existentes.has(c.nome.toLocaleLowerCase("pt"))) continue;
       const permissoes = (Object.entries(c.permissoes) as [ModuloPermissao, Nivel][]).map(([modulo, nivel]) => ({ modulo, nivel }));
-      const id = await ctx.db.insert("cargos", { nome: c.nome, descricao: c.descricao, permissoes, criadoEm: agora, actualizadoEm: agora });
+      const id = await ctx.db.insert("cargos", { nome: c.nome, descricao: c.descricao, permissoes, capacidades: c.capacidades, criadoEm: agora, actualizadoEm: agora });
       await registar(ctx, { ator: "sistema", accao: "Criou o cargo", alvo: c.nome, detalhe: diferencas(new Map(), mapa(permissoes)) || "Sem acessos", cargoId: id });
       criados.push(c.nome);
     }
     return { criados };
+  },
+});
+
+/* Os cargos criados antes das capacidades ficam com as do plano: sem isto
+   ninguém (além dos donos) via valores, apagava ou confirmava pagamentos.
+ *   npx convex run equipa:capacidadesIniciais
+ * Só mexe nos cargos de CARGOS_INICIAIS que ainda não têm o campo. */
+export const capacidadesIniciais = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const mudados: string[] = [];
+    for (const c of await ctx.db.query("cargos").collect()) {
+      if (c.capacidades !== undefined) continue;
+      const base = CARGOS_INICIAIS.find((x) => x.nome.toLocaleLowerCase("pt") === c.nome.toLocaleLowerCase("pt"));
+      if (!base) continue;
+      await ctx.db.patch(c._id, { capacidades: base.capacidades });
+      await registar(ctx, { ator: "sistema", accao: "Alterou o cargo", alvo: c.nome, detalhe: diferencasCapacidades([], base.capacidades), cargoId: c._id });
+      mudados.push(c.nome);
+    }
+    return { mudados };
+  },
+});
+
+/* ─── Convites ───────────────────────────────────────────────────────── */
+
+/*
+ * Acrescentar alguém à equipa não lhe dizia nada: tinha de adivinhar que
+ * devia criar conta com aquele email. Agora sai um email com o link do
+ * back-office e o email já preenchido. O membro fica "Convidado" até entrar
+ * pela primeira vez (acesso.registarEntrada).
+ *
+ * Só sai onde há RESEND_API_KEY (produção). Sem ela fica "semEmail" e o
+ * ecrã diz para enviar o link à mão — em development e staging, de
+ * propósito, como os outros avisos.
+ */
+export const reenviarConvite = mutation({
+  args: { id: v.id("colaboradores") },
+  handler: async (ctx, { id }) => {
+    const acesso = await lerAcesso(ctx);
+    verificar(acesso, "equipa", "editar");
+    const p = await ctx.db.get(id);
+    if (!p) throw new ConvexError("Esta pessoa já não está na equipa.");
+    if (p.estado === "suspenso") throw new ConvexError("O acesso está suspenso. Reactive-o antes de reenviar o convite.");
+    if (p.ultimaEntradaEm) throw new ConvexError(`${p.nome} já entrou no back-office: não precisa de convite.`);
+    /* Um clique duplo, ou dois separadores, não mandam dois emails. */
+    if (p.conviteEstado === "aEnviar" && p.conviteEnviadoEm && Date.now() - p.conviteEnviadoEm < 60_000) return null;
+    await ctx.db.patch(id, { conviteEstado: "aEnviar" });
+    await ctx.scheduler.runAfter(0, internal.equipa.enviarConvite, { colaboradorId: id, por: acesso.nome ?? acesso.email! });
+    await registar(ctx, { ator: acesso.email!, accao: "Reenviou o convite a", alvo: `${p.nome} (${p.email})`, colaboradorId: id });
+    return null;
+  },
+});
+
+export const dadosDoConvite = internalQuery({
+  args: { colaboradorId: v.id("colaboradores") },
+  handler: async (ctx, { colaboradorId }) => {
+    const p = await ctx.db.get(colaboradorId);
+    if (!p) return null;
+    const c = await ctx.db.get(p.cargoId);
+    return { nome: p.nome, email: p.email, cargo: c?.nome ?? null, jaEntrou: Boolean(p.ultimaEntradaEm) };
+  },
+});
+
+export const marcarConvite = internalMutation({
+  args: {
+    colaboradorId: v.id("colaboradores"),
+    estado: v.union(v.literal("enviado"), v.literal("falhou"), v.literal("semEmail")),
+  },
+  handler: async (ctx, { colaboradorId, estado }) => {
+    const p = await ctx.db.get(colaboradorId);
+    if (!p) return;
+    await ctx.db.patch(colaboradorId, {
+      conviteEstado: estado,
+      conviteEnviadoEm: Date.now(),
+      convitesEnviados: (p.convitesEnviados ?? 0) + (estado === "enviado" ? 1 : 0),
+    });
+  },
+});
+
+const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const escapar = (t: string) => t.replace(/[&<>"']/g, (c) => ESC[c]!);
+
+export const enviarConvite = internalAction({
+  args: { colaboradorId: v.id("colaboradores"), por: v.string() },
+  handler: async (ctx, { colaboradorId, por }) => {
+    const d = await ctx.runQuery(internal.equipa.dadosDoConvite, { colaboradorId });
+    if (!d || d.jaEntrou) return;
+    const base = (process.env.ADMIN_BASE_URL ?? "https://dashboard.easytransferportugal.com").replace(/\/$/, "");
+    const link = `${base}/sign-in?email=${encodeURIComponent(d.email)}`;
+    const chave = process.env.RESEND_API_KEY;
+    if (!chave) {
+      console.log(`[Convite] Não enviado (sem RESEND_API_KEY): ${d.email} → ${link}`);
+      await ctx.runMutation(internal.equipa.marcarConvite, { colaboradorId, estado: "semEmail" });
+      return;
+    }
+    const primeiro = d.nome.split(" ")[0] ?? d.nome;
+    const html = `
+      <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1c1b18">
+        <p style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#9a7535;margin:0 0 12px">LuxMotion · Back-office</p>
+        <h1 style="font-size:22px;margin:0 0 16px">Olá ${escapar(primeiro)}, tem acesso ao back-office</h1>
+        <p style="font-size:15px;line-height:1.6;margin:0 0 8px">${escapar(por)} acrescentou-o à equipa${d.cargo ? ` como <strong>${escapar(d.cargo)}</strong>` : ""}.</p>
+        <p style="font-size:15px;line-height:1.6;margin:0 0 24px">Entre com <strong>${escapar(d.email)}</strong> — com o Google, ou com um código enviado para este email. Se ainda não tem conta, cria-a no mesmo passo.</p>
+        <a href="${link}" style="display:inline-block;background:#1c1b18;color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px;font-size:15px">Entrar no back-office</a>
+        <p style="font-size:12px;color:#8a8780;margin:28px 0 0">Se não esperava este email, pode ignorá-lo: sem entrar com este endereço, nada acontece.</p>
+      </div>`;
+    try {
+      const r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${chave}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: process.env.RESEND_FROM ?? "LuxMotion <onboarding@resend.dev>",
+          to: [d.email],
+          subject: "Convite para o back-office da LuxMotion",
+          html,
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!r.ok) throw new Error(`Resend ${r.status}: ${(await r.text().catch(() => "")).slice(0, 200)}`);
+      await ctx.runMutation(internal.equipa.marcarConvite, { colaboradorId, estado: "enviado" });
+    } catch (e) {
+      console.error(`[Convite] ${d.email} falhou: ${e instanceof Error ? e.message : String(e)}`);
+      await ctx.runMutation(internal.equipa.marcarConvite, { colaboradorId, estado: "falhou" });
+    }
   },
 });

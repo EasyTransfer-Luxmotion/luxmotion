@@ -1319,7 +1319,9 @@ export const adminUpdateOrderStatus = action({
     ctx,
     { orderId, status },
   ): Promise<{ success: boolean; triggered: boolean }> => {
-    await exigirAdminAccao(ctx, "reservas");
+    /* Marcar como paga é confirmar um pagamento: pede a mesma permissão
+       que o reservas.confirmarPagamento. */
+    await exigirAdminAccao(ctx, "reservas", "editar", status === "paid" ? "pagamentos" : undefined);
     const order = await ctx.runQuery(api.orders.getById, { orderId });
     if (!order) throw new Error("Order not found");
 

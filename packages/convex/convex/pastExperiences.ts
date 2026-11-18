@@ -120,7 +120,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("pastExperiences") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "portefolio");
+    await exigirAdmin(ctx, "portefolio", "editar", "apagar");
     const experience = await ctx.db.get(args.id);
     if (!experience) throw new Error("Experience not found");
 

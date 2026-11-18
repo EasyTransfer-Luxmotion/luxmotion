@@ -113,7 +113,7 @@ export const lista = query({
     porPagina: v.number(),
   },
   handler: async (ctx, a) => {
-    const identidade = await exigirAdmin(ctx);
+    const identidade = await exigirAdmin(ctx, undefined, "ver");
     const visiveis = tiposVisiveis(await lerAcesso(ctx));
     const estado = await lidasDe(ctx, contaDe(identidade));
     const desde = estado?.lidasAte ?? 0;
@@ -144,7 +144,9 @@ export const lista = query({
 export const marcarLida = mutation({
   args: { id: v.id("notificacoes"), lida: v.optional(v.boolean()) },
   handler: async (ctx, { id, lida = true }) => {
-    const identidade = await exigirAdmin(ctx);
+    /* "ver": marcar como lida é da própria pessoa, não altera nada de
+       ninguém — e tem de funcionar também no «ver como». */
+    const identidade = await exigirAdmin(ctx, undefined, "ver");
     const conta = contaDe(identidade);
     const n = await ctx.db.get(id);
     if (!n) return;
@@ -173,7 +175,7 @@ export const marcarLida = mutation({
 export const marcarTodasLidas = mutation({
   args: {},
   handler: async (ctx) => {
-    const identidade = await exigirAdmin(ctx);
+    const identidade = await exigirAdmin(ctx, undefined, "ver");
     const conta = contaDe(identidade);
     const estado = await lidasDe(ctx, conta);
     const agora = Date.now();

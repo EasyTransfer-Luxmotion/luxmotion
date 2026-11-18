@@ -176,7 +176,7 @@ export const guardar = mutation({
 export const remover = mutation({
   args: { id: v.id("tourReviews") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "avaliacoes");
+    await exigirAdmin(ctx, "avaliacoes", "editar", "apagar");
     const r = await ctx.db.get(id);
     if (!r) return;
     await ctx.db.delete(id);

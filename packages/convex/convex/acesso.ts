@@ -1,5 +1,6 @@
+import { ConvexError, v } from "convex/values";
 import { internalQuery, mutation, query } from "./_generated/server";
-import { lerAcesso } from "./lib/admin";
+import { lerAcesso, verificar } from "./lib/admin";
 
 /*
  * O dashboard pergunta isto antes de montar qualquer ecrã. Sem esta pergunta,
@@ -40,6 +41,54 @@ export const registarEntrada = mutation({
     const agora = Date.now();
     if (c.ultimaEntradaEm && agora - c.ultimaEntradaEm < 60 * 60 * 1000) return null;
     await ctx.db.patch(c._id, { ultimaEntradaEm: agora });
+    /* A primeira entrada fecha o convite: passa de "Convidado" a "Activo", e
+       quem o convidou vê no histórico que a pessoa já entrou. */
+    if (!c.ultimaEntradaEm) {
+      await ctx.db.insert("registoEquipa", {
+        ator: c.email,
+        accao: "Entrou pela primeira vez",
+        alvo: `${c.nome} (${c.email})`,
+        colaboradorId: c._id,
+        em: agora,
+      });
+    }
+    return null;
+  },
+});
+
+const UMA_HORA = 60 * 60 * 1000;
+
+/*
+ * "Ver como" um cargo: a partir daqui o servidor responde a esta pessoa com
+ * as permissões do cargo (lib/admin.ts → lerAcesso), em todas as funções, e
+ * recusa qualquer alteração. É o teste a sério de um cargo, em vez de
+ * adivinhar pela lista de módulos.
+ */
+export const verComo = mutation({
+  args: { cargoId: v.id("cargos") },
+  handler: async (ctx, { cargoId }) => {
+    const real = await lerAcesso(ctx, { semSimulacao: true });
+    verificar(real, "equipa", "editar");
+    const cargo = await ctx.db.get(cargoId);
+    if (!cargo) throw new ConvexError("Esse cargo já não existe.");
+    const email = real.email!;
+    const ate = Date.now() + UMA_HORA;
+    const antes = await ctx.db.query("simulacoes").withIndex("by_email", (q) => q.eq("email", email)).first();
+    if (antes) await ctx.db.patch(antes._id, { cargoId, ate });
+    else await ctx.db.insert("simulacoes", { email, cargoId, ate });
+    return { cargo: cargo.nome, ate };
+  },
+});
+
+/* Sair do "ver como". Lê o acesso real: com as permissões simuladas, quem
+   simula um cargo sem a Equipa não conseguia sair. */
+export const terminarVerComo = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const real = await lerAcesso(ctx, { semSimulacao: true });
+    if (real.estado !== "admin" || !real.email) return null;
+    const sims = await ctx.db.query("simulacoes").withIndex("by_email", (q) => q.eq("email", real.email!)).collect();
+    for (const x of sims) await ctx.db.delete(x._id);
     return null;
   },
 });

@@ -436,7 +436,7 @@ export const updateInterno = internalMutation({
 export const remove = mutation({
   args: { id: v.id("blogs") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "blog");
+    await exigirAdmin(ctx, "blog", "editar", "apagar");
     const blog = await ctx.db.get(args.id);
     if (!blog) throw new ConvexError("Este artigo já não existe — talvez tenha sido apagado noutra janela.");
 

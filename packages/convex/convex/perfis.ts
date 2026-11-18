@@ -240,7 +240,7 @@ export const publicar = mutation({
 export const remover = mutation({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx: MutationCtx, { tipo, id }) => {
-    await exigirAdmin(ctx, moduloDe(tipo));
+    await exigirAdmin(ctx, moduloDe(tipo), "editar", "apagar");
     const nid = idDe(ctx, tipo, id);
     /* A fotografia não se apaga: pode estar noutro registo (lib/imagens.ts). */
     if (nid && (await ctx.db.get(nid))) await ctx.db.delete(nid);

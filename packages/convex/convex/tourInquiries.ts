@@ -83,7 +83,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("tourInquiries") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "pedidos");
+    await exigirAdmin(ctx, "pedidos", "editar", "apagar");
     await ctx.db.delete(args.id);
   },
 });

@@ -170,7 +170,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("partnerships") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "parcerias");
+    await exigirAdmin(ctx, "parcerias", "editar", "apagar");
     await ctx.db.delete(args.id);
   },
 });

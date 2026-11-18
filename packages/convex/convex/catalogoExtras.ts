@@ -536,7 +536,7 @@ export const reordenar = mutation({
 export const remover = mutation({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx, { tipo, id }) => {
-    await exigirAdmin(ctx, "extras");
+    await exigirAdmin(ctx, "extras", "editar", "apagar");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     const x = nid ? await ctx.db.get(nid) : null;
     if (!x) return;

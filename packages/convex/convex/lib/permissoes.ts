@@ -98,6 +98,46 @@ export function eModulo(x: string): x is ModuloPermissao {
   return (MODULOS_PERMISSAO as readonly string[]).includes(x);
 }
 
+/*
+ * Acções sensíveis, à parte dos módulos: o que um ecrã deixa fazer não diz
+ * tudo. A Operação muda reservas mas não as marca como pagas; o Comercial vê
+ * reservas sem a faturação. Cada uma é verificada no servidor, nas funções
+ * que a fazem (exigirAdmin com capacidade, ou pode/temCapacidade).
+ */
+export const CAPACIDADES = [
+  {
+    chave: "valores",
+    titulo: "Ver valores e faturação",
+    ajuda: "Totais, preços e pagamentos das reservas, e os números de faturação do Início.",
+  },
+  {
+    chave: "pagamentos",
+    titulo: "Confirmar pagamentos",
+    ajuda: "Marcar uma reserva como paga (dinheiro, transferência) e reenviar o aviso à operação.",
+  },
+  {
+    chave: "apagar",
+    titulo: "Apagar registos",
+    ajuda: "Apagar tours, eventos, pedidos, candidaturas, artigos, parcerias… Sem isto, edita mas não apaga.",
+  },
+  {
+    chave: "documentos",
+    titulo: "Ver documentos pessoais",
+    ajuda: "Cartas de condução, seguros e comprovativos bancários das candidaturas.",
+  },
+] as const;
+
+export type Capacidade = (typeof CAPACIDADES)[number]["chave"];
+export const CHAVES_CAPACIDADE: readonly Capacidade[] = CAPACIDADES.map((c) => c.chave);
+
+export function eCapacidade(x: string): x is Capacidade {
+  return (CHAVES_CAPACIDADE as readonly string[]).includes(x);
+}
+
+export function tituloDaCapacidade(c: Capacidade): string {
+  return CAPACIDADES.find((x) => x.chave === c)?.titulo ?? c;
+}
+
 /* "editar" inclui "ver": quem muda uma reserva tem de a conseguir abrir. */
 export function chega(tem: Nivel | undefined, precisa: Nivel): boolean {
   if (!tem) return false;

@@ -191,7 +191,7 @@ export const reordenar = mutation({
 export const remover = mutation({
   args: { id: v.id("corporateExperiences") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "corporate");
+    await exigirAdmin(ctx, "corporate", "editar", "apagar");
     const x = await ctx.db.get(id);
     if (!x) return;
     /* Capa e galeria não se apagam. Foi aqui que, ao apagar uma experiência de teste,

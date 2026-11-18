@@ -605,7 +605,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "eventos");
+    await exigirAdmin(ctx, "eventos", "editar", "apagar");
     const event = await ctx.db.get(args.id);
     if (!event) throw new ConvexError("Este evento já não existe — talvez tenha sido apagado noutra janela.");
 

@@ -166,7 +166,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("driverApplications") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "candidaturas");
+    await exigirAdmin(ctx, "candidaturas", "editar", "apagar");
     const a = await ctx.db.get(args.id)
     if (!a) return
     /* Os documentos vão com a candidatura: são cartas de condução, seguros e

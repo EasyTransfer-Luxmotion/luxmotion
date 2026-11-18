@@ -450,7 +450,7 @@ export const marcar = mutation({
 export const remover = mutation({
   args: { id: v.id("tours") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "tours");
+    await exigirAdmin(ctx, "tours", "editar", "apagar");
     const t = await ctx.db.get(id);
     if (!t) return;
     const reservas = await ctx.db.query("tourBookings").withIndex("by_tour", (q) => q.eq("tourId", id)).first();

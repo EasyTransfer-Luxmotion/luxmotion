@@ -145,7 +145,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("universalAddons") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"], "editar", "apagar");
     const tours = await ctx.db.query("tours").collect();
     for (const t of tours) {
       if (!t.disabledUniversalAddons?.includes(args.id)) continue;

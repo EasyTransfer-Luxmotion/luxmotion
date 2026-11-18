@@ -258,7 +258,7 @@ export const updateStop = mutation({
 export const removeStop = mutation({
   args: { id: v.id("upsellStops") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "extras");
+    await exigirAdmin(ctx, "extras", "editar", "apagar");
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Upsell stop not found");
     // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
@@ -383,7 +383,7 @@ export const updateExperience = mutation({
 export const removeExperience = mutation({
   args: { id: v.id("upsellExperiences") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "extras");
+    await exigirAdmin(ctx, "extras", "editar", "apagar");
     const row = await ctx.db.get(id);
     if (!row) throw new Error("Upsell experience not found");
     // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).

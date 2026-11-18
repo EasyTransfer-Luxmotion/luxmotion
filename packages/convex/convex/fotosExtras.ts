@@ -260,7 +260,7 @@ export const tirarDoExtra = mutation({
 export const tirarDaBiblioteca = mutation({
   args: { caminho: vImagem },
   handler: async (ctx, { caminho }) => {
-    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"]);
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"], "editar", "apagar");
     const usos = (await lerExtras(ctx)).filter((x) => x.imageId === caminho).length;
     if (usos > 0) {
       throw new ConvexError({

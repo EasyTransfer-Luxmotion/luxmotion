@@ -106,7 +106,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("teamMembers") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "equipaSite");
+    await exigirAdmin(ctx, "equipaSite", "editar", "apagar");
     const member = await ctx.db.get(args.id);
     if (!member) throw new Error("Team member not found");
 

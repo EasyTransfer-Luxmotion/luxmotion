@@ -205,7 +205,7 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { id: v.id("corporateExperiences") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "corporate");
+    await exigirAdmin(ctx, "corporate", "editar", "apagar");
     const exp = await ctx.db.get(id)
     if (!exp) throw new ConvexError("Esta experiência já não existe — talvez tenha sido apagada noutra janela.")
     // Capa e galeria não se apagam: os ficheiros podem ser partilhados com outros

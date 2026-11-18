@@ -254,7 +254,7 @@ export const notas = mutation({
 export const remover = mutation({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx, { tipo, id }) => {
-    await exigirAdmin(ctx, "pedidos");
+    await exigirAdmin(ctx, "pedidos", "editar", "apagar");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     if (!nid) return;
     if (await ctx.db.get(nid)) await ctx.db.delete(nid);
