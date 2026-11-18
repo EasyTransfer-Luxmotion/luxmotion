@@ -314,6 +314,8 @@ export const detalhe = query({
     const acesso = await lerAcesso(ctx);
     if (!permite(acesso, "reservas")) return null;
     const valores = temCapacidade(acesso, "valores");
+    const podeMexer = !acesso.simulacao && permite(acesso, "reservas", "editar");
+    const confirmaPagamentos = temCapacidade(acesso, "pagamentos");
     const o = await ctx.db
       .query("orders")
       .withIndex("by_order_number", (q) => q.eq("orderNumber", numero.trim().toUpperCase()))
@@ -379,12 +381,16 @@ export const detalhe = query({
         aviso: r.aviso ?? null,
         em: r.em,
       })),
+      /* Só os botões que o cargo deixa usar: quem só vê Reservas, ou está a
+         «ver como», não tem acções; confirmar e reenviar pedem a capacidade
+         "pagamentos". O servidor recusa na mesma, mas um botão que dá erro
+         não serve a ninguém. */
       accoes: {
-        estados: destinos(o).map((para) => ({ para, rotulo: ROTULO[para] })),
-        confirmarPagamento: podeConfirmarPagamento(o),
+        estados: podeMexer ? destinos(o).map((para) => ({ para, rotulo: ROTULO[para] })) : [],
+        confirmarPagamento: podeMexer && confirmaPagamentos && podeConfirmarPagamento(o),
         /* Só depois de um aviso falhar de vez: reenviar um que chegou podia
            duplicar o serviço do lado da operação. */
-        reenviarAviso: o.paymentStatus === "completed" && registo.find((r) => r.aviso)?.aviso?.estado === "falhou",
+        reenviarAviso: podeMexer && confirmaPagamentos && o.paymentStatus === "completed" && registo.find((r) => r.aviso)?.aviso?.estado === "falhou",
       },
     };
   },
