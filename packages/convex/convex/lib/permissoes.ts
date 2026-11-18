@@ -52,7 +52,7 @@ const DEFINICAO = [
       { chave: "fotosExtras", titulo: "Fotos dos extras", ajuda: "Biblioteca de fotografias dos extras." },
       { chave: "portefolio", titulo: "Portefólio", ajuda: "Trabalhos passados que o site mostra." },
       { chave: "avaliacoes", titulo: "Avaliações", ajuda: "Aprovar, destacar e responder a avaliações." },
-      { chave: "equipaSite", titulo: "Equipa (site)", ajuda: "Perfis públicos da equipa na página Sobre nós." },
+      { chave: "equipaSite", titulo: "Equipa no site", ajuda: "Perfis públicos da equipa na página Sobre nós." },
       { chave: "motoristas", titulo: "Motoristas", ajuda: "Perfis públicos dos motoristas no site." },
     ],
   },
@@ -62,10 +62,16 @@ const DEFINICAO = [
     modulos: [
       { chave: "definicoes", titulo: "Definições do site", ajuda: "Barra de anúncio, antecedência, câmbios, sobretaxas e números." },
       { chave: "escassez", titulo: "Escassez (Ultra)", ajuda: "Números da secção de disponibilidade da página Ultra-luxo." },
+    ],
+  },
+  {
+    id: "equipa",
+    titulo: "Equipa",
+    modulos: [
       {
         chave: "equipa",
-        titulo: "Equipa interna",
-        ajuda: "Cargos e pessoas com acesso ao back-office. Quem pode editar isto pode dar-se qualquer acesso.",
+        titulo: "Membros e cargos",
+        ajuda: "Quem entra no back-office e o que cada cargo vê. Quem pode editar isto pode dar-se qualquer acesso.",
       },
     ],
   },

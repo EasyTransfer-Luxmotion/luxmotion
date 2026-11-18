@@ -1828,6 +1828,13 @@ export default defineSchema({
     accao: v.string(),
     alvo: v.string(),
     detalhe: v.optional(v.string()),
+    /* A que cargo ou pessoa diz respeito, para o histórico de cada editor.
+       As linhas de antes destes campos ficam só no registo geral. */
+    cargoId: v.optional(v.id("cargos")),
+    colaboradorId: v.optional(v.id("colaboradores")),
     em: v.number(),
-  }).index("by_em", ["em"]),
+  })
+    .index("by_em", ["em"])
+    .index("by_cargo", ["cargoId", "em"])
+    .index("by_colaborador", ["colaboradorId", "em"]),
 });
