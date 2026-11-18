@@ -67,7 +67,8 @@ export function FleetVehicleCardDark({ vehicle }: { vehicle: FleetVehicle }) {
           style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
         >
           <MetaItem icon={<User className="size-[14px]" strokeWidth={1.5} />}>
-            {t("meta.pax", { min: vehicle.paxMin, max: vehicle.paxMax })}
+            {/* Num clássico de dois lugares dava "1–1 pax". */}
+            {t("meta.pax", { min: vehicle.paxMin, max: vehicle.paxMax, same: vehicle.paxMin === vehicle.paxMax ? "sim" : "nao" })}
           </MetaItem>
           <MetaItem icon={<Briefcase className="size-[14px]" strokeWidth={1.5} />}>
             {t("meta.bags", { count: vehicle.bags })}

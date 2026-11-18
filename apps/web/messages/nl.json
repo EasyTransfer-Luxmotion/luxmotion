@@ -298,7 +298,7 @@
     "titleSubtitle": "Elk voertuig met zorg gekozen voor comfort, veiligheid en de standaard die Portugals meest veeleisende gasten verdienen.",
     "bookVehicle": "Dit voertuig boeken",
     "meta": {
-      "pax": "{min}–{max} pers.",
+      "pax": "{same, select, sim {{max} pers.} other {{min}–{max} pers.}}",
       "bags": "{count} bagage",
       "ac": "Airco",
       "wifi": "Wi-Fi",

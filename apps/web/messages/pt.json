@@ -298,8 +298,8 @@
     "titleSubtitle": "Cada veículo escolhido a dedo pelo conforto, segurança e padrão que os hóspedes mais distintos de Portugal merecem.",
     "bookVehicle": "Reservar este veículo",
     "meta": {
-      "pax": "{min}–{max} pax",
-      "bags": "{count} malas",
+      "pax": "{same, select, sim {{max} pax} other {{min}–{max} pax}}",
+      "bags": "{count, plural, one {# mala} other {# malas}}",
       "ac": "A/C",
       "wifi": "Wi-Fi",
       "upToPax": "Até {count} pax",

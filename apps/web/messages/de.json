@@ -298,7 +298,7 @@
     "titleSubtitle": "Jedes Fahrzeug handverlesen für Komfort, Sicherheit und den Standard, den Portugals anspruchsvollste Gäste verdienen.",
     "bookVehicle": "Dieses Fahrzeug buchen",
     "meta": {
-      "pax": "{min}–{max} Pers.",
+      "pax": "{same, select, sim {{max} Pers.} other {{min}–{max} Pers.}}",
       "bags": "{count} Gepäck",
       "ac": "Klima",
       "wifi": "WLAN",

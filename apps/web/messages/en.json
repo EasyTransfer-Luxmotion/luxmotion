@@ -298,8 +298,8 @@
     "titleSubtitle": "Every vehicle handpicked for comfort, safety, and the standard that Portugal's finest guests deserve.",
     "bookVehicle": "Book this vehicle",
     "meta": {
-      "pax": "{min}–{max} pax",
-      "bags": "{count} bags",
+      "pax": "{same, select, sim {{max} pax} other {{min}–{max} pax}}",
+      "bags": "{count, plural, one {# bag} other {# bags}}",
       "ac": "A/C",
       "wifi": "Wi-Fi",
       "upToPax": "Up to {count} pax",
