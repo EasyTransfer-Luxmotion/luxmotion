@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, verificar } from "./lib/admin";
 import { eModulo, MODULOS_PERMISSAO, tituloDoModulo, type ModuloPermissao, type Nivel } from "./lib/permissoes";
@@ -257,5 +257,73 @@ export const mudarEstadoColaborador = mutation({
     await ctx.db.patch(id, { estado, actualizadoEm: Date.now() });
     await registar(ctx, acesso.email!, estado === "suspenso" ? "Suspendeu" : "Reactivou", `${p.nome} (${p.email})`);
     return null;
+  },
+});
+
+/*
+ * Os quatro perfis do plano do CRM 2027 (administração, comercial, operação e
+ * financeiro), como ponto de partida para o David ajustar no ecrã. Corre-se à
+ * mão em cada ambiente:
+ *   npx convex run equipa:criarCargosIniciais
+ * Salta os nomes que já existem, por isso repetir não estraga o que alguém
+ * entretanto mudou.
+ */
+const CARGOS_INICIAIS: { nome: string; descricao: string; permissoes: Partial<Record<ModuloPermissao, Nivel>> }[] = [
+  {
+    nome: "Administração",
+    descricao: "Tudo, incluindo a equipa interna.",
+    permissoes: Object.fromEntries(MODULOS_PERMISSAO.map((m) => [m, "editar"])),
+  },
+  {
+    nome: "Comercial",
+    descricao: "Pedidos, parcerias e leads; vê reservas e o catálogo para responder a clientes.",
+    permissoes: {
+      pedidos: "editar",
+      parcerias: "editar",
+      leads: "editar",
+      reservas: "ver",
+      tours: "ver",
+      eventos: "ver",
+      corporate: "ver",
+      extras: "ver",
+      veiculos: "ver",
+      avaliacoes: "ver",
+    },
+  },
+  {
+    nome: "Operação",
+    descricao: "Reservas e candidaturas; vê pedidos, frota e catálogo para preparar os serviços.",
+    permissoes: {
+      reservas: "editar",
+      candidaturas: "editar",
+      motoristas: "editar",
+      pedidos: "ver",
+      veiculos: "ver",
+      tours: "ver",
+      eventos: "ver",
+      parcerias: "ver",
+    },
+  },
+  {
+    nome: "Financeiro",
+    descricao: "Vê reservas, pagamentos e parcerias. Não altera nada.",
+    permissoes: { reservas: "ver", parcerias: "ver", definicoes: "ver" },
+  },
+];
+
+export const criarCargosIniciais = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existentes = new Set((await ctx.db.query("cargos").collect()).map((c) => c.nome.toLocaleLowerCase("pt")));
+    const criados: string[] = [];
+    const agora = Date.now();
+    for (const c of CARGOS_INICIAIS) {
+      if (existentes.has(c.nome.toLocaleLowerCase("pt"))) continue;
+      const permissoes = (Object.entries(c.permissoes) as [ModuloPermissao, Nivel][]).map(([modulo, nivel]) => ({ modulo, nivel }));
+      await ctx.db.insert("cargos", { nome: c.nome, descricao: c.descricao, permissoes, criadoEm: agora, actualizadoEm: agora });
+      await registar(ctx, "sistema", "Criou o cargo", c.nome, diferencas(new Map(), mapa(permissoes)) || "Sem acessos");
+      criados.push(c.nome);
+    }
+    return { criados };
   },
 });
