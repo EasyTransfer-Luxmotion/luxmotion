@@ -260,7 +260,7 @@ const classic = (
 export const CLASSIC_VEHICLES: FleetVehicle[] = [
   classic("ford-mustang", "Ford Mustang", ["/fleet/vehicles/ford-mustang.png"], 2, 1),
   classic("rolls-royce-silver-cloud", "Rolls-Royce Silver Cloud", ["/fleet/vehicles/rolls-royce-silver-cloud.webp"], 4, 2),
-  classic("rolls-royce-corniche-cabrio", "Rolls-Royce Corniche Cabrio", ["/fleet/vehicles/rolls-royce-corniche-cabrio.webp"], 3, 1),
+  classic("rolls-royce-corniche-cabrio", "Rolls-Royce Corniche", ["/fleet/vehicles/rolls-royce-corniche-cabrio.webp"], 3, 1),
   classic("mg-b-gt", "MG B GT", ["/fleet/vehicles/mg-b-gt.webp"], 1, 1),
   classic("triumph-spitfire", "Triumph Spitfire", ["/fleet/vehicles/triumph-spitfire.webp"], 1, 1),
   classic("volkswagen-carocha", "Volkswagen Carocha", ["/fleet/vehicles/volkswagen-carocha.webp"], 3, 1),
