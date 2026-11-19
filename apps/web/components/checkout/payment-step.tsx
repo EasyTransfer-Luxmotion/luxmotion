@@ -29,6 +29,7 @@ import { api } from "@workspace/convex/api"
 import type { Id } from "@workspace/convex/dataModel"
 import { toPendingExperience } from "@/lib/pending-checkout-experiences"
 import { useConvex } from "convex/react"
+import { ConvexError } from "convex/values"
 import { cn } from "@workspace/ui/lib/utils"
 import { AnimatedCollapse } from "@/components/checkout/shared"
 
@@ -435,7 +436,10 @@ export function PaymentStep({ onContinue, onBack }: PaymentStepProps) {
       }
       throw new Error("Checkout URL not received from payment provider")
     } catch (e: any) {
-      setSubmitError(e?.message || t("paymentError"))
+      /* O cliente via "[CONVEX A(orders:startPaymentAction)] [Request ID: …]
+         Server Error": o e.message de um erro do servidor é o técnico. O
+         motivo escrito para o cliente vem no data do ConvexError. */
+      setSubmitError(e instanceof ConvexError && typeof e.data === "string" ? e.data : t("paymentError"))
       setIsSubmitting(false)
     }
   }

@@ -27,6 +27,7 @@ import { api } from "@workspace/convex/api"
 import type { Id } from "@workspace/convex/dataModel"
 import { toPendingExperience } from "@/lib/pending-checkout-experiences"
 import { useConvex } from "convex/react"
+import { ConvexError } from "convex/values"
 import { cdn } from "@/lib/cdn"
 
 type UiPaymentMethod = "cartao" | "cash" | "multibanco" | "mbway"
@@ -280,7 +281,10 @@ export function PaymentStep({ onContinue }: PaymentStepProps) {
       }
       throw new Error("Checkout URL not received from payment provider")
     } catch (e: any) {
-      setSubmitError(e?.message || t("paymentError") || "An error occurred during payment. Please try again.")
+      /* O cliente via "[CONVEX A(orders:startPaymentAction)] [Request ID: …]
+         Server Error": o e.message de um erro do servidor é o técnico. O
+         motivo escrito para o cliente vem no data do ConvexError. */
+      setSubmitError(e instanceof ConvexError && typeof e.data === "string" ? e.data : t("paymentError"))
       setIsSubmitting(false)
     }
   }
