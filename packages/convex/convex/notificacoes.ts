@@ -283,3 +283,22 @@ export const preencher = internalMutation({
   },
 });
 
+
+/*
+ * Apaga uma notificação, para limpar as de testes (no development, um
+ * convite de teste recusado ficou no sino). Interna: só pela CLI.
+ *   npx convex run notificacoes:apagar '{"id":"…"}'
+ * Tira-a também das lidas de cada pessoa, para não ficarem ids soltos.
+ */
+export const apagar = internalMutation({
+  args: { id: v.id("notificacoes") },
+  handler: async (ctx, { id }) => {
+    const n = await ctx.db.get(id);
+    if (!n) return "já não existe";
+    for (const l of await ctx.db.query("notificacoesLidas").collect()) {
+      if (l.lidas.includes(id)) await ctx.db.patch(l._id, { lidas: l.lidas.filter((x) => x !== id) });
+    }
+    await ctx.db.delete(id);
+    return `apagada: ${n.titulo}`;
+  },
+});
