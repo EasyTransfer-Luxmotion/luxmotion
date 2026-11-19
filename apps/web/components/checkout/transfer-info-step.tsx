@@ -716,6 +716,12 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
           const returnOrder = await convex.query(api.orders.getById, { orderId: existingOrder.relatedOrderId })
           returnOrderId = returnOrder?.orderNumber || null
         }
+        /* Desmarcou "ida e volta" depois de a volta existir: desliga-a, ou o
+           servidor contava a volta no preço e recusava o pagamento. */
+        if (existingOrder && !isRoundTrip && returnOrderId) {
+          await convex.mutation(api.orders.desligarVolta, { orderId: existingOrder._id })
+          returnOrderId = null
+        }
       }
 
       if (isRoundTrip && !returnOrderId) {

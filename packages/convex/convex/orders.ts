@@ -333,6 +333,27 @@ export const selectCar = mutation({
   },
 });
 
+/* Desfaz a volta quando o cliente desmarca "ida e volta" depois de a ter
+   criado (avançou do primeiro passo e voltou atrás). Sem isto a volta ficava
+   ligada: o servidor somava-a ao mínimo e recusava o pagamento da ida, ou —
+   antes de haver mínimo — a ida era paga e a volta seguia para a Operação a
+   €0 (ET1788659482846685, setembro). Só em rascunho: uma reserva paga não se
+   mexe daqui. Aberta, como o resto do checkout. */
+export const desligarVolta = mutation({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, { orderId }) => {
+    const ida = await ctx.db.get(orderId);
+    if (!ida?.relatedOrderId || ida.flightType === "VOLTA") return { desligada: false };
+    if (ida.status !== "draft") throw new ConvexError("Esta reserva já não pode ser alterada.");
+    const volta = await ctx.db.get(ida.relatedOrderId);
+    await ctx.db.patch(orderId, { relatedOrderId: undefined, isRoundTrip: false, updatedAt: Date.now() });
+    /* A volta é um rascunho que só existe por causa desta ida: apaga-se, ou
+       ficava na lista dos rascunhos do back-office sem ida. */
+    if (volta && volta.status === "draft" && volta.relatedOrderId === orderId) await ctx.db.delete(volta._id);
+    return { desligada: true };
+  },
+});
+
 export const registTrip = mutation({
   args: {
     orderId: v.id("orders"),
