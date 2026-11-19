@@ -424,6 +424,18 @@ export const registTrip = mutation({
       updates.babySeats = args.babySeats ?? 0;
       updates.boosterSeats = args.boosterSeats ?? 0;
     } else {
+      /* A hora da ida também. O checkout cria a encomenda logo que há
+         origem, destino e data, com a hora que estiver nesse momento; se o
+         cliente a muda depois, é este passo que grava a nova. Sem isto ficava
+         a primeira: em ET1795115674459164 (19/11) ficou 00:00, o servidor
+         contou taxa noturna que o cliente não viu e recusou o pagamento
+         (mostrou €49, exigiu €58) — e a operação receberia a hora errada. */
+      if (args.departureDate) {
+        updates.departureDate = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(args.departureDate)
+          ? `${args.departureDate}:00`
+          : args.departureDate;
+      }
+
       // Outbound trip order - update locations and save data
       // Update departure/arrival locations if provided
       if (args.departure) {
