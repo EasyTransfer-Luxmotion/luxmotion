@@ -1893,4 +1893,72 @@ export default defineSchema({
     .index("by_em", ["em"])
     .index("by_cargo", ["cargoId", "em"])
     .index("by_colaborador", ["colaboradorId", "em"]),
+  /*
+   * Funis em kanban (funis.ts): substituem o Pipedrive. Cada lead do site, lead
+   * de parceiro e reserva paga cai sozinha na 1.ª etapa do funil que tem a sua
+   * origem (lib/funilEntrada.ts), na mesma transação em que é gravada.
+   * As etapas vivem dentro do funil, com um id que não muda quando se lhes muda
+   * o nome — os cartões apontam para o id.
+   */
+  funis: defineTable({
+    nome: v.string(),
+    ordem: v.number(),
+    etapas: v.array(
+      v.object({
+        id: v.string(),
+        nome: v.string(),
+        cor: v.string(),
+        tipo: v.union(v.literal("aberta"), v.literal("ganho"), v.literal("perdido")),
+      }),
+    ),
+    /* lib/funis.ts → ORIGENS_FUNIL. Cada origem está num funil só. */
+    origens: v.array(v.string()),
+    criadoEm: v.number(),
+    atualizadoEm: v.number(),
+  }).index("by_ordem", ["ordem"]),
+
+  negocios: defineTable({
+    funilId: v.id("funis"),
+    etapaId: v.string(),
+    /* Posição na coluna, a crescer de cima para baixo. Fracionária: mover um
+       cartão para entre dois só lhe muda a ele o número. */
+    ordem: v.number(),
+    titulo: v.string(),
+    pessoa: v.object({ nome: v.string(), email: v.optional(v.string()), telefone: v.optional(v.string()) }),
+    organizacao: v.optional(v.string()),
+    /* Em euros. */
+    valor: v.optional(v.number()),
+    /* O detalhe do pedido, em texto, como chegou. */
+    nota: v.optional(v.string()),
+    origem: v.string(),
+    /* O _id do pedido, da lead ou da encomenda (a ida). Vazio no manual. */
+    origemId: v.optional(v.string()),
+    canal: v.optional(v.string()),
+    criadoEm: v.number(),
+    atualizadoEm: v.number(),
+    movidoEm: v.number(),
+    fechadoEm: v.optional(v.number()),
+    motivoPerda: v.optional(v.string()),
+  })
+    .index("by_funil_etapa", ["funilId", "etapaId", "ordem"])
+    .index("by_funil_etapa_fechado", ["funilId", "etapaId", "fechadoEm"])
+    .index("by_origem", ["origem", "origemId"])
+    .index("by_funil_criado", ["funilId", "criadoEm"]),
+
+  /* O histórico de cada cartão: criado, mudou de etapa, notas, editado. */
+  negocioAtividades: defineTable({
+    negocioId: v.id("negocios"),
+    tipo: v.union(
+      v.literal("criado"),
+      v.literal("etapa"),
+      v.literal("nota"),
+      v.literal("editado"),
+      v.literal("ganho"),
+      v.literal("perdido"),
+    ),
+    /* Email de quem fez, ou "sistema" quando a lead chegou do site. */
+    por: v.string(),
+    texto: v.optional(v.string()),
+    em: v.number(),
+  }).index("by_negocio", ["negocioId", "em"]),
 });

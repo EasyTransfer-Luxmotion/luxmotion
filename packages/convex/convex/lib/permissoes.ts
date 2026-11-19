@@ -22,6 +22,7 @@ const DEFINICAO = [
     modulos: [
       { chave: "reservas", titulo: "Reservas", ajuda: "Transfers, tours e eventos pagos; confirmar pagamentos e mudar estados." },
       { chave: "pedidos", titulo: "Pedidos", ajuda: "Formulários de orçamento e contacto do site, e a newsletter." },
+      { chave: "funis", titulo: "Funis", ajuda: "Os negócios em kanban: pedidos, leads de parceiros, reservas pagas e contactos criados à mão." },
       { chave: "candidaturas", titulo: "Candidaturas", ajuda: "Motoristas e parceiros que se candidataram, com os documentos." },
     ],
   },

@@ -94,20 +94,17 @@ export const sendOrderPayload = internalAction({
       return;
     }
 
-    /* O CRM, antes do POST e não depois: uma avaria da API EasyTransfer não
-       pode levar o Pipedrive atrás. Agendado e não `runAction`, para que um
-       problema do lado do CRM não faça reenviar a reserva à EasyTransfer.
-       A própria mutation trava as repetições — este ponto é chamado de seis
-       sítios, cada um a começar na tentativa 1, e uma re-entrega do Stripe
-       criaria um segundo negócio ganho. */
     /* O sininho do back-office; não se repete (lib/notificar.ts). */
     await ctx.runMutation(internal.notificacoes.registarReserva, { orderId: args.orderId });
 
-    const novoNoCrm = await ctx.runMutation(internal.pipedrive.enfileirarReserva, {
-      orderId: args.orderId,
-    });
-    if (!novoNoCrm) {
-      console.log(`[Pipedrive] reserva ${args.orderId} já estava na fila do CRM — não repetida.`);
+    /* O funil Reservas (funis.ts), antes do POST e não depois: uma avaria da
+       API EasyTransfer não pode deixar a reserva fora do quadro. A mutation
+       trava as repetições — este ponto é chamado de seis sítios, cada um a
+       começar na tentativa 1, e uma re-entrega do Stripe abria um segundo
+       cartão. Era aqui que a reserva ia para o Pipedrive. */
+    const novoNoFunil = await ctx.runMutation(internal.funis.entrarReserva, { orderId: args.orderId });
+    if (!novoNoFunil) {
+      console.log(`[Funis] reserva ${args.orderId} já estava no funil (ou não há funil de reservas) — não repetida.`);
     }
 
     const orders: Doc<"orders">[] = [order];

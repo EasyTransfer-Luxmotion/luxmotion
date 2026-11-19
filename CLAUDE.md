@@ -292,10 +292,19 @@ a linha da factura, nunca somados por cima. A taxa noturna (20%, mínimo 9 €) 
 a sobretaxa de aeroporto (12%) cobram-se **uma vez por viagem**, não por perna
 — por isso metade de uma ida e volta não é o preço de uma ida.
 
-**Formulários de pedido.** São sete, e cada um tem de: gravar, enfileirar para
-o Pipedrive (`enfileirarLead`), avisar por email (`avisarPedido`) e medir a
-conversão (`medirPedidoDeOrcamento`) — esta última **só depois** de a mutation
-resolver, nunca ao carregar em enviar.
+**Formulários de pedido.** São sete, e cada um tem de: gravar, entrar no funil
+(`enfileirarLead`, que desde os funis mete a lead no quadro e já não vai para o
+Pipedrive), avisar por email (`avisarPedido`) e medir a conversão
+(`medirPedidoDeOrcamento`) — esta última **só depois** de a mutation resolver,
+nunca ao carregar em enviar.
+
+**Funis (Operação → Funis) substituem o Pipedrive.** Cada pedido do site, lead
+de parceiro e reserva paga cai sozinho na 1.ª etapa aberta do funil que tem a
+sua origem (`lib/funilEntrada.ts`), na mesma transação em que é gravado; o
+`by_origem` trava repetições. Cada origem está num funil só (`lib/funis.ts`,
+que o dashboard também importa). Num ambiente novo:
+`npx convex run funis:criarFunisIniciais` e `funis:preencher '{"dias":30}'`.
+Sem funil para uma origem, a lead grava-se na mesma e o log diz porquê.
 
 **Atribuição.** Três coisas distintas, três campos distintos, nunca misturar:
 `partnershipName` (parceiro, relação comercial), `adSource` (origem observada
