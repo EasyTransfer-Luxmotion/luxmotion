@@ -15,6 +15,7 @@ import {
   type Nivel,
   type Permissoes,
 } from "./permissoes";
+import { estadoDoConvite, ultimoConvite } from "./convites";
 
 /**
  * Só a equipa passa daqui, e cada um só ao que o cargo lhe dá.
@@ -36,7 +37,7 @@ import {
  *
  * O email vem do JWT template "convex" do Clerk (claim `email`).
  */
-export type EstadoAcesso = "semSessao" | "emailPorVerificar" | "semAcesso" | "admin";
+export type EstadoAcesso = "semSessao" | "emailPorVerificar" | "semAcesso" | "conviteExpirado" | "conviteRecusado" | "admin";
 
 export type Acesso = {
   estado: EstadoAcesso;
@@ -125,6 +126,14 @@ async function lerAcessoReal(ctx: CtxLeitura): Promise<Acesso> {
   }
 
   if (!colaborador || colaborador.estado !== "activo") return fora("semAcesso");
+  /* Quem nunca entrou entra pelo convite, e só enquanto ele vale: recusado
+     ou fora do prazo, já não. Quem já entrou não depende dele. */
+  if (!colaborador.ultimaEntradaEm) {
+    const convite = await ultimoConvite(ctx.db, colaborador._id);
+    const estado = convite ? estadoDoConvite(convite) : "expirado";
+    if (estado === "recusado") return fora("conviteRecusado");
+    if (estado !== "pendente") return fora("conviteExpirado");
+  }
   const cargo = await ctx.db.get(colaborador.cargoId);
   if (!cargo) return fora("semAcesso");
 

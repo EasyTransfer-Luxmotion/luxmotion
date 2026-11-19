@@ -1,6 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { internalQuery, mutation, query } from "./_generated/server";
 import { lerAcesso, verificar } from "./lib/admin";
+import { ultimoConvite } from "./lib/convites";
+import { notificar } from "./lib/notificar";
 
 /*
  * O dashboard pergunta isto antes de montar qualquer ecrã. Sem esta pergunta,
@@ -41,15 +43,24 @@ export const registarEntrada = mutation({
     const agora = Date.now();
     if (c.ultimaEntradaEm && agora - c.ultimaEntradaEm < 60 * 60 * 1000) return null;
     await ctx.db.patch(c._id, { ultimaEntradaEm: agora });
-    /* A primeira entrada fecha o convite: passa de "Convidado" a "Activo", e
-       quem o convidou vê no histórico que a pessoa já entrou. */
+    /* A primeira entrada aceita o convite: passa de "Convidado" a "Ativo",
+       e quem o convidou vê no histórico e no sino que a pessoa já entrou. */
     if (!c.ultimaEntradaEm) {
+      const convite = await ultimoConvite(ctx.db, c._id);
+      if (convite && convite.estado === "pendente") await ctx.db.patch(convite._id, { estado: "aceite", respondidoEm: agora });
       await ctx.db.insert("registoEquipa", {
         ator: c.email,
-        accao: "Entrou pela primeira vez",
+        accao: "Aceitou o convite",
         alvo: `${c.nome} (${c.email})`,
         colaboradorId: c._id,
         em: agora,
+      });
+      await notificar(ctx, {
+        chave: `convite:aceite:${c._id}`,
+        tipo: "equipa",
+        titulo: `${c.nome} entrou na equipa`,
+        detalhe: c.email,
+        href: `/equipa/membros/${c._id}`,
       });
     }
     return null;

@@ -20,6 +20,7 @@ const vTipo = v.union(
   v.literal("candidatura"),
   v.literal("lead"),
   v.literal("avaliacao"),
+  v.literal("equipa"),
   v.literal("aviso"),
 );
 
@@ -40,6 +41,8 @@ const MODULO_DO_TIPO: Record<Doc<"notificacoes">["tipo"], ModuloPermissao> = {
   lead: "leads",
   avaliacao: "avaliacoes",
   aviso: "parcerias",
+  /* Convites aceites e recusados: para quem gere a equipa. */
+  equipa: "equipa",
 };
 
 function tiposVisiveis(acesso: Acesso): Set<string> {

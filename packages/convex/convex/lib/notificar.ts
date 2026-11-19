@@ -15,7 +15,7 @@ import type { TabelaLead } from "./pipedriveMapa";
  * o "reenviar aviso" do dashboard volta a correr o sendOrderPayload).
  */
 
-export type TipoNotificacao = "reserva" | "pedido" | "candidatura" | "lead" | "avaliacao" | "aviso";
+export type TipoNotificacao = "reserva" | "pedido" | "candidatura" | "lead" | "avaliacao" | "aviso" | "equipa";
 
 export type NovaNotificacao = {
   chave: string;

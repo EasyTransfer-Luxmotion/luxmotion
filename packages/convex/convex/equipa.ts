@@ -2,7 +2,9 @@ import { ConvexError, v } from "convex/values";
 import { internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { exigirAdmin, lerAcesso, verificar } from "./lib/admin";
+import { exigirAdmin, lerAcesso, permite, verificar } from "./lib/admin";
+import { VALIDADE_CONVITE, convitesDe, estadoDoConvite, novoToken, ultimoConvite } from "./lib/convites";
+import { notificar } from "./lib/notificar";
 import {
   CHAVES_CAPACIDADE,
   eCapacidade,
@@ -117,22 +119,65 @@ function situacao(p: Doc<"colaboradores">): "activo" | "convidado" | "suspenso" 
   return p.ultimaEntradaEm ? "activo" : "convidado";
 }
 
-function convite(p: Doc<"colaboradores">) {
+/* O convite como o dashboard o mostra: o estado já com o prazo contado, e
+   quantas vezes foi reenviado (todos menos o primeiro). */
+function resumoConvite(c: Doc<"convites"> | null | undefined, total: number, agora = Date.now()) {
+  if (!c) return null;
   return {
-    enviadoEm: p.conviteEnviadoEm ?? null,
-    enviados: p.convitesEnviados ?? 0,
-    estado: p.conviteEstado ?? null,
+    id: c._id,
+    estado: estadoDoConvite(c, agora),
+    criadoEm: c.criadoEm,
+    expiraEm: c.expiraEm,
+    respondidoEm: c.respondidoEm ?? null,
+    envio: c.envio,
+    enviadoEm: c.enviadoEm ?? null,
+    por: c.por,
+    reenvios: Math.max(0, total - 1),
   };
+}
+
+/*
+ * Um convite novo para este colaborador: o pendente anterior deixa de valer
+ * (substituido), sai o email e fica agendado o fim do prazo. Usado ao
+ * acrescentar alguém e ao reenviar.
+ */
+async function criarConvite(ctx: MutationCtx, p: Doc<"colaboradores">, por: string) {
+  const agora = Date.now();
+  for (const c of await convitesDe(ctx.db, p._id)) {
+    if (c.estado === "pendente") await ctx.db.patch(c._id, { estado: "substituido" });
+  }
+  const id = await ctx.db.insert("convites", {
+    colaboradorId: p._id,
+    email: p.email,
+    token: novoToken(),
+    estado: "pendente",
+    criadoEm: agora,
+    expiraEm: agora + VALIDADE_CONVITE,
+    envio: "aEnviar",
+    por,
+  });
+  await ctx.scheduler.runAfter(0, internal.equipa.enviarConvite, { conviteId: id });
+  await ctx.scheduler.runAt(agora + VALIDADE_CONVITE, internal.equipa.expirarConvite, { conviteId: id });
+  return id;
 }
 
 export const lista = query({
   args: {},
   handler: async (ctx) => {
     await exigirAdmin(ctx, "equipa", "ver");
-    const [cargos, colaboradores] = await Promise.all([
+    const [cargos, colaboradores, convites] = await Promise.all([
       ctx.db.query("cargos").collect(),
       ctx.db.query("colaboradores").collect(),
+      ctx.db.query("convites").collect(),
     ]);
+    /* Os convites de cada pessoa, do mais recente para o mais antigo. */
+    const convitesPor = new Map<string, Doc<"convites">[]>();
+    for (const c of convites.sort((a, b) => b.criadoEm - a.criadoEm)) {
+      const l = convitesPor.get(c.colaboradorId) ?? [];
+      l.push(c);
+      convitesPor.set(c.colaboradorId, l);
+    }
+    const agora = Date.now();
     const nomeCargo = new Map(cargos.map((c) => [c._id as string, c.nome]));
     const listaDonos = donos();
     /* A última linha do registo de cada cargo: quem lhe mexeu por último,
@@ -171,7 +216,7 @@ export const lista = query({
           cargo: nomeCargo.get(p.cargoId) ?? null,
           estado: p.estado,
           situacao: situacao(p),
-          convite: convite(p),
+          convite: resumoConvite(convitesPor.get(p._id)?.[0], convitesPor.get(p._id)?.length ?? 0, agora),
           /* Também nos donos: o cargo não conta enquanto o email lá estiver. */
           dono: listaDonos.includes(p.email),
           criadoEm: p.criadoEm,
@@ -221,9 +266,13 @@ export const membro = query({
   args: { id: v.string() },
   handler: async (ctx, { id }) => {
     await exigirAdmin(ctx, "equipa", "ver");
+    const acesso = await lerAcesso(ctx);
     const nid = ctx.db.normalizeId("colaboradores", id);
     const p = nid ? await ctx.db.get(nid) : null;
     if (!p) return null;
+    const convites = await convitesDe(ctx.db, p._id);
+    const ultimo = convites[0];
+    const agora = Date.now();
     return {
       id: p._id,
       nome: p.nome,
@@ -231,7 +280,22 @@ export const membro = query({
       cargoId: p.cargoId,
       estado: p.estado,
       situacao: situacao(p),
-      convite: convite(p),
+      convite: resumoConvite(ultimo, convites.length, agora),
+      /* O link do convite, para mandar à mão: só a quem gere a equipa e só
+         enquanto vale. */
+      linkConvite:
+        ultimo && estadoDoConvite(ultimo, agora) === "pendente" && permite(acesso, "equipa", "editar") && !acesso.simulacao
+          ? `/convite/${ultimo.token}`
+          : null,
+      convites: convites.map((c) => ({
+        id: c._id,
+        estado: estadoDoConvite(c, agora),
+        criadoEm: c.criadoEm,
+        expiraEm: c.expiraEm,
+        respondidoEm: c.respondidoEm ?? null,
+        envio: c.envio,
+        por: c.por,
+      })),
       dono: donos().includes(p.email),
       versao: p.actualizadoEm,
       criadoEm: p.criadoEm,
@@ -466,8 +530,8 @@ export const guardarColaborador = mutation({
         colaboradorId: id,
         cargoId: cargo._id,
       });
-      await ctx.db.patch(id, { conviteEstado: "aEnviar" });
-      await ctx.scheduler.runAfter(0, internal.equipa.enviarConvite, { colaboradorId: id, por: acesso.nome ?? acesso.email! });
+      const novo = await ctx.db.get(id);
+      await criarConvite(ctx, novo!, acesso.nome ?? acesso.email!);
       return { id, versao: agora };
     }
 
@@ -517,21 +581,52 @@ export const mudarEstadoColaborador = mutation({
   handler: async (ctx, { id, estado }) => {
     const acesso = await lerAcesso(ctx);
     verificar(acesso, "equipa", "editar");
+    /* Bloquear corta o acesso de alguém já: decisão de dono. */
+    if (!acesso.dono) throw new ConvexError("Só os donos podem bloquear ou desbloquear membros.");
     const p = await ctx.db.get(id);
     if (!p) throw new ConvexError("Esta pessoa já não está na equipa. Recarregue a página.");
     if (p.estado === estado) return { versao: p.actualizadoEm };
     if (estado === "suspenso" && p.email === acesso.email) {
-      throw new ConvexError("Não pode suspender a sua própria conta.");
+      throw new ConvexError("Não se pode bloquear a si próprio.");
     }
     const agora = Date.now();
     await ctx.db.patch(id, { estado, actualizadoEm: agora });
     await registar(ctx, {
       ator: acesso.email!,
-      accao: estado === "suspenso" ? "Suspendeu" : "Reactivou",
+      accao: estado === "suspenso" ? "Bloqueou" : "Desbloqueou",
       alvo: `${p.nome} (${p.email})`,
       colaboradorId: id,
     });
     return { versao: agora };
+  },
+});
+
+/*
+ * Apagar um membro: só os donos. Sai da equipa e os convites dele também;
+ * as linhas do registo ficam (o alvo é texto) para se saber quem foi e
+ * quando. Para cortar o acesso sem perder a pessoa, há o bloquear.
+ */
+export const apagarColaborador = mutation({
+  args: { id: v.id("colaboradores") },
+  handler: async (ctx, { id }) => {
+    const acesso = await lerAcesso(ctx);
+    verificar(acesso, "equipa", "editar");
+    if (!acesso.dono) throw new ConvexError("Só os donos podem apagar membros.");
+    const p = await ctx.db.get(id);
+    if (!p) throw new ConvexError("Esta pessoa já não está na equipa. Recarregue a página.");
+    if (p.email === acesso.email) throw new ConvexError("Não se pode apagar a si próprio.");
+    const cargo = await ctx.db.get(p.cargoId);
+    for (const c of await convitesDe(ctx.db, id)) await ctx.db.delete(c._id);
+    /* "Ver como" e simulações são por email de quem simula, não deste. */
+    await ctx.db.delete(id);
+    await registar(ctx, {
+      ator: acesso.email!,
+      accao: "Apagou o membro",
+      alvo: `${p.nome} (${p.email})`,
+      detalhe: cargo ? `Cargo: ${cargo.nome}` : undefined,
+      colaboradorId: id,
+    });
+    return null;
   },
 });
 
@@ -646,47 +741,122 @@ export const reenviarConvite = mutation({
     verificar(acesso, "equipa", "editar");
     const p = await ctx.db.get(id);
     if (!p) throw new ConvexError("Esta pessoa já não está na equipa.");
-    if (p.estado === "suspenso") throw new ConvexError("O acesso está suspenso. Reactive-o antes de reenviar o convite.");
+    if (p.estado === "suspenso") throw new ConvexError("Esta pessoa está bloqueada. Desbloqueie-a antes de reenviar o convite.");
     if (p.ultimaEntradaEm) throw new ConvexError(`${p.nome} já entrou no back-office: não precisa de convite.`);
     /* Um clique duplo, ou dois separadores, não mandam dois emails. */
-    if (p.conviteEstado === "aEnviar" && p.conviteEnviadoEm && Date.now() - p.conviteEnviadoEm < 60_000) return null;
-    await ctx.db.patch(id, { conviteEstado: "aEnviar" });
-    await ctx.scheduler.runAfter(0, internal.equipa.enviarConvite, { colaboradorId: id, por: acesso.nome ?? acesso.email! });
-    await registar(ctx, { ator: acesso.email!, accao: "Reenviou o convite a", alvo: `${p.nome} (${p.email})`, colaboradorId: id });
+    const ultimo = await ultimoConvite(ctx.db, id);
+    if (ultimo && ultimo.envio === "aEnviar" && Date.now() - ultimo.criadoEm < 60_000) return null;
+    const recusado = ultimo && estadoDoConvite(ultimo) === "recusado";
+    await criarConvite(ctx, p, acesso.nome ?? acesso.email!);
+    await registar(ctx, {
+      ator: acesso.email!,
+      accao: recusado ? "Voltou a convidar" : "Reenviou o convite a",
+      alvo: `${p.nome} (${p.email})`,
+      detalhe: "Válido por 7 dias",
+      colaboradorId: id,
+    });
     return null;
   },
 });
 
 export const dadosDoConvite = internalQuery({
-  args: { colaboradorId: v.id("colaboradores") },
-  handler: async (ctx, { colaboradorId }) => {
-    const p = await ctx.db.get(colaboradorId);
+  args: { conviteId: v.id("convites") },
+  handler: async (ctx, { conviteId }) => {
+    const c = await ctx.db.get(conviteId);
+    if (!c) return null;
+    const p = await ctx.db.get(c.colaboradorId);
     if (!p) return null;
-    const c = await ctx.db.get(p.cargoId);
+    const cargo = await ctx.db.get(p.cargoId);
     return {
       nome: p.nome,
       email: p.email,
-      cargo: c?.nome ?? null,
+      cargo: cargo?.nome ?? null,
       idioma: p.idioma ?? "pt",
       mensagem: p.mensagemConvite ?? null,
-      jaEntrou: Boolean(p.ultimaEntradaEm),
+      token: c.token,
+      expiraEm: c.expiraEm,
+      por: c.por,
+      /* Já não vale (substituído por um reenvio, recusado, aceite): não sai. */
+      valido: estadoDoConvite(c) === "pendente" && !p.ultimaEntradaEm,
     };
   },
 });
 
 export const marcarConvite = internalMutation({
   args: {
-    colaboradorId: v.id("colaboradores"),
-    estado: v.union(v.literal("enviado"), v.literal("falhou"), v.literal("semEmail")),
+    conviteId: v.id("convites"),
+    envio: v.union(v.literal("enviado"), v.literal("falhou"), v.literal("semEmail")),
   },
-  handler: async (ctx, { colaboradorId, estado }) => {
-    const p = await ctx.db.get(colaboradorId);
-    if (!p) return;
-    await ctx.db.patch(colaboradorId, {
-      conviteEstado: estado,
-      conviteEnviadoEm: Date.now(),
-      convitesEnviados: (p.convitesEnviados ?? 0) + (estado === "enviado" ? 1 : 0),
-    });
+  handler: async (ctx, { conviteId, envio }) => {
+    const c = await ctx.db.get(conviteId);
+    if (!c) return;
+    await ctx.db.patch(conviteId, { envio, enviadoEm: Date.now() });
+  },
+});
+
+/* O fim do prazo, agendado ao criar o convite. Um aceite, recusado ou
+   substituído entretanto fica como está. */
+export const expirarConvite = internalMutation({
+  args: { conviteId: v.id("convites") },
+  handler: async (ctx, { conviteId }) => {
+    const c = await ctx.db.get(conviteId);
+    if (!c || c.estado !== "pendente") return;
+    const p = await ctx.db.get(c.colaboradorId);
+    if (p?.ultimaEntradaEm) return;
+    await ctx.db.patch(conviteId, { estado: "expirado" });
+    if (p) {
+      await registar(ctx, { ator: "sistema", accao: "Expirou o convite de", alvo: `${p.nome} (${p.email})`, colaboradorId: p._id });
+    }
+  },
+});
+
+/*
+ * Para os testes do ciclo do convite em development: põe o prazo de um
+ * convite no passado e corre o fim. Interna, como todas as de teste.
+ *   npx convex run equipa:anteciparFimDoConvite '{"conviteId":"…"}'
+ */
+export const anteciparFimDoConvite = internalMutation({
+  args: { conviteId: v.id("convites") },
+  handler: async (ctx, { conviteId }) => {
+    const c = await ctx.db.get(conviteId);
+    if (!c || c.estado !== "pendente") return "não está pendente";
+    await ctx.db.patch(conviteId, { expiraEm: Date.now() - 1 });
+    await ctx.scheduler.runAfter(0, internal.equipa.expirarConvite, { conviteId });
+    return "expirado";
+  },
+});
+
+/*
+ * Os convites que estavam como campos do colaborador passam à tabela
+ * convites. Pode correr mais de uma vez: quem já tem convite na tabela
+ * salta.
+ *   npx convex run equipa:migrarConvites
+ */
+export const migrarConvites = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const agora = Date.now();
+    let criados = 0;
+    for (const p of await ctx.db.query("colaboradores").collect()) {
+      if (await ultimoConvite(ctx.db, p._id)) continue;
+      const entrou = Boolean(p.ultimaEntradaEm);
+      const id = await ctx.db.insert("convites", {
+        colaboradorId: p._id,
+        email: p.email,
+        token: novoToken(),
+        estado: entrou ? "aceite" : "pendente",
+        criadoEm: p.conviteEnviadoEm ?? p.criadoEm,
+        expiraEm: entrou ? (p.conviteEnviadoEm ?? p.criadoEm) + VALIDADE_CONVITE : agora + VALIDADE_CONVITE,
+        respondidoEm: p.ultimaEntradaEm,
+        envio: p.conviteEstado === "aEnviar" || !p.conviteEstado ? "semEmail" : p.conviteEstado,
+        enviadoEm: p.conviteEnviadoEm,
+        por: "sistema",
+      });
+      if (!entrou) await ctx.scheduler.runAt(agora + VALIDADE_CONVITE, internal.equipa.expirarConvite, { conviteId: id });
+      await ctx.db.patch(p._id, { conviteEnviadoEm: undefined, convitesEnviados: undefined, conviteEstado: undefined });
+      criados++;
+    }
+    return { criados };
   },
 });
 
@@ -694,20 +864,26 @@ const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"
 const escapar = (t: string) => t.replace(/[&<>"']/g, (c) => ESC[c]!);
 
 export const enviarConvite = internalAction({
-  args: { colaboradorId: v.id("colaboradores"), por: v.string() },
-  handler: async (ctx, { colaboradorId, por }) => {
-    const d = await ctx.runQuery(internal.equipa.dadosDoConvite, { colaboradorId });
-    if (!d || d.jaEntrou) return;
+  args: { conviteId: v.id("convites") },
+  handler: async (ctx, { conviteId }) => {
+    const d = await ctx.runQuery(internal.equipa.dadosDoConvite, { conviteId });
+    if (!d || !d.valido) return;
+    const por = d.por;
     const base = (process.env.ADMIN_BASE_URL ?? "https://dashboard.easytransferportugal.com").replace(/\/$/, "");
-    const link = `${base}/sign-in?email=${encodeURIComponent(d.email)}`;
+    /* A página do convite (aceitar ou recusar), não a entrada directa:
+       quem não o quer tem de poder dizê-lo. */
+    const link = `${base}/convite/${d.token}`;
     const chave = process.env.RESEND_API_KEY;
     if (!chave) {
-      console.log(`[Convite] Não enviado (sem RESEND_API_KEY): ${d.email} → ${link}`);
-      await ctx.runMutation(internal.equipa.marcarConvite, { colaboradorId, estado: "semEmail" });
+      /* Sem o link no log: é o que dá para recusar o convite de alguém. O
+         back-office mostra-o a quem gere a equipa. */
+      console.log(`[Convite] Não enviado (sem RESEND_API_KEY): ${d.email}`);
+      await ctx.runMutation(internal.equipa.marcarConvite, { conviteId, envio: "semEmail" });
       return;
     }
     const primeiro = d.nome.split(" ")[0] ?? d.nome;
     const en = d.idioma === "en";
+    const ate = new Intl.DateTimeFormat(en ? "en-GB" : "pt-PT", { day: "numeric", month: "long", timeZone: "Europe/Lisbon" }).format(d.expiraEm);
     const como = d.cargo;
     /* A mensagem de quem convida, como citação: quebras de linha mantidas,
        e escapada como o resto (vem de um campo de texto livre). */
@@ -719,7 +895,8 @@ export const enviarConvite = internalAction({
           titulo: `Hi ${escapar(primeiro)}, you now have access to the back-office`,
           quem: `${escapar(por)} added you to the team${como ? ` as <strong>${escapar(como)}</strong>` : ""}.`,
           como: `Sign in with <strong>${escapar(d.email)}</strong> — with Google, or with a code sent to this address. If you don't have an account yet, you'll create it in the same step.`,
-          botao: "Open the back-office",
+          botao: "See the invitation",
+          validade: `The invitation is valid until ${ate}. On the next page you can accept it or decline it.`,
           rodape: "If you weren't expecting this email, you can ignore it: nothing happens unless you sign in with this address.",
           assunto: "Your invitation to the LuxMotion back-office",
         }
@@ -727,7 +904,8 @@ export const enviarConvite = internalAction({
           titulo: `Olá ${escapar(primeiro)}, tem acesso ao back-office`,
           quem: `${escapar(por)} acrescentou-o à equipa${como ? ` como <strong>${escapar(como)}</strong>` : ""}.`,
           como: `Entre com <strong>${escapar(d.email)}</strong> — com o Google, ou com um código enviado para este email. Se ainda não tem conta, cria-a no mesmo passo.`,
-          botao: "Entrar no back-office",
+          botao: "Ver o convite",
+          validade: `O convite é válido até ${ate}. Na página seguinte pode aceitá-lo ou recusá-lo.`,
           rodape: "Se não esperava este email, pode ignorá-lo: sem entrar com este endereço, nada acontece.",
           assunto: "Convite para o back-office da LuxMotion",
         };
@@ -739,6 +917,7 @@ export const enviarConvite = internalAction({
         ${mensagem}
         <p style="font-size:15px;line-height:1.6;margin:0 0 24px">${t.como}</p>
         <a href="${link}" style="display:inline-block;background:#1c1b18;color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px;font-size:15px">${t.botao}</a>
+        <p style="font-size:13px;color:#5a5852;margin:16px 0 0">${t.validade}</p>
         <p style="font-size:12px;color:#8a8780;margin:28px 0 0">${t.rodape}</p>
       </div>`;
     try {
@@ -754,10 +933,10 @@ export const enviarConvite = internalAction({
         signal: AbortSignal.timeout(20_000),
       });
       if (!r.ok) throw new Error(`Resend ${r.status}: ${(await r.text().catch(() => "")).slice(0, 200)}`);
-      await ctx.runMutation(internal.equipa.marcarConvite, { colaboradorId, estado: "enviado" });
+      await ctx.runMutation(internal.equipa.marcarConvite, { conviteId, envio: "enviado" });
     } catch (e) {
       console.error(`[Convite] ${d.email} falhou: ${e instanceof Error ? e.message : String(e)}`);
-      await ctx.runMutation(internal.equipa.marcarConvite, { colaboradorId, estado: "falhou" });
+      await ctx.runMutation(internal.equipa.marcarConvite, { conviteId, envio: "falhou" });
     }
   },
 });

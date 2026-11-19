@@ -1419,6 +1419,7 @@ export default defineSchema({
       v.literal("candidatura"),
       v.literal("lead"),
       v.literal("avaliacao"),
+      v.literal("equipa"),
       v.literal("aviso"),
     ),
     titulo: v.string(),
@@ -1836,6 +1837,33 @@ export default defineSchema({
   })
     .index("by_email", ["email"])
     .index("by_cargo", ["cargoId"]),
+
+  /*
+   * Os convites para a equipa (lib/convites.ts tem o ciclo de vida). Um por
+   * envio: reenviar cria outro e o anterior fica "substituido", para o
+   * histórico dizer quantas vezes e quando.
+   *
+   * O token vai no link do email (/convite/<token>) e serve para ver e
+   * recusar o convite; entrar exige sempre a conta com o email convidado.
+   */
+  convites: defineTable({
+    colaboradorId: v.id("colaboradores"),
+    email: v.string(),
+    token: v.string(),
+    estado: v.union(v.literal("pendente"), v.literal("aceite"), v.literal("recusado"), v.literal("expirado"), v.literal("substituido")),
+    criadoEm: v.number(),
+    expiraEm: v.number(),
+    respondidoEm: v.optional(v.number()),
+    /* Como correu o email: "semEmail" onde não há RESEND_API_KEY
+       (development e staging, de propósito). */
+    envio: v.union(v.literal("aEnviar"), v.literal("enviado"), v.literal("falhou"), v.literal("semEmail")),
+    enviadoEm: v.optional(v.number()),
+    /* Quem convidou: o nome, para o email e a página do convite. */
+    por: v.string(),
+  })
+    .index("by_colaborador", ["colaboradorId", "criadoEm"])
+    .index("by_token", ["token"])
+    .index("by_estado", ["estado"]),
 
   /*
    * "Ver como": quem gere a equipa pode ver o back-office com as permissões
