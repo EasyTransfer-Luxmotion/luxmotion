@@ -177,6 +177,7 @@ export const lista = query({
           criadoEm: p.criadoEm,
           actualizadoEm: p.actualizadoEm,
           ultimaEntradaEm: p.ultimaEntradaEm ?? null,
+          funcao: p.funcao ?? null,
         }))
         .sort((a, b) => a.nome.localeCompare(b.nome, "pt")),
       donos: listaDonos,
@@ -236,6 +237,10 @@ export const membro = query({
       versao: p.actualizadoEm,
       criadoEm: p.criadoEm,
       ultimaEntradaEm: p.ultimaEntradaEm ?? null,
+      funcao: p.funcao ?? null,
+      telefone: p.telefone ?? null,
+      idioma: p.idioma ?? "pt",
+      mensagemConvite: p.mensagemConvite ?? null,
       historico: await historico(ctx, { colaboradorId: p._id }),
     };
   },
@@ -410,14 +415,26 @@ export const guardarColaborador = mutation({
     email: v.string(),
     nome: v.string(),
     cargoId: v.optional(v.id("cargos")),
+    /* Opcionais para os ecrãs de antes destes campos: sem eles, ficam os
+       que a pessoa tinha. */
+    funcao: v.optional(v.string()),
+    telefone: v.optional(v.string()),
+    idioma: v.optional(v.union(v.literal("pt"), v.literal("en"))),
+    mensagemConvite: v.optional(v.string()),
   },
   handler: async (ctx, a) => {
     const acesso = await lerAcesso(ctx);
     verificar(acesso, "equipa", "editar");
     const email = a.email.trim().toLowerCase();
     const nome = a.nome.trim().replace(/\s+/g, " ");
+    const funcao = a.funcao === undefined ? undefined : a.funcao.trim().replace(/\s+/g, " ");
+    const telefone = a.telefone === undefined ? undefined : a.telefone.trim().replace(/\s+/g, " ");
+    const mensagemConvite = a.mensagemConvite === undefined ? undefined : a.mensagemConvite.trim();
     const erros: Record<string, string> = {};
     if (!nome) erros.nome = "Falta o nome da pessoa.";
+    if (funcao && funcao.length > 60) erros.funcao = "A função tem de caber em 60 caracteres.";
+    if (telefone && !/^\+?[\d ()-]{6,20}$/.test(telefone)) erros.telefone = "O telemóvel só leva algarismos, espaços e o + do indicativo.";
+    if (mensagemConvite && mensagemConvite.length > 600) erros.mensagemConvite = "A mensagem tem de caber em 600 caracteres.";
     if (!email) erros.email = "Falta o email com que a pessoa entra.";
     else if (!EMAIL.test(email)) erros.email = "O email não parece válido.";
     const cargo = a.cargoId ? await ctx.db.get(a.cargoId) : null;
@@ -442,6 +459,10 @@ export const guardarColaborador = mutation({
         estado: "activo",
         criadoEm: agora,
         actualizadoEm: agora,
+        funcao: funcao || undefined,
+        telefone: telefone || undefined,
+        idioma: a.idioma,
+        mensagemConvite: mensagemConvite || undefined,
       });
       await registar(ctx, {
         ator: acesso.email!,
@@ -464,12 +485,25 @@ export const guardarColaborador = mutation({
         mapa(cargo.permissoes as { modulo: string; nivel: Nivel }[]),
       );
     }
-    await ctx.db.patch(a.id, { email, nome, cargoId: cargo._id, actualizadoEm: agora });
+    await ctx.db.patch(a.id, {
+      email,
+      nome,
+      cargoId: cargo._id,
+      actualizadoEm: agora,
+      /* undefined no patch apaga o campo: só se mexe no que veio. */
+      ...(funcao !== undefined && { funcao: funcao || undefined }),
+      ...(telefone !== undefined && { telefone: telefone || undefined }),
+      ...(a.idioma !== undefined && { idioma: a.idioma }),
+      ...(mensagemConvite !== undefined && { mensagemConvite: mensagemConvite || undefined }),
+    });
     const cargoAntes = antes.cargoId !== cargo._id ? (await ctx.db.get(antes.cargoId))?.nome ?? "?" : null;
     const partes = [
       antes.nome !== nome ? `Nome: ${antes.nome} → ${nome}` : "",
       antes.email !== email ? `Email: ${antes.email} → ${email}` : "",
       cargoAntes ? `Cargo: ${cargoAntes} → ${cargo.nome}` : "",
+      funcao !== undefined && (antes.funcao ?? "") !== funcao ? `Função: ${antes.funcao || "—"} → ${funcao || "—"}` : "",
+      telefone !== undefined && (antes.telefone ?? "") !== telefone ? `Telemóvel: ${antes.telefone || "—"} → ${telefone || "—"}` : "",
+      a.idioma !== undefined && (antes.idioma ?? "pt") !== a.idioma ? `Idioma: ${antes.idioma === "en" ? "inglês" : "português"} → ${a.idioma === "en" ? "inglês" : "português"}` : "",
     ].filter(Boolean);
     if (partes.length) {
       await registar(ctx, {
@@ -637,7 +671,15 @@ export const dadosDoConvite = internalQuery({
     const p = await ctx.db.get(colaboradorId);
     if (!p) return null;
     const c = await ctx.db.get(p.cargoId);
-    return { nome: p.nome, email: p.email, cargo: c?.nome ?? null, jaEntrou: Boolean(p.ultimaEntradaEm) };
+    return {
+      nome: p.nome,
+      email: p.email,
+      cargo: c?.nome ?? null,
+      funcao: p.funcao ?? null,
+      idioma: p.idioma ?? "pt",
+      mensagem: p.mensagemConvite ?? null,
+      jaEntrou: Boolean(p.ultimaEntradaEm),
+    };
   },
 });
 
@@ -674,14 +716,39 @@ export const enviarConvite = internalAction({
       return;
     }
     const primeiro = d.nome.split(" ")[0] ?? d.nome;
+    const en = d.idioma === "en";
+    const como = d.funcao ?? d.cargo;
+    /* A mensagem de quem convida, como citação: quebras de linha mantidas,
+       e escapada como o resto (vem de um campo de texto livre). */
+    const mensagem = d.mensagem
+      ? `<blockquote style="margin:0 0 24px;padding:12px 16px;border-left:3px solid #c9a96e;background:#faf7f1;font-size:15px;line-height:1.6;color:#3a3833">${escapar(d.mensagem).replace(/\n/g, "<br>")}<br><span style="font-size:13px;color:#8a8780">— ${escapar(por)}</span></blockquote>`
+      : "";
+    const t = en
+      ? {
+          titulo: `Hi ${escapar(primeiro)}, you now have access to the back-office`,
+          quem: `${escapar(por)} added you to the team${como ? ` as <strong>${escapar(como)}</strong>` : ""}.`,
+          como: `Sign in with <strong>${escapar(d.email)}</strong> — with Google, or with a code sent to this address. If you don't have an account yet, you'll create it in the same step.`,
+          botao: "Open the back-office",
+          rodape: "If you weren't expecting this email, you can ignore it: nothing happens unless you sign in with this address.",
+          assunto: "Your invitation to the LuxMotion back-office",
+        }
+      : {
+          titulo: `Olá ${escapar(primeiro)}, tem acesso ao back-office`,
+          quem: `${escapar(por)} acrescentou-o à equipa${como ? ` como <strong>${escapar(como)}</strong>` : ""}.`,
+          como: `Entre com <strong>${escapar(d.email)}</strong> — com o Google, ou com um código enviado para este email. Se ainda não tem conta, cria-a no mesmo passo.`,
+          botao: "Entrar no back-office",
+          rodape: "Se não esperava este email, pode ignorá-lo: sem entrar com este endereço, nada acontece.",
+          assunto: "Convite para o back-office da LuxMotion",
+        };
     const html = `
       <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1c1b18">
         <p style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#9a7535;margin:0 0 12px">LuxMotion · Back-office</p>
-        <h1 style="font-size:22px;margin:0 0 16px">Olá ${escapar(primeiro)}, tem acesso ao back-office</h1>
-        <p style="font-size:15px;line-height:1.6;margin:0 0 8px">${escapar(por)} acrescentou-o à equipa${d.cargo ? ` como <strong>${escapar(d.cargo)}</strong>` : ""}.</p>
-        <p style="font-size:15px;line-height:1.6;margin:0 0 24px">Entre com <strong>${escapar(d.email)}</strong> — com o Google, ou com um código enviado para este email. Se ainda não tem conta, cria-a no mesmo passo.</p>
-        <a href="${link}" style="display:inline-block;background:#1c1b18;color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px;font-size:15px">Entrar no back-office</a>
-        <p style="font-size:12px;color:#8a8780;margin:28px 0 0">Se não esperava este email, pode ignorá-lo: sem entrar com este endereço, nada acontece.</p>
+        <h1 style="font-size:22px;margin:0 0 16px">${t.titulo}</h1>
+        <p style="font-size:15px;line-height:1.6;margin:0 0 16px">${t.quem}</p>
+        ${mensagem}
+        <p style="font-size:15px;line-height:1.6;margin:0 0 24px">${t.como}</p>
+        <a href="${link}" style="display:inline-block;background:#1c1b18;color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px;font-size:15px">${t.botao}</a>
+        <p style="font-size:12px;color:#8a8780;margin:28px 0 0">${t.rodape}</p>
       </div>`;
     try {
       const r = await fetch("https://api.resend.com/emails", {
@@ -690,7 +757,7 @@ export const enviarConvite = internalAction({
         body: JSON.stringify({
           from: process.env.RESEND_FROM ?? "LuxMotion <onboarding@resend.dev>",
           to: [d.email],
-          subject: "Convite para o back-office da LuxMotion",
+          subject: t.assunto,
           html,
         }),
         signal: AbortSignal.timeout(20_000),

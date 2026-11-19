@@ -1826,6 +1826,16 @@ export default defineSchema({
     /* Como correu o envio: "semEmail" onde não há RESEND_API_KEY
        (development e staging, de propósito). */
     conviteEstado: v.optional(v.union(v.literal("aEnviar"), v.literal("enviado"), v.literal("falhou"), v.literal("semEmail"))),
+    /* A posição na empresa ("Gestora de operações"), só para se ler. Quem
+       decide o que pode fazer é o cargo. */
+    funcao: v.optional(v.string()),
+    telefone: v.optional(v.string()),
+    /* Língua do convite e dos avisos por email. Sem ele, português. */
+    idioma: v.optional(v.union(v.literal("pt"), v.literal("en"))),
+    /* O texto de quem convida, que vai no email (e no reenvio). */
+    mensagemConvite: v.optional(v.string()),
+    /* Quando viu o ecrã de boas-vindas da primeira entrada. Sem ele, vê-o. */
+    boasVindasEm: v.optional(v.number()),
   })
     .index("by_email", ["email"])
     .index("by_cargo", ["cargoId"]),

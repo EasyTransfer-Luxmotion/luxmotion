@@ -92,3 +92,36 @@ export const terminarVerComo = mutation({
     return null;
   },
 });
+
+/*
+ * O ecrã de boas-vindas da primeira entrada de um membro convidado. Só para
+ * colaboradores activos que ainda não o viram, e nunca a "ver como" (quem
+ * simula não é a pessoa). Os donos não estão na tabela: não o vêem.
+ */
+export const boasVindas = query({
+  args: {},
+  handler: async (ctx) => {
+    const acesso = await lerAcesso(ctx);
+    if (acesso.estado !== "admin" || !acesso.email || acesso.simulacao) return null;
+    const c = await ctx.db
+      .query("colaboradores")
+      .withIndex("by_email", (q) => q.eq("email", acesso.email!))
+      .first();
+    if (!c || c.estado !== "activo" || c.boasVindasEm) return null;
+    return { nome: c.nome, funcao: c.funcao ?? null, cargo: acesso.cargo, idioma: c.idioma ?? "pt" };
+  },
+});
+
+export const viBoasVindas = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const acesso = await lerAcesso(ctx);
+    if (acesso.estado !== "admin" || !acesso.email || acesso.simulacao) return null;
+    const c = await ctx.db
+      .query("colaboradores")
+      .withIndex("by_email", (q) => q.eq("email", acesso.email!))
+      .first();
+    if (c && !c.boasVindasEm) await ctx.db.patch(c._id, { boasVindasEm: Date.now() });
+    return null;
+  },
+});
