@@ -1,39 +1,58 @@
 /*
- * O que os funis e o dashboard têm de dizer da mesma maneira: as origens que
- * caem num funil, os canais de um negócio criado à mão e as cores das etapas.
+ * Os três funis do back-office — Reservas, Pedidos e Candidaturas — e o que
+ * eles e o dashboard têm de dizer da mesma maneira: que origens caem em cada
+ * um, que módulo de permissão o abre, as etapas com que começa e as cores.
+ *
+ * Não se criam nem se apagam funis: cada um destes ecrãs da Operação tem o
+ * seu, com a vista em quadro (a principal) e a lista. As etapas é que se
+ * configuram.
  *
  * Sem imports do Convex de propósito, como lib/permissoes.ts: o dashboard
- * importa este ficheiro (@workspace/convex/convex/lib/funis). Uma lista em
- * cada repositório acabava por dizer coisas diferentes.
+ * importa este ficheiro (@workspace/convex/convex/lib/funis).
  */
 
-/* De onde vem um cartão. As seis primeiras são os formulários de pedido do
-   site (Operação → Pedidos); `orders` é uma reserva paga; `manual`, um
-   negócio criado no back-office. */
+export const CHAVES_FUNIL = ["reservas", "pedidos", "candidaturas"] as const;
+export type ChaveFunil = (typeof CHAVES_FUNIL)[number];
+
+export function eChaveFunil(x: string): x is ChaveFunil {
+  return (CHAVES_FUNIL as readonly string[]).includes(x);
+}
+
+/* De onde vem um cartão. `orders` é uma reserva paga (a ida, com a volta e os
+   tours vendidos em upsell no mesmo cartão); `manual`, um pedido que chegou
+   por fora do site e se criou no back-office. */
 export const ORIGENS_FUNIL = [
-  { chave: "contactSubmissions", titulo: "Contacto", grupo: "pedidos" },
-  { chave: "contactQuotes", titulo: "Orçamento corporate", grupo: "pedidos" },
-  { chave: "tourInquiries", titulo: "Ultra-luxo", grupo: "pedidos" },
-  { chave: "weddingQuoteSubmissions", titulo: "Casamento", grupo: "pedidos" },
-  { chave: "schoolQuoteSubmissions", titulo: "Escolas", grupo: "pedidos" },
-  { chave: "corporateRequests", titulo: "Proposta corporate", grupo: "pedidos" },
-  { chave: "partnerLeads", titulo: "Lead de parceiro", grupo: "parceiros" },
-  { chave: "orders", titulo: "Reserva paga", grupo: "reservas" },
-  { chave: "manual", titulo: "Criado à mão", grupo: "manual" },
-] as const;
+  { chave: "orders", titulo: "Reserva", funil: "reservas" },
+  { chave: "contactSubmissions", titulo: "Contacto", funil: "pedidos" },
+  { chave: "contactQuotes", titulo: "Orçamento corporate", funil: "pedidos" },
+  { chave: "tourInquiries", titulo: "Ultra-luxo", funil: "pedidos" },
+  { chave: "weddingQuoteSubmissions", titulo: "Casamento", funil: "pedidos" },
+  { chave: "schoolQuoteSubmissions", titulo: "Escolas", funil: "pedidos" },
+  { chave: "corporateRequests", titulo: "Proposta corporate", funil: "pedidos" },
+  { chave: "manual", titulo: "Criado à mão", funil: "pedidos" },
+  { chave: "driverApplications", titulo: "Motorista", funil: "candidaturas" },
+  { chave: "partnerApplications", titulo: "Empresa parceira", funil: "candidaturas" },
+] as const satisfies readonly { chave: string; titulo: string; funil: ChaveFunil }[];
 
 export type OrigemFunil = (typeof ORIGENS_FUNIL)[number]["chave"];
-export const CHAVES_ORIGEM: readonly OrigemFunil[] = ORIGENS_FUNIL.map((o) => o.chave);
 
 export function eOrigem(x: string): x is OrigemFunil {
-  return (CHAVES_ORIGEM as readonly string[]).includes(x);
+  return ORIGENS_FUNIL.some((o) => o.chave === x);
+}
+
+export function funilDaOrigem(x: OrigemFunil): ChaveFunil {
+  return ORIGENS_FUNIL.find((o) => o.chave === x)!.funil;
 }
 
 export function tituloDaOrigem(x: string): string {
   return ORIGENS_FUNIL.find((o) => o.chave === x)?.titulo ?? x;
 }
 
-/* Por onde chegou um negócio criado à mão. */
+export function origensDoFunil(chave: ChaveFunil): OrigemFunil[] {
+  return ORIGENS_FUNIL.filter((o) => o.funil === chave).map((o) => o.chave);
+}
+
+/* Por onde chegou um pedido criado à mão. */
 export const CANAIS = [
   { chave: "telefone", titulo: "Telefone" },
   { chave: "whatsapp", titulo: "WhatsApp" },
@@ -41,15 +60,13 @@ export const CANAIS = [
   { chave: "evento", titulo: "Evento" },
   { chave: "outro", titulo: "Outro" },
 ] as const;
-export type Canal = (typeof CANAIS)[number]["chave"];
 
-/* Aberta: o negócio está a ser trabalhado. Ganho e perdido fecham-no (grava
+/* Aberta: está a ser trabalhado. Ganho e perdido fecham o cartão (grava
    fechadoEm; perdido pede o motivo). */
 export const TIPOS_ETAPA = ["aberta", "ganho", "perdido"] as const;
 export type TipoEtapa = (typeof TIPOS_ETAPA)[number];
 
-/* As cores que o editor oferece para as etapas. Fixas, para o quadro ler-se
-   bem nos dois temas e não haver uma etapa amarelo-limão. */
+/* As cores que se podem dar às etapas: fixas, para o quadro ler-se bem. */
 export const CORES_ETAPA = [
   "#64748b", // ardósia
   "#3b82f6", // azul
@@ -63,20 +80,28 @@ export const CORES_ETAPA = [
 
 export type Etapa = { id: string; nome: string; cor: string; tipo: TipoEtapa };
 
-/* Os três funis com que se começa (funis.criarFunisIniciais). Depois são da
-   equipa: o editor muda nomes, etapas e origens. */
-export const FUNIS_INICIAIS: { nome: string; origens: OrigemFunil[]; etapas: Etapa[] }[] = [
-  {
-    nome: "Pedidos",
-    origens: [
-      "contactSubmissions",
-      "contactQuotes",
-      "tourInquiries",
-      "weddingQuoteSubmissions",
-      "schoolQuoteSubmissions",
-      "corporateRequests",
-      "manual",
+/* Cada funil: o nome, o módulo de permissão que o abre (o do ecrã onde vive),
+   se se criam cartões à mão, e as etapas com que começa. */
+export const FUNIS: Record<
+  ChaveFunil,
+  { titulo: string; modulo: "reservas" | "pedidos" | "candidaturas"; manual: boolean; etapas: Etapa[] }
+> = {
+  reservas: {
+    titulo: "Reservas",
+    modulo: "reservas",
+    manual: false,
+    etapas: [
+      { id: "porAtribuir", nome: "Por atribuir", cor: "#d97706", tipo: "aberta" },
+      { id: "atribuido", nome: "Motorista atribuído", cor: "#3b82f6", tipo: "aberta" },
+      { id: "confirmada", nome: "Confirmada com o cliente", cor: "#8b5cf6", tipo: "aberta" },
+      { id: "concluida", nome: "Concluída", cor: "#16a34a", tipo: "ganho" },
+      { id: "cancelada", nome: "Cancelada", cor: "#dc2626", tipo: "perdido" },
     ],
+  },
+  pedidos: {
+    titulo: "Pedidos",
+    modulo: "pedidos",
+    manual: true,
     etapas: [
       { id: "novo", nome: "Novo", cor: "#3b82f6", tipo: "aberta" },
       { id: "contacto", nome: "Em contacto", cor: "#8b5cf6", tipo: "aberta" },
@@ -85,26 +110,16 @@ export const FUNIS_INICIAIS: { nome: string; origens: OrigemFunil[]; etapas: Eta
       { id: "perdido", nome: "Perdido", cor: "#dc2626", tipo: "perdido" },
     ],
   },
-  {
-    nome: "Parceiros",
-    origens: ["partnerLeads"],
+  candidaturas: {
+    titulo: "Candidaturas",
+    modulo: "candidaturas",
+    manual: false,
     etapas: [
-      { id: "novo", nome: "Novo", cor: "#3b82f6", tipo: "aberta" },
-      { id: "contacto", nome: "Em contacto", cor: "#8b5cf6", tipo: "aberta" },
-      { id: "reuniao", nome: "Reunião", cor: "#d97706", tipo: "aberta" },
-      { id: "fechada", nome: "Parceria fechada", cor: "#16a34a", tipo: "ganho" },
-      { id: "perdido", nome: "Perdido", cor: "#dc2626", tipo: "perdido" },
+      { id: "nova", nome: "Nova", cor: "#3b82f6", tipo: "aberta" },
+      { id: "analise", nome: "Em análise", cor: "#8b5cf6", tipo: "aberta" },
+      { id: "entrevista", nome: "Entrevista", cor: "#d97706", tipo: "aberta" },
+      { id: "aprovada", nome: "Aprovada", cor: "#16a34a", tipo: "ganho" },
+      { id: "recusada", nome: "Recusada", cor: "#dc2626", tipo: "perdido" },
     ],
   },
-  {
-    nome: "Reservas",
-    origens: ["orders"],
-    etapas: [
-      { id: "paga", nome: "Paga", cor: "#3b82f6", tipo: "aberta" },
-      { id: "confirmada", nome: "Confirmada com o cliente", cor: "#8b5cf6", tipo: "aberta" },
-      { id: "motorista", nome: "Motorista atribuído", cor: "#0d9488", tipo: "aberta" },
-      { id: "concluida", nome: "Concluída", cor: "#16a34a", tipo: "ganho" },
-      { id: "cancelada", nome: "Cancelada", cor: "#dc2626", tipo: "perdido" },
-    ],
-  },
-];
+};

@@ -298,13 +298,14 @@ Pipedrive), avisar por email (`avisarPedido`) e medir a conversão
 (`medirPedidoDeOrcamento`) — esta última **só depois** de a mutation resolver,
 nunca ao carregar em enviar.
 
-**Funis (Operação → Funis) substituem o Pipedrive.** Cada pedido do site, lead
-de parceiro e reserva paga cai sozinho na 1.ª etapa aberta do funil que tem a
-sua origem (`lib/funilEntrada.ts`), na mesma transação em que é gravado; o
-`by_origem` trava repetições. Cada origem está num funil só (`lib/funis.ts`,
-que o dashboard também importa). Num ambiente novo:
-`npx convex run funis:criarFunisIniciais` e `funis:preencher '{"dias":30}'`.
-Sem funil para uma origem, a lead grava-se na mesma e o log diz porquê.
+**Funis substituem o Pipedrive.** Reservas, Pedidos e Candidaturas têm cada
+um o seu funil (`lib/funis.ts`), e o quadro é a vista principal desses ecrãs
+no dashboard; a lista fica ao lado. Não se criam funis: configuram-se as
+etapas. Cada reserva paga, pedido do site e candidatura cai sozinho na 1.ª
+etapa aberta do seu funil (`lib/funilEntrada.ts`), na mesma transação em que é
+gravado; o `by_origem` trava repetições. As leads de parceiros e a newsletter
+não têm funil. Num ambiente novo: `npx convex run funis:criarFunisIniciais` e
+`funis:preencher '{"dias":30}'`.
 
 **Atribuição.** Três coisas distintas, três campos distintos, nunca misturar:
 `partnershipName` (parceiro, relação comercial), `adSource` (origem observada

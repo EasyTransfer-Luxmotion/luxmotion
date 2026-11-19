@@ -2,15 +2,19 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, temCapacidade, type Acesso } from "./lib/admin";
-import { FUNIS_INICIAIS, eOrigem, tituloDaOrigem, type Etapa } from "./lib/funis";
+import type { Capacidade, Nivel } from "./lib/permissoes";
+import { CHAVES_FUNIL, FUNIS, eChaveFunil, tituloDaOrigem, type ChaveFunil, type Etapa } from "./lib/funis";
 import { colocarNoFunil, entrarNoFunil, entrarReservaNoFunil } from "./lib/funilEntrada";
 import type { TabelaLead } from "./lib/pipedriveMapa";
 
 /*
- * Operação → Funis no dashboard: os negócios em kanban, que substituem o
- * Pipedrive. Os cartões chegam sozinhos (lib/funilEntrada.ts: os formulários
- * do site, as leads de parceiros e as reservas pagas) ou criam-se à mão.
- * Sem responsável: quem tem o módulo vê o quadro inteiro.
+ * O quadro (kanban) de cada ecrã da Operação: Reservas, Pedidos e
+ * Candidaturas, cada um com o seu funil (lib/funis.ts). É a vista principal
+ * desses ecrãs; a lista fica ao lado. Substituem o Pipedrive.
+ *
+ * Os cartões chegam sozinhos (lib/funilEntrada.ts) ou, nos pedidos, criam-se
+ * à mão. Quem vê cada quadro é quem vê o ecrã: o módulo de permissão é o
+ * mesmo (reservas, pedidos, candidaturas). Sem responsável: vê-se tudo.
  */
 
 /* Ganhos e perdidos ficam no quadro um mês; depois só contam no histórico. */
@@ -18,6 +22,7 @@ const FECHADOS_VISIVEIS_MS = 30 * 86_400_000;
 /* Uma coluna aberta com mais do que isto já não se trabalha a arrastar. */
 const MAX_POR_COLUNA = 300;
 
+const vChave = v.union(v.literal("reservas"), v.literal("pedidos"), v.literal("candidaturas"));
 const vEtapa = v.object({
   id: v.string(),
   nome: v.string(),
@@ -25,11 +30,31 @@ const vEtapa = v.object({
   tipo: v.union(v.literal("aberta"), v.literal("ganho"), v.literal("perdido")),
 });
 
+type Ctx = QueryCtx | MutationCtx;
+
+async function funilPorChave(ctx: Ctx, chave: ChaveFunil): Promise<Doc<"funis"> | null> {
+  return await ctx.db.query("funis").withIndex("by_chave", (q) => q.eq("chave", chave)).first();
+}
+
+/* Abrir um funil pede o módulo do ecrã onde ele vive. */
+async function exigirFunil(ctx: Ctx, funil: Doc<"funis"> | null, nivel: Nivel, capacidade?: Capacidade) {
+  if (!funil || !eChaveFunil(funil.chave)) throw new ConvexError("Este funil já não existe. Recarregue a página.");
+  await exigirAdmin(ctx, FUNIS[funil.chave].modulo, nivel, capacidade);
+  return { acesso: await lerAcesso(ctx), chave: funil.chave };
+}
+
+async function exigirNegocio(ctx: Ctx, id: Id<"negocios">, nivel: Nivel, capacidade?: Capacidade) {
+  const n = await ctx.db.get(id);
+  if (!n) throw new ConvexError("Este cartão já não existe.");
+  const funil = await ctx.db.get(n.funilId);
+  return { n, funil: funil!, ...(await exigirFunil(ctx, funil, nivel, capacidade)) };
+}
+
 function quem(acesso: Acesso): string {
   return acesso.email ?? "desconhecido";
 }
 
-/* O valor dos negócios é faturação: sem "Ver valores", não sai do servidor. */
+/* O valor é faturação: sem "Ver valores", não sai do servidor. */
 function valorVisivel(acesso: Acesso, n: Doc<"negocios">): number | null {
   return temCapacidade(acesso, "valores") ? (n.valor ?? null) : null;
 }
@@ -38,7 +63,6 @@ function cartao(acesso: Acesso, n: Doc<"negocios">) {
   return {
     id: n._id,
     etapaId: n.etapaId,
-    ordem: n.ordem,
     titulo: n.titulo,
     pessoa: n.pessoa.nome,
     organizacao: n.organizacao ?? null,
@@ -68,44 +92,28 @@ async function cartoesDaEtapa(ctx: QueryCtx, funil: Doc<"funis">, etapa: Etapa) 
   return { lista, mais: false };
 }
 
-/* Os funis, pela ordem, para os separadores do quadro e o editor. */
-export const lista = query({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx, "funis", "ver");
-    const funis = await ctx.db.query("funis").withIndex("by_ordem").collect();
-    return funis.map((f) => ({ id: f._id, nome: f.nome, etapas: f.etapas, origens: f.origens }));
-  },
-});
-
 export const quadro = query({
-  args: { funilId: v.id("funis") },
-  handler: async (ctx, { funilId }) => {
-    await exigirAdmin(ctx, "funis", "ver");
-    const acesso = await lerAcesso(ctx);
-    const funil = await ctx.db.get(funilId);
+  args: { chave: vChave },
+  handler: async (ctx, { chave }) => {
+    await exigirAdmin(ctx, FUNIS[chave].modulo, "ver");
+    const funil = await funilPorChave(ctx, chave);
     if (!funil) return null;
+    const acesso = await lerAcesso(ctx);
     const colunas = [];
     for (const etapa of funil.etapas) {
       const { lista, mais } = await cartoesDaEtapa(ctx, funil, etapa);
       colunas.push({ etapa, mais, cartoes: lista.map((n) => cartao(acesso, n)) });
     }
-    return {
-      funil: { id: funil._id, nome: funil.nome, origens: funil.origens },
-      colunas,
-      verValores: temCapacidade(acesso, "valores"),
-    };
+    return { funilId: funil._id, chave, colunas, verValores: temCapacidade(acesso, "valores") };
   },
 });
 
 export const negocio = query({
   args: { id: v.id("negocios") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "funis", "ver");
-    const acesso = await lerAcesso(ctx);
-    const n = await ctx.db.get(id);
-    if (!n) return null;
-    const funil = await ctx.db.get(n.funilId);
+    const n0 = await ctx.db.get(id);
+    if (!n0) return null;
+    const { n, funil, acesso } = await exigirNegocio(ctx, id, "ver");
     const atividades = await ctx.db
       .query("negocioAtividades")
       .withIndex("by_negocio", (q) => q.eq("negocioId", id))
@@ -119,8 +127,8 @@ export const negocio = query({
     }
     return {
       ...cartao(acesso, n),
-      funilId: n.funilId,
-      etapas: funil?.etapas ?? [],
+      chave: funil.chave as ChaveFunil,
+      etapas: funil.etapas,
       email: n.pessoa.email ?? null,
       telefone: n.pessoa.telefone ?? null,
       nota: n.nota ?? null,
@@ -156,8 +164,8 @@ async function ordemNoFim(ctx: MutationCtx, funilId: Id<"funis">, etapaId: strin
 
 /*
  * Para uma etapa (e uma posição: antes do cartão `antesDe`, ou no fim).
- * Entrar numa etapa de ganho ou perdido fecha o negócio; perdido pede o motivo.
- * Sair dela reabre-o.
+ * Entrar numa etapa de ganho ou perdido fecha o cartão; perdido pede o
+ * motivo. Sair dela reabre-o.
  */
 export const mover = mutation({
   args: {
@@ -167,24 +175,21 @@ export const mover = mutation({
     motivo: v.optional(v.string()),
   },
   handler: async (ctx, { id, etapaId, antesDe, motivo }) => {
-    await exigirAdmin(ctx, "funis", "editar");
-    const acesso = await lerAcesso(ctx);
-    const n = await ctx.db.get(id);
-    if (!n) throw new ConvexError("Este negócio já não existe.");
-    const funil = await ctx.db.get(n.funilId);
-    const destino = funil?.etapas.find((e) => e.id === etapaId);
-    if (!funil || !destino) throw new ConvexError("Essa etapa já não existe neste funil. Recarregue o quadro.");
+    const { n, funil, acesso } = await exigirNegocio(ctx, id, "editar");
+    const destino = funil.etapas.find((e) => e.id === etapaId);
+    if (!destino) throw new ConvexError("Essa etapa já não existe. Recarregue o quadro.");
     const origem = funil.etapas.find((e) => e.id === n.etapaId);
     const mudaEtapa = n.etapaId !== etapaId;
     const motivoLimpo = motivo?.trim();
     if (mudaEtapa && destino.tipo === "perdido" && !motivoLimpo) {
-      throw new ConvexError("Diga porque se perdeu o negócio.");
+      throw new ConvexError(`Diga o motivo para passar a «${destino.nome}».`);
     }
 
-    let ordem: number;
     const vizinho = antesDe && antesDe !== id ? await ctx.db.get(antesDe) : null;
-    if (vizinho && vizinho.funilId === n.funilId && vizinho.etapaId === etapaId) ordem = await ordemAntesDe(ctx, vizinho);
-    else ordem = await ordemNoFim(ctx, n.funilId, etapaId);
+    const ordem =
+      vizinho && vizinho.funilId === n.funilId && vizinho.etapaId === etapaId
+        ? await ordemAntesDe(ctx, vizinho)
+        : await ordemNoFim(ctx, n.funilId, etapaId);
 
     const agora = Date.now();
     await ctx.db.patch(id, {
@@ -239,21 +244,14 @@ function limparDados(a: { titulo: string; nome: string; email?: string; telefone
   return { titulo, pessoa: { nome, email, telefone }, organizacao, valor: a.valor };
 }
 
-/* Um negócio que não veio do site: um telefonema, uma conversa num evento. */
+/* Um pedido que não veio do site: um telefonema, uma conversa num evento. */
 export const criarManual = mutation({
-  args: {
-    funilId: v.id("funis"),
-    etapaId: v.optional(v.string()),
-    canal: v.string(),
-    nota: v.optional(v.string()),
-    ...vDados,
-  },
+  args: { chave: vChave, etapaId: v.optional(v.string()), canal: v.string(), nota: v.optional(v.string()), ...vDados },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx, "funis", "editar");
-    const acesso = await lerAcesso(ctx);
-    const funil = await ctx.db.get(a.funilId);
-    if (!funil) throw new ConvexError("Esse funil já não existe.");
-    if (a.etapaId && !funil.etapas.some((e) => e.id === a.etapaId)) throw new ConvexError("Essa etapa já não existe neste funil.");
+    if (!FUNIS[a.chave].manual) throw new ConvexError(`No quadro das ${FUNIS[a.chave].titulo.toLowerCase()} os cartões só chegam sozinhos.`);
+    const funil = await funilPorChave(ctx, a.chave);
+    const { acesso } = await exigirFunil(ctx, funil, "editar");
+    if (a.etapaId && !funil!.etapas.some((e) => e.id === a.etapaId)) throw new ConvexError("Essa etapa já não existe.");
     const d = limparDados(a);
     const id = await colocarNoFunil(ctx, {
       origem: "manual",
@@ -261,10 +259,10 @@ export const criarManual = mutation({
       nota: a.nota?.trim() || undefined,
       canal: a.canal,
       por: quem(acesso),
-      funilId: funil._id,
+      funilId: funil!._id,
       etapaId: a.etapaId,
     });
-    if (!id) throw new ConvexError("Não foi possível criar o negócio: o funil não tem etapas.");
+    if (!id) throw new ConvexError("Não foi possível criar o cartão: o funil não tem etapas.");
     return id;
   },
 });
@@ -272,10 +270,7 @@ export const criarManual = mutation({
 export const editar = mutation({
   args: { id: v.id("negocios"), nota: v.optional(v.string()), ...vDados },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx, "funis", "editar");
-    const acesso = await lerAcesso(ctx);
-    const n = await ctx.db.get(a.id);
-    if (!n) throw new ConvexError("Este negócio já não existe.");
+    const { n, acesso } = await exigirNegocio(ctx, a.id, "editar");
     const d = limparDados(a);
     /* Sem "Ver valores", o valor nem chegou ao ecrã: não se apaga por isso. */
     const valor = temCapacidade(acesso, "valores") ? d.valor : n.valor;
@@ -293,25 +288,21 @@ export const editar = mutation({
 export const notar = mutation({
   args: { id: v.id("negocios"), texto: v.string() },
   handler: async (ctx, { id, texto }) => {
-    await exigirAdmin(ctx, "funis", "editar");
-    const acesso = await lerAcesso(ctx);
+    const { acesso } = await exigirNegocio(ctx, id, "editar");
     const t = texto.trim();
     if (!t) throw new ConvexError("A nota está vazia.");
     if (t.length > 4000) throw new ConvexError("A nota tem de caber em 4000 caracteres.");
-    if (!(await ctx.db.get(id))) throw new ConvexError("Este negócio já não existe.");
     await ctx.db.insert("negocioAtividades", { negocioId: id, tipo: "nota", por: quem(acesso), texto: t, em: Date.now() });
     await ctx.db.patch(id, { atualizadoEm: Date.now() });
     return null;
   },
 });
 
-/* Tira o cartão do quadro. O pedido, a lead ou a reserva de onde veio ficam. */
+/* Tira o cartão do quadro. A reserva, o pedido ou a candidatura ficam. */
 export const apagar = mutation({
   args: { id: v.id("negocios") },
   handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "funis", "editar", "apagar");
-    const n = await ctx.db.get(id);
-    if (!n) return null;
+    await exigirNegocio(ctx, id, "editar", "apagar");
     for (const a of await ctx.db.query("negocioAtividades").withIndex("by_negocio", (q) => q.eq("negocioId", id)).collect()) {
       await ctx.db.delete(a._id);
     }
@@ -320,75 +311,36 @@ export const apagar = mutation({
   },
 });
 
-/* ─── Funis ───────────────────────────────────────────────────────────── */
+/* ─── Etapas ──────────────────────────────────────────────────────────── */
 
 /*
- * Cria ou altera um funil. As etapas que saem têm de estar vazias (o quadro
- * perdia os cartões); as origens que este funil passa a ter saem do funil
- * onde estavam — cada lead cai num sítio só.
+ * As etapas de um funil, pela ordem do quadro. As que saem têm de estar
+ * vazias (o quadro perdia os cartões); tem de ficar pelo menos uma aberta,
+ * onde caem os que chegam.
  */
-export const guardarFunil = mutation({
-  args: {
-    id: v.optional(v.id("funis")),
-    nome: v.string(),
-    etapas: v.array(vEtapa),
-    origens: v.array(v.string()),
-  },
+export const guardarEtapas = mutation({
+  args: { chave: vChave, etapas: v.array(vEtapa) },
   handler: async (ctx, a) => {
-    await exigirAdmin(ctx, "funis", "editar");
-    const nome = a.nome.trim().replace(/\s+/g, " ");
-    const erros: Record<string, string> = {};
-    if (!nome) erros.nome = "Falta o nome do funil.";
+    const funil = await funilPorChave(ctx, a.chave);
+    await exigirFunil(ctx, funil, "editar");
     const etapas = a.etapas.map((e) => ({ ...e, nome: e.nome.trim().replace(/\s+/g, " ") }));
-    if (!etapas.some((e) => e.tipo === "aberta")) erros.etapas = "O funil precisa de pelo menos uma etapa aberta, onde caem as leads.";
-    if (etapas.some((e) => !e.nome)) erros.etapas = "Todas as etapas precisam de nome.";
-    if (new Set(etapas.map((e) => e.id)).size !== etapas.length) erros.etapas = "Há etapas repetidas.";
-    if (etapas.length > 12) erros.etapas = "Até 12 etapas: mais do que isso já não cabe no quadro.";
-    const origens = [...new Set(a.origens)];
-    if (origens.some((o) => !eOrigem(o))) erros.origens = "Há uma origem que não existe.";
-
-    const atual = a.id ? await ctx.db.get(a.id) : null;
-    if (a.id && !atual) throw new ConvexError("Este funil já não existe.");
-    if (atual) {
-      for (const velha of atual.etapas) {
-        if (etapas.some((e) => e.id === velha.id)) continue;
-        const um = await ctx.db
-          .query("negocios")
-          .withIndex("by_funil_etapa", (q) => q.eq("funilId", atual._id).eq("etapaId", velha.id))
-          .first();
-        if (um) {
-          erros.etapas = `A etapa «${velha.nome}» ainda tem negócios. Mova-os para outra antes de a tirar.`;
-          break;
-        }
-      }
+    const erro = (m: string) => {
+      throw new ConvexError({ tipo: "validacao", mensagem: m, erros: { etapas: m } });
+    };
+    if (!etapas.some((e) => e.tipo === "aberta")) erro("Tem de haver pelo menos uma etapa aberta: é onde caem os que chegam.");
+    if (etapas.some((e) => !e.nome)) erro("Todas as etapas precisam de nome.");
+    if (etapas.some((e) => e.nome.length > 40)) erro("O nome de uma etapa tem de caber em 40 caracteres.");
+    if (new Set(etapas.map((e) => e.id)).size !== etapas.length) erro("Há etapas repetidas.");
+    if (etapas.length > 10) erro("Até 10 etapas: mais do que isso já não cabe no quadro.");
+    for (const velha of funil!.etapas) {
+      if (etapas.some((e) => e.id === velha.id)) continue;
+      const um = await ctx.db
+        .query("negocios")
+        .withIndex("by_funil_etapa", (q) => q.eq("funilId", funil!._id).eq("etapaId", velha.id))
+        .first();
+      if (um) erro(`A etapa «${velha.nome}» ainda tem cartões. Mova-os para outra antes de a tirar.`);
     }
-    if (Object.keys(erros).length) throw new ConvexError({ tipo: "validacao", erros });
-
-    const agora = Date.now();
-    let id: Id<"funis">;
-    if (atual) {
-      await ctx.db.patch(atual._id, { nome, etapas, origens, atualizadoEm: agora });
-      id = atual._id;
-    } else {
-      const ultimo = await ctx.db.query("funis").withIndex("by_ordem").order("desc").first();
-      id = await ctx.db.insert("funis", { nome, etapas, origens, ordem: (ultimo?.ordem ?? 0) + 1, criadoEm: agora, atualizadoEm: agora });
-    }
-    for (const outro of await ctx.db.query("funis").collect()) {
-      if (outro._id === id) continue;
-      const ficam = outro.origens.filter((o) => !origens.includes(o));
-      if (ficam.length !== outro.origens.length) await ctx.db.patch(outro._id, { origens: ficam, atualizadoEm: agora });
-    }
-    return id;
-  },
-});
-
-export const removerFunil = mutation({
-  args: { id: v.id("funis") },
-  handler: async (ctx, { id }) => {
-    await exigirAdmin(ctx, "funis", "editar", "apagar");
-    const um = await ctx.db.query("negocios").withIndex("by_funil_criado", (q) => q.eq("funilId", id)).first();
-    if (um) throw new ConvexError("Este funil ainda tem negócios. Apague-os ou mude-os de funil antes.");
-    await ctx.db.delete(id);
+    await ctx.db.patch(funil!._id, { etapas, atualizadoEm: Date.now() });
     return null;
   },
 });
@@ -409,47 +361,48 @@ export const entrarReserva = internalMutation({
 });
 
 /*
- * Os três funis com que se começa (lib/funis.ts), e o módulo aos cargos que
- * já tratam dos pedidos, ao mesmo nível. Pode correr mais de uma vez: o que
- * já existe fica.
+ * Os três funis, com as etapas com que começam (lib/funis.ts). Pode correr
+ * mais de uma vez: o que já existe fica. Apaga os da primeira versão (sem
+ * chave: Pedidos, Parceiros, Reservas à escolha), com os seus cartões, e o
+ * módulo «funis» que essa versão deu aos cargos.
  *   npx convex run funis:criarFunisIniciais
  */
 export const criarFunisIniciais = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const existentes = await ctx.db.query("funis").collect();
-    const feitos: string[] = [];
-    let ordem = existentes.reduce((m, f) => Math.max(m, f.ordem), 0);
-    const ocupadas = new Set(existentes.flatMap((f) => f.origens));
     const agora = Date.now();
-    for (const f of FUNIS_INICIAIS) {
-      if (existentes.some((x) => x.nome === f.nome)) continue;
-      await ctx.db.insert("funis", {
-        nome: f.nome,
-        etapas: f.etapas,
-        origens: f.origens.filter((o) => !ocupadas.has(o)),
-        ordem: ++ordem,
-        criadoEm: agora,
-        atualizadoEm: agora,
-      });
-      feitos.push(f.nome);
+    let apagados = 0;
+    for (const f of await ctx.db.query("funis").collect()) {
+      if (eChaveFunil(f.chave)) continue;
+      for (const n of await ctx.db.query("negocios").withIndex("by_funil_criado", (q) => q.eq("funilId", f._id)).collect()) {
+        for (const a of await ctx.db.query("negocioAtividades").withIndex("by_negocio", (q) => q.eq("negocioId", n._id)).collect()) {
+          await ctx.db.delete(a._id);
+        }
+        await ctx.db.delete(n._id);
+        apagados++;
+      }
+      await ctx.db.delete(f._id);
     }
-    const cargos: string[] = [];
+    const criados: string[] = [];
+    for (const chave of CHAVES_FUNIL) {
+      if (await funilPorChave(ctx, chave)) continue;
+      await ctx.db.insert("funis", { chave, etapas: FUNIS[chave].etapas, criadoEm: agora, atualizadoEm: agora });
+      criados.push(chave);
+    }
     for (const c of await ctx.db.query("cargos").collect()) {
-      const pedidos = c.permissoes.find((p) => p.modulo === "pedidos");
-      if (!pedidos || c.permissoes.some((p) => p.modulo === "funis")) continue;
-      await ctx.db.patch(c._id, { permissoes: [...c.permissoes, { modulo: "funis", nivel: pedidos.nivel }], actualizadoEm: agora });
-      cargos.push(`${c.nome} (${pedidos.nivel})`);
+      if (c.permissoes.some((p) => p.modulo === "funis")) {
+        await ctx.db.patch(c._id, { permissoes: c.permissoes.filter((p) => p.modulo !== "funis"), actualizadoEm: agora });
+      }
     }
-    return { funis: feitos, cargos };
+    return { criados, cartoesAntigosApagados: apagados };
   },
 });
 
 /*
- * O que já estava em aberto quando os funis chegaram, para o quadro não
- * arrancar vazio: os pedidos e as leads de parceiros por tratar ou em curso
- * dos últimos `dias`, e as reservas pagas com viagem daqui para a frente.
- * Os por tratar ficam na 1.ª etapa, os em curso na 2.ª. Não repete.
+ * O que já estava em aberto quando os funis chegaram, para os quadros não
+ * arrancarem vazios: os pedidos e as candidaturas por tratar ou em análise
+ * dos últimos `dias`, e as reservas pagas com viagem daqui para a frente. Os
+ * por tratar ficam na 1.ª etapa, os em curso na 2.ª. Não repete.
  *   npx convex run funis:preencher '{"dias":30}'
  */
 export const preencher = internalMutation({
@@ -460,8 +413,8 @@ export const preencher = internalMutation({
     const conta = (k: string, id: unknown) => {
       if (id) contagem[k] = (contagem[k] ?? 0) + 1;
     };
-    /* Os estados de cada tabela (pedidos.ts → ESTADOS). */
-    const EM_CURSO = new Set(["read", "inProgress", "reviewing", "contacted", "qualified"]);
+    /* Os estados de cada tabela (pedidos.ts e candidaturas.ts). */
+    const EM_CURSO = new Set(["read", "inProgress", "reviewing"]);
     const FECHADO = new Set(["archived", "resolved", "approved", "rejected"]);
     const tabelas = [
       "contactSubmissions",
@@ -470,7 +423,8 @@ export const preencher = internalMutation({
       "weddingQuoteSubmissions",
       "schoolQuoteSubmissions",
       "corporateRequests",
-      "partnerLeads",
+      "driverApplications",
+      "partnerApplications",
     ] as const;
     for (const t of tabelas) {
       const docs = await ctx.db.query(t).withIndex("by_creation_time", (q) => q.gt("_creationTime", desde)).collect();

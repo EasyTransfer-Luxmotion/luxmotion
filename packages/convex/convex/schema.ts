@@ -1894,15 +1894,16 @@ export default defineSchema({
     .index("by_cargo", ["cargoId", "em"])
     .index("by_colaborador", ["colaboradorId", "em"]),
   /*
-   * Funis em kanban (funis.ts): substituem o Pipedrive. Cada lead do site, lead
-   * de parceiro e reserva paga cai sozinha na 1.ª etapa do funil que tem a sua
-   * origem (lib/funilEntrada.ts), na mesma transação em que é gravada.
-   * As etapas vivem dentro do funil, com um id que não muda quando se lhes muda
-   * o nome — os cartões apontam para o id.
+   * Os funis em kanban (funis.ts): um por ecrã da Operação — reservas,
+   * pedidos, candidaturas (lib/funis.ts). Cada reserva paga, pedido do site e
+   * candidatura cai sozinho na 1.ª etapa aberta do seu funil
+   * (lib/funilEntrada.ts), na mesma transação em que é gravado; substituem o
+   * Pipedrive. As etapas configuram-se e têm um id que não muda quando se
+   * lhes muda o nome — os cartões apontam para o id.
    */
   funis: defineTable({
-    nome: v.string(),
-    ordem: v.number(),
+    /* lib/funis.ts → CHAVES_FUNIL: reservas, pedidos, candidaturas. */
+    chave: v.string(),
     etapas: v.array(
       v.object({
         id: v.string(),
@@ -1911,11 +1912,9 @@ export default defineSchema({
         tipo: v.union(v.literal("aberta"), v.literal("ganho"), v.literal("perdido")),
       }),
     ),
-    /* lib/funis.ts → ORIGENS_FUNIL. Cada origem está num funil só. */
-    origens: v.array(v.string()),
     criadoEm: v.number(),
     atualizadoEm: v.number(),
-  }).index("by_ordem", ["ordem"]),
+  }).index("by_chave", ["chave"]),
 
   negocios: defineTable({
     funilId: v.id("funis"),

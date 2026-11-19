@@ -1,6 +1,7 @@
 /*
- * Como uma lead cai no funil: na mesma transação em que o formulário a grava,
- * na 1.ª etapa aberta do funil que tem a sua origem, no topo da coluna.
+ * Como uma reserva paga, um pedido ou uma candidatura cai no funil do seu
+ * ecrã (lib/funis.ts): na mesma transação em que é gravado, na 1.ª etapa
+ * aberta, no topo da coluna.
  *
  * É o que antes fazia a fila do Pipedrive (lib/pipedriveFila.ts), e pela mesma
  * razão vive na transação: escrita depois, numa action, duas submissões
@@ -8,18 +9,20 @@
  * reserva re-entregue pelo Stripe não abre um segundo negócio.
  *
  * O título, a pessoa, o valor e o detalhe vêm dos `mapear*` de
- * lib/pipedriveMapa.ts, que já escolhem à mão o que sai de cada formulário (as
- * candidaturas trazem IBAN e documentos; não entram nos funis).
+ * lib/pipedriveMapa.ts, que já escolhem à mão o que sai de cada formulário:
+ * das candidaturas não sai IBAN, NIF nem documentos — ficam na ficha da
+ * candidatura, que o cartão abre.
  */
 
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { eOrigem, type OrigemFunil } from "./funis";
+import { eOrigem, funilDaOrigem as chaveDaOrigem, type OrigemFunil } from "./funis";
 import {
   mapearContactQuote,
   mapearContactSubmission,
   mapearCorporateRequest,
-  mapearPartnerLead,
+  mapearDriverApplication,
+  mapearPartnerApplication,
   mapearReservaPaga,
   mapearSchoolQuote,
   mapearTourInquiry,
@@ -66,8 +69,8 @@ type Novo = {
 };
 
 export async function funilDaOrigem(ctx: MutationCtx, origem: OrigemFunil): Promise<Doc<"funis"> | null> {
-  const funis = await ctx.db.query("funis").withIndex("by_ordem").collect();
-  return funis.find((f) => f.origens.includes(origem)) ?? null;
+  const chave = chaveDaOrigem(origem);
+  return await ctx.db.query("funis").withIndex("by_chave", (q) => q.eq("chave", chave)).first();
 }
 
 /* O número que põe um cartão no topo da coluna. */
@@ -101,7 +104,7 @@ export async function colocarNoFunil(ctx: MutationCtx, n: Novo): Promise<Id<"neg
     abertas[Math.min(n.etapaAberta ?? 0, abertas.length - 1)] ||
     funil.etapas[0];
   if (!etapa) {
-    console.warn(`[Funis] O funil "${funil.nome}" não tem etapas — o cartão não foi criado.`);
+    console.warn(`[Funis] O funil "${funil.chave}" não tem etapas — o cartão não foi criado.`);
     return null;
   }
   const agora = Date.now();
@@ -127,14 +130,14 @@ export async function colocarNoFunil(ctx: MutationCtx, n: Novo): Promise<Id<"neg
     negocioId: id,
     tipo: "criado",
     por: n.por,
-    texto: `Em ${funil.nome} → ${etapa.nome}`,
+    texto: etapa.nome,
     em: criadoEm,
   });
   return id;
 }
 
-/* Um formulário de pedido ou de parceiro, já mapeado. As outras tabelas da
-   fila antiga (newsletter, candidaturas) não são negócios: devolve null. */
+/* Um pedido do site ou uma candidatura, já mapeado. As outras tabelas da
+   fila antiga (newsletter, leads de parceiros) não têm funil: devolve null. */
 export async function lerLead(ctx: MutationCtx, tabela: TabelaLead, id: string): Promise<LeadPipedrive | null> {
   switch (tabela) {
     case "contactSubmissions": {
@@ -161,9 +164,13 @@ export async function lerLead(ctx: MutationCtx, tabela: TabelaLead, id: string):
       const d = await ctx.db.get(id as Id<typeof tabela>);
       return d ? mapearCorporateRequest(d) : null;
     }
-    case "partnerLeads": {
+    case "driverApplications": {
       const d = await ctx.db.get(id as Id<typeof tabela>);
-      return d ? mapearPartnerLead(d) : null;
+      return d ? mapearDriverApplication(d) : null;
+    }
+    case "partnerApplications": {
+      const d = await ctx.db.get(id as Id<typeof tabela>);
+      return d ? mapearPartnerApplication(d) : null;
     }
     default:
       return null;
