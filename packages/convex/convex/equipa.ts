@@ -241,6 +241,33 @@ export const membro = query({
   },
 });
 
+/*
+ * A ficha de um dono (ADMIN_EMAILS). Não é um registo da tabela: vive na
+ * variável do servidor. Mostra o que fez na equipa (o registo guarda o
+ * email de quem fez). Só para emails que estão mesmo na variável — não
+ * serve para sondar o registo de qualquer pessoa por email.
+ */
+export const dono = query({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    await exigirAdmin(ctx, "equipa", "ver");
+    const e = email.trim().toLowerCase();
+    if (!donos().includes(e)) return null;
+    const colaborador = await ctx.db
+      .query("colaboradores")
+      .withIndex("by_email", (q) => q.eq("email", e))
+      .first();
+    /* Sem índice por autor: são poucas linhas, e as últimas chegam. */
+    const recentes = await ctx.db.query("registoEquipa").withIndex("by_em").order("desc").take(500);
+    return {
+      email: e,
+      nome: colaborador?.nome ?? null,
+      colaboradorId: colaborador?._id ?? null,
+      historico: recentes.filter((l) => l.ator === e).slice(0, 30).map(linhaRegisto),
+    };
+  },
+});
+
 export const registo = query({
   args: { tipo: v.optional(v.union(v.literal("cargos"), v.literal("membros"))), limite: v.optional(v.number()) },
   handler: async (ctx, { tipo, limite }) => {
