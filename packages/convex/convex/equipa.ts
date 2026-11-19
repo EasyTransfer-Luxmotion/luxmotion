@@ -135,9 +135,16 @@ export const lista = query({
     ]);
     const nomeCargo = new Map(cargos.map((c) => [c._id as string, c.nome]));
     const listaDonos = donos();
+    /* A última linha do registo de cada cargo: quem lhe mexeu por último,
+       para a lista. São poucos cargos; uma leitura por cada chega. */
+    const ultimas = await Promise.all(
+      cargos.map((c) =>
+        ctx.db.query("registoEquipa").withIndex("by_cargo", (q) => q.eq("cargoId", c._id)).order("desc").first(),
+      ),
+    );
     return {
       cargos: cargos
-        .map((c) => {
+        .map((c, i) => {
           const membros = colaboradores
             .filter((p) => p.cargoId === c._id)
             .sort((a, b) => a.nome.localeCompare(b.nome, "pt"))
@@ -151,6 +158,7 @@ export const lista = query({
             pessoas: membros.length,
             membros,
             actualizadoEm: c.actualizadoEm,
+            alteradoPor: ultimas[i]?.ator ?? null,
           };
         })
         .sort((a, b) => a.nome.localeCompare(b.nome, "pt")),
