@@ -103,6 +103,15 @@ export async function notificarPedido(ctx: MutationCtx, tabela: Exclude<TabelaLe
 /* "Avenida da Liberdade 1, 1250-096 Lisboa, Portugal" → "Avenida da Liberdade 1". */
 const curto = (s?: string) => (s ?? "").split(",")[0]!.trim().slice(0, 40);
 
+export const AVISO_VOLTA_SEM_PRECO = "Volta ligada sem preço (0 €): confirmar com o cliente se a volta existe antes de agendar.";
+
+/* Uma volta que segue a ida para a operação mas não foi paga. Não se olha
+   ao flightType: a volta nasce sem ele (orders.createReturnOrder) e só o
+   ganha no passo da viagem. */
+export function voltaSemPreco(volta: Doc<"orders"> | null): boolean {
+  return Boolean(volta && !((volta.totalAmount ?? 0) > 0));
+}
+
 export function construirReserva(
   ida: Doc<"orders">,
   volta: Doc<"orders"> | null,
@@ -115,11 +124,17 @@ export function construirReserva(
   return {
     chave: `reserva:${ida._id}`,
     tipo: "reserva",
-    titulo: extra.dinheiro ? "Nova reserva · paga em dinheiro" : tour ? "Nova reserva · tour ou evento" : "Nova reserva paga",
+    titulo: voltaSemPreco(volta)
+      ? "Nova reserva · volta sem preço, confirmar"
+      : extra.dinheiro
+        ? "Nova reserva · paga em dinheiro"
+        : tour
+          ? "Nova reserva · tour ou evento"
+          : "Nova reserva paga",
     detalhe: [ida.orderNumber, nome, rota].filter(Boolean).join(" · "),
     href: `/orders/${encodeURIComponent(ida.orderNumber ?? ida._id)}`,
     valor: valor || undefined,
     /* O servidor aceitou um total abaixo do esperado (orders.startPaymentAction). */
-    tom: ida.pricingWarning ? "aviso" : "normal",
+    tom: ida.pricingWarning || voltaSemPreco(volta) ? "aviso" : "normal",
   };
 }

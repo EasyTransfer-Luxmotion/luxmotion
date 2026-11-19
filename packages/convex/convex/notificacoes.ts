@@ -3,7 +3,7 @@ import { internalMutation, mutation, query, type QueryCtx } from "./_generated/s
 import type { Doc } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, permite, type Acesso } from "./lib/admin";
 import type { ModuloPermissao } from "./lib/permissoes";
-import { construirPedido, construirReserva, notificar, nomeDe } from "./lib/notificar";
+import { AVISO_VOLTA_SEM_PRECO, construirPedido, construirReserva, notificar, nomeDe, voltaSemPreco } from "./lib/notificar";
 
 /*
  * O sininho do back-office: o que entrou de novo — reservas pagas, pedidos,
@@ -200,13 +200,24 @@ export const registarReserva = internalMutation({
     const eVolta = Boolean(outra && outra._creationTime < o._creationTime);
     const ida = eVolta ? outra! : o;
     const volta = eVolta ? o : outra;
+    /* Volta paga a 0 €: foi assim que ficou a ET1788659482846685 (Set.),
+       ida paga a 50 € com uma volta ligada sem preço que o cliente já não
+       queria. A operação recebia duas viagens e agendava a fantasma. Fica
+       o aviso na reserva (o back-office mostra o pricingWarning) e no sino,
+       para alguém confirmar com o cliente antes de mandar o motorista. */
+    let idaFinal = ida;
+    if (voltaSemPreco(volta) && !(ida.pricingWarning ?? "").includes(AVISO_VOLTA_SEM_PRECO)) {
+      const pricingWarning = [ida.pricingWarning, AVISO_VOLTA_SEM_PRECO].filter(Boolean).join(" ");
+      await ctx.db.patch(ida._id, { pricingWarning });
+      idaFinal = { ...ida, pricingWarning };
+    }
     let produto: string | undefined;
     if (ida.tourBookingId) {
       const b = await ctx.db.get(ida.tourBookingId);
       const p = b?.tourId ? await ctx.db.get(b.tourId) : b?.eventId ? await ctx.db.get(b.eventId) : null;
       produto = p?.title;
     }
-    await notificar(ctx, construirReserva(ida, volta, { dinheiro, produto }));
+    await notificar(ctx, construirReserva(idaFinal, volta, { dinheiro, produto }));
   },
 });
 
