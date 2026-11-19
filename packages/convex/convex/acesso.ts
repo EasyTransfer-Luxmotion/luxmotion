@@ -108,7 +108,7 @@ export const boasVindas = query({
       .withIndex("by_email", (q) => q.eq("email", acesso.email!))
       .first();
     if (!c || c.estado !== "activo" || c.boasVindasEm) return null;
-    return { nome: c.nome, funcao: c.funcao ?? null, cargo: acesso.cargo, idioma: c.idioma ?? "pt" };
+    return { nome: c.nome, cargo: acesso.cargo, idioma: c.idioma ?? "pt" };
   },
 });
 

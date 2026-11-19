@@ -177,7 +177,6 @@ export const lista = query({
           criadoEm: p.criadoEm,
           actualizadoEm: p.actualizadoEm,
           ultimaEntradaEm: p.ultimaEntradaEm ?? null,
-          funcao: p.funcao ?? null,
         }))
         .sort((a, b) => a.nome.localeCompare(b.nome, "pt")),
       donos: listaDonos,
@@ -237,7 +236,6 @@ export const membro = query({
       versao: p.actualizadoEm,
       criadoEm: p.criadoEm,
       ultimaEntradaEm: p.ultimaEntradaEm ?? null,
-      funcao: p.funcao ?? null,
       telefone: p.telefone ?? null,
       idioma: p.idioma ?? "pt",
       mensagemConvite: p.mensagemConvite ?? null,
@@ -417,7 +415,6 @@ export const guardarColaborador = mutation({
     cargoId: v.optional(v.id("cargos")),
     /* Opcionais para os ecrãs de antes destes campos: sem eles, ficam os
        que a pessoa tinha. */
-    funcao: v.optional(v.string()),
     telefone: v.optional(v.string()),
     idioma: v.optional(v.union(v.literal("pt"), v.literal("en"))),
     mensagemConvite: v.optional(v.string()),
@@ -427,12 +424,10 @@ export const guardarColaborador = mutation({
     verificar(acesso, "equipa", "editar");
     const email = a.email.trim().toLowerCase();
     const nome = a.nome.trim().replace(/\s+/g, " ");
-    const funcao = a.funcao === undefined ? undefined : a.funcao.trim().replace(/\s+/g, " ");
     const telefone = a.telefone === undefined ? undefined : a.telefone.trim().replace(/\s+/g, " ");
     const mensagemConvite = a.mensagemConvite === undefined ? undefined : a.mensagemConvite.trim();
     const erros: Record<string, string> = {};
     if (!nome) erros.nome = "Falta o nome da pessoa.";
-    if (funcao && funcao.length > 60) erros.funcao = "A função tem de caber em 60 caracteres.";
     if (telefone && !/^\+?[\d ()-]{6,20}$/.test(telefone)) erros.telefone = "O telemóvel só leva algarismos, espaços e o + do indicativo.";
     if (mensagemConvite && mensagemConvite.length > 600) erros.mensagemConvite = "A mensagem tem de caber em 600 caracteres.";
     if (!email) erros.email = "Falta o email com que a pessoa entra.";
@@ -459,7 +454,6 @@ export const guardarColaborador = mutation({
         estado: "activo",
         criadoEm: agora,
         actualizadoEm: agora,
-        funcao: funcao || undefined,
         telefone: telefone || undefined,
         idioma: a.idioma,
         mensagemConvite: mensagemConvite || undefined,
@@ -491,7 +485,6 @@ export const guardarColaborador = mutation({
       cargoId: cargo._id,
       actualizadoEm: agora,
       /* undefined no patch apaga o campo: só se mexe no que veio. */
-      ...(funcao !== undefined && { funcao: funcao || undefined }),
       ...(telefone !== undefined && { telefone: telefone || undefined }),
       ...(a.idioma !== undefined && { idioma: a.idioma }),
       ...(mensagemConvite !== undefined && { mensagemConvite: mensagemConvite || undefined }),
@@ -501,7 +494,6 @@ export const guardarColaborador = mutation({
       antes.nome !== nome ? `Nome: ${antes.nome} → ${nome}` : "",
       antes.email !== email ? `Email: ${antes.email} → ${email}` : "",
       cargoAntes ? `Cargo: ${cargoAntes} → ${cargo.nome}` : "",
-      funcao !== undefined && (antes.funcao ?? "") !== funcao ? `Função: ${antes.funcao || "—"} → ${funcao || "—"}` : "",
       telefone !== undefined && (antes.telefone ?? "") !== telefone ? `Telemóvel: ${antes.telefone || "—"} → ${telefone || "—"}` : "",
       a.idioma !== undefined && (antes.idioma ?? "pt") !== a.idioma ? `Idioma: ${antes.idioma === "en" ? "inglês" : "português"} → ${a.idioma === "en" ? "inglês" : "português"}` : "",
     ].filter(Boolean);
@@ -675,7 +667,6 @@ export const dadosDoConvite = internalQuery({
       nome: p.nome,
       email: p.email,
       cargo: c?.nome ?? null,
-      funcao: p.funcao ?? null,
       idioma: p.idioma ?? "pt",
       mensagem: p.mensagemConvite ?? null,
       jaEntrou: Boolean(p.ultimaEntradaEm),
@@ -717,7 +708,7 @@ export const enviarConvite = internalAction({
     }
     const primeiro = d.nome.split(" ")[0] ?? d.nome;
     const en = d.idioma === "en";
-    const como = d.funcao ?? d.cargo;
+    const como = d.cargo;
     /* A mensagem de quem convida, como citação: quebras de linha mantidas,
        e escapada como o resto (vem de um campo de texto livre). */
     const mensagem = d.mensagem
