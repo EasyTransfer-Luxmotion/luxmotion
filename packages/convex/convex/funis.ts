@@ -7,6 +7,7 @@ import { CHAVES_FUNIL, FUNIS, eChaveFunil, tituloDaOrigem, type ChaveFunil, type
 import { colocarNoFunil, entrarNoFunil, entrarReservaNoFunil } from "./lib/funilEntrada";
 import { aplicarEtapaNaOrigem } from "./lib/funilEstado";
 import type { TabelaLead } from "./lib/pipedriveMapa";
+import { zona } from "./candidaturas";
 
 /*
  * O quadro (kanban) de cada ecrã da Operação: Reservas, Pedidos e
@@ -87,16 +88,27 @@ function cartao(acesso: Acesso, n: Doc<"negocios">) {
  */
 async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
   const base = { email: n.pessoa.email ?? null, telefone: n.pessoa.telefone ?? null };
-  if (n.origem !== "orders" || !n.origemId) return { ...base, viagem: null, metodo: null, anuncio: null, referencia: null, motorista: null };
-  const o = await ctx.db.get(n.origemId as Id<"orders">);
-  return {
-    ...base,
-    viagem: o?.departureDate ? String(o.departureDate) : null,
-    metodo: o?.paymentMethod ?? null,
-    anuncio: o?.adSource?.utmSource?.trim().toLowerCase() || null,
-    referencia: o?.orderNumber ?? null,
-    motorista: o?.motorista ?? null,
-  };
+  const vazio = { viagem: null, metodo: null, anuncio: null, referencia: null, motorista: null, parceiro: null as string | null, zonas: [] as string[] };
+  if (!n.origemId) return { ...base, ...vazio };
+  if (n.origem === "orders") {
+    const o = await ctx.db.get(n.origemId as Id<"orders">);
+    return {
+      ...base,
+      ...vazio,
+      viagem: o?.departureDate ? String(o.departureDate) : null,
+      metodo: o?.paymentMethod ?? null,
+      anuncio: o?.adSource?.utmSource?.trim().toLowerCase() || null,
+      referencia: o?.orderNumber ?? null,
+      motorista: o?.motorista ?? null,
+      parceiro: o?.partnershipName ?? null,
+    };
+  }
+  /* Pedidos e candidaturas: o parceiro por onde chegou e, nas candidaturas,
+     as zonas onde trabalham. */
+  const id = ctx.db.normalizeId(n.origem as "contactSubmissions", n.origemId);
+  const d = (id ? await ctx.db.get(id) : null) as { partnershipName?: string; operatingZone?: string; operatingZones?: string[] } | null;
+  const zonas = d?.operatingZones ?? (d?.operatingZone ? [d.operatingZone] : []);
+  return { ...base, ...vazio, parceiro: d?.partnershipName ?? null, zonas: zonas.map(zona) };
 }
 
 async function cartoesDaEtapa(ctx: QueryCtx, funil: Doc<"funis">, etapa: Etapa) {

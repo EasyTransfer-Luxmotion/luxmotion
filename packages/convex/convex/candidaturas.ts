@@ -43,7 +43,8 @@ const CATEGORIAS: Record<string, string> = {
   classic: "Classic", supercar: "Supercarro", firstClass: "First Class", businessClass: "Business Class", van: "Van",
   firstClassVan: "First Class Van", vanLuxury: "Van Luxury", minibus: "Minibus", autocarro: "Autocarro",
 };
-const zona = (z: string) => ZONAS[z] ?? z;
+/* Exportada: os cartões do quadro das Candidaturas filtram pela zona (funis.ts). */
+export const zona = (z: string) => ZONAS[z] ?? z;
 const categoria = (c: string) => CATEGORIAS[c] ?? c;
 const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
