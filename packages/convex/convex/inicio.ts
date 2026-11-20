@@ -15,7 +15,7 @@ import { codigoDoAeroporto } from "./lib/precoTransfer";
  * null sem acesso, como as outras queries que o dashboard chama de cima.
  */
 
-const ESTADOS_DE_SERVICO = new Set(["paid", "confirmed", "completed"]);
+export const ESTADOS_DE_SERVICO = new Set(["paid", "confirmed", "completed"]);
 /* Um dia com mais do que isto já não cabe numa lista para ler de relance; a
    lista de Reservas continua a ter tudo. */
 const MAXIMO = 200;
@@ -30,7 +30,7 @@ const MAXIMO = 200;
  * não se juntava às outras viagens do mesmo aeroporto. Sem nome curto (o
  * Google nem sempre o dá), fica o primeiro troço da morada.
  */
-function local(p: { location?: string; name?: string; lat?: number; lng?: number; placeId?: string } | undefined): string {
+export function local(p: { location?: string; name?: string; lat?: number; lng?: number; placeId?: string } | undefined): string {
   if (!p) return "—";
   const codigo = codigoDoAeroporto(p);
   if (codigo) return `Aeroporto (${codigo})`;
@@ -127,16 +127,16 @@ const PERIODOS = { "30d": 30, "90d": 91, "12m": 12, tudo: 0 } as const;
 type Periodo = keyof typeof PERIODOS;
 
 const diaLisboa = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" });
-const paraDia = (ms: number) => diaLisboa.format(new Date(ms));
+export const paraDia = (ms: number) => diaLisboa.format(new Date(ms));
 /* Dias desde 1970 de uma data AAAA-MM-DD, para contas de semanas. */
-const indiceDia = (d: string) => Math.round(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86_400_000);
-const deIndice = (i: number) => new Date(i * 86_400_000).toISOString().slice(0, 10);
-const somarMeses = (mes: string, n: number) => {
+export const indiceDia = (d: string) => Math.round(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86_400_000);
+export const deIndice = (i: number) => new Date(i * 86_400_000).toISOString().slice(0, 10);
+export const somarMeses = (mes: string, n: number) => {
   const t = +mes.slice(0, 4) * 12 + (+mes.slice(5, 7) - 1) + n;
   return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}`;
 };
 
-function origemNoEndereco(o: Doc<"orders">): string {
+export function origemNoEndereco(o: Doc<"orders">): string {
   const s = o.adSource?.utmSource?.trim().toLowerCase();
   if (!s) return "Origem desconhecida";
   if (s.includes("google")) return "Google";
@@ -146,7 +146,7 @@ function origemNoEndereco(o: Doc<"orders">): string {
 }
 
 /* Os códigos que o checkout e o webhook do Stripe gravam em paymentMethod. */
-const METODOS: Record<string, string> = {
+export const METODOS: Record<string, string> = {
   ccard: "Cartão",
   card: "Cartão",
   link: "Cartão (Stripe Link)",
@@ -160,12 +160,12 @@ const METODOS: Record<string, string> = {
   cash: "Dinheiro (antigo)",
   transferencia: "Transferência (antiga)",
 };
-const SEM_METODO = "Sem método registado";
+export const SEM_METODO = "Sem método registado";
 /* "Easy Transfer" é o que orders.create grava quando não veio parceria no
    endereço: é o site, não um parceiro. Contá-lo como parceiro dizia que 97%
    das reservas vinham de parcerias. */
-const SEM_PARCEIRO = "Sem parceiro (site)";
-const parceiroDe = (o: Doc<"orders">) => {
+export const SEM_PARCEIRO = "Sem parceiro (site)";
+export const parceiroDe = (o: Doc<"orders">) => {
   const p = o.partnershipName?.trim();
   return !p || p === "Easy Transfer" ? SEM_PARCEIRO : p;
 };
