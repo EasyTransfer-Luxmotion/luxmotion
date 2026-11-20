@@ -2,9 +2,10 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { exigirAdmin, lerAcesso } from "./lib/admin";
+import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
 import { RELACOES, ligarContacto, ligarOrganizacao, normalizarEmail, normalizarNome, normalizarTelefone, relacaoDaOrigem, type Relacao } from "./lib/contactos";
-import { FUNIS, segmentoDaOrigem, type ChaveFunil } from "./lib/funis";
+import { FUNIS, segmentoDaOrigem, tituloDaOrigem, type ChaveFunil } from "./lib/funis";
+import { ESTADOS_DE_SERVICO } from "./inicio";
 
 /*
  * Contactos (organizações e pessoas, em Clientes · Parceiros · Motoristas) e Parceiros → Carteira (as
@@ -113,10 +114,63 @@ async function segmentos(ctx: QueryCtx, contactos: Doc<"contactos">[], orgs: Doc
   return final;
 }
 
+/*
+ * O que cada contacto e organização já fez, para as colunas da lista:
+ * reservas pagas (ida e volta conta uma), o que gastou (as duas pernas; só
+ * com «Ver valores»), quando reservou pela última vez e quantos pedidos
+ * (cartões que não são reservas) tem. A lista tinha cinco colunas, três
+ * delas vazias em todas as linhas.
+ */
+type Historia = { reservas: number; gasto: number; ultima: number | null; pedidos: number };
+
+async function historias(ctx: QueryCtx) {
+  const pagas = (await ctx.db.query("orders").collect()).filter((o) => ESTADOS_DE_SERVICO.has(o.status));
+  const criada = new Map(pagas.map((o) => [o._id as string, o._creationTime]));
+  const porContacto = new Map<string, Historia>();
+  const porOrganizacao = new Map<string, Historia>();
+  const de = (m: Map<string, Historia>, k: string) => {
+    let h = m.get(k);
+    if (!h) m.set(k, (h = { reservas: 0, gasto: 0, ultima: null, pedidos: 0 }));
+    return h;
+  };
+  const somar = (h: Historia, o: Doc<"orders">) => {
+    const regresso = o.relatedOrderId && (criada.get(o.relatedOrderId) ?? Infinity) < o._creationTime;
+    if (!regresso) h.reservas++;
+    h.gasto += o.totalAmount ?? 0;
+    h.ultima = Math.max(h.ultima ?? 0, o._creationTime);
+  };
+  for (const o of pagas) {
+    if (o.contactoId) somar(de(porContacto, o.contactoId), o);
+    if (o.organizacaoId) somar(de(porOrganizacao, o.organizacaoId), o);
+  }
+  for (const n of await ctx.db.query("negocios").collect()) {
+    if (n.origem === "orders" || n.arquivadoEm) continue;
+    if (n.contactoId) de(porContacto, n.contactoId).pedidos++;
+    if (n.organizacaoId) de(porOrganizacao, n.organizacaoId).pedidos++;
+  }
+  return { porContacto, porOrganizacao };
+}
+
+/* De onde veio, em palavras: a primeira origem guardada no contacto. */
+function rotuloDaOrigem(origem: string | undefined): string | null {
+  if (!origem) return null;
+  if (origem === "orders") return "Reserva no site";
+  if (origem.startsWith("manual")) return "Criado à mão";
+  return tituloDaOrigem(origem);
+}
+
 export const lista = query({
   args: { tipo: vTipo, pesquisa: v.optional(v.string()), relacao: v.optional(vRelacao) },
   handler: async (ctx, { tipo, pesquisa, relacao }) => {
     await exigirAdmin(ctx, "contactos", "ver");
+    const verValores = temCapacidade(await lerAcesso(ctx), "valores");
+    const { porContacto, porOrganizacao } = await historias(ctx);
+    const colunas = (h: Historia | undefined) => ({
+      reservas: h?.reservas ?? 0,
+      gasto: verValores ? Math.round((h?.gasto ?? 0) * 100) / 100 : null,
+      ultimaReserva: h?.ultima ?? null,
+      pedidos: h?.pedidos ?? 0,
+    });
     const q = semAcentos(pesquisa?.trim() ?? "");
     const todosOrgs = await ctx.db.query("organizacoes").collect();
     const todosContactos = await ctx.db.query("contactos").collect();
@@ -153,6 +207,9 @@ export const lista = query({
             carteira: o.carteira?.estado ?? null,
             relacoes: rel.get(o._id) ?? ["clientes"],
             atualizadoEm: o.atualizadoEm,
+            origem: null as string | null,
+            desde: o.criadoEm,
+            ...colunas(porOrganizacao.get(o._id)),
           })),
       };
     }
@@ -185,6 +242,9 @@ export const lista = query({
             carteira: o?.carteira?.estado ?? null,
             relacoes: rel.get(c._id) ?? ["clientes"],
             atualizadoEm: c.atualizadoEm,
+            origem: rotuloDaOrigem(c.primeiraOrigem),
+            desde: c.criadoEm,
+            ...colunas(porContacto.get(c._id)),
           };
         }),
     };
