@@ -47,6 +47,14 @@ const DEFINICAO = [
     ],
   },
   {
+    id: "parceiros",
+    titulo: "Parceiros",
+    modulos: [
+      { chave: "parcerias", titulo: "Parcerias", ajuda: "Páginas e checkouts dos parceiros, ajuste de preço e frota." },
+      { chave: "leads", titulo: "Leads", ajuda: "Contactos que chegaram pelas páginas dos parceiros." },
+    ],
+  },
+  {
     id: "catalogo",
     titulo: "Catálogo",
     modulos: [
@@ -55,14 +63,6 @@ const DEFINICAO = [
       { chave: "corporate", titulo: "Corporate", ajuda: "Experiências corporate." },
       { chave: "extras", titulo: "Extras", ajuda: "Paragens e experiências do checkout, e extras dos tours e eventos." },
       { chave: "veiculos", titulo: "Veículos", ajuda: "Frota, preços por km e mínimos." },
-    ],
-  },
-  {
-    id: "parceiros",
-    titulo: "Parceiros",
-    modulos: [
-      { chave: "parcerias", titulo: "Parcerias", ajuda: "Páginas e checkouts dos parceiros, ajuste de preço e frota." },
-      { chave: "leads", titulo: "Leads", ajuda: "Contactos que chegaram pelas páginas dos parceiros." },
     ],
   },
   {
