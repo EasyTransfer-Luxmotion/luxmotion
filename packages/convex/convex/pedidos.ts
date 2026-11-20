@@ -156,6 +156,8 @@ export const lista = query({
     tipo: v.union(vTipo, v.literal("todos")),
     grupo: v.union(v.literal("porTratar"), v.literal("emCurso"), v.literal("fechados"), v.literal("todos")),
     pesquisa: v.optional(v.string()),
+    /* O nome do parceiro, ou "direto" para os que chegaram sem parceiro. */
+    parceiro: v.optional(v.string()),
     pagina: v.number(),
     porPagina: v.number(),
   },
@@ -176,9 +178,11 @@ export const lista = query({
       todos: doTipo.length,
     };
 
+    const parceiros = [...new Set(todos.map((x) => x.parceiro?.trim()).filter((m): m is string => Boolean(m)))].sort((x, y) => x.localeCompare(y, "pt"));
     const q = semAcentos(a.pesquisa?.trim() ?? "");
     const filtrados = doTipo
       .filter((x) => a.grupo === "todos" || x.grupo === a.grupo)
+      .filter((x) => !a.parceiro || (a.parceiro === "direto" ? !x.parceiro?.trim() : x.parceiro?.trim() === a.parceiro))
       .filter((x) => !q || [x.nome, x.empresa, x.email, x.telefone, x.linha, x.parceiro].some((c) => c && semAcentos(c).includes(q)))
       .sort((x, y) => y.recebido - x.recebido);
 
@@ -193,6 +197,7 @@ export const lista = query({
       porPagina,
       porTipo,
       porGrupo,
+      parceiros,
       newsletter: (await ctx.db.query("newsletterSubscriptions").collect()).length,
     };
   },

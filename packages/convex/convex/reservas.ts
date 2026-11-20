@@ -148,6 +148,8 @@ export const lista = query({
     metodo: v.optional(v.string()),
     /* "source:<utm_source>" ou "desconhecida". */
     origem: v.optional(v.string()),
+    /* O nome do parceiro (partnershipName), ou "direto" para os sem parceiro. */
+    parceiro: v.optional(v.string()),
     ordenar: v.optional(v.union(v.literal("viagem"), v.literal("criada"), v.literal("total"))),
     sentido: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
     pagina: v.number(),
@@ -166,12 +168,14 @@ export const lista = query({
     const origens = [...new Set(docs.map(origemAnuncio))].filter(Boolean).sort();
     const pagamentos = [...new Set(docs.map((o) => o.paymentStatus ?? "sem"))].sort();
     const metodos = [...new Set(docs.map((o) => o.paymentMethod).filter((m): m is string => Boolean(m)))].sort();
+    const parceiros = [...new Set(docs.map((o) => o.partnershipName?.trim()).filter((m): m is string => Boolean(m)))].sort((x, y) => x.localeCompare(y, "pt"));
 
     if (a.quando && !dia) {
       const hoje = hojeEmLisboa();
       docs = docs.filter((o) => (a.quando === "proximas" ? o.departureDate >= hoje : o.departureDate < hoje));
     }
     if (a.metodo) docs = docs.filter((o) => o.paymentMethod === a.metodo);
+    if (a.parceiro) docs = docs.filter((o) => (a.parceiro === "direto" ? !o.partnershipName?.trim() : o.partnershipName?.trim() === a.parceiro));
     if (a.pagamento) docs = docs.filter((o) => (o.paymentStatus ?? "sem") === a.pagamento);
     if (a.origem) {
       docs = docs.filter((o) =>
@@ -254,7 +258,7 @@ export const lista = query({
       };
     });
 
-    return { linhas, total, pagina, paginas, porPagina, origens, metodos, pagamentos, valores };
+    return { linhas, total, pagina, paginas, porPagina, origens, metodos, parceiros, pagamentos, valores };
   },
 });
 
