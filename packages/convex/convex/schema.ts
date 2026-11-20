@@ -189,6 +189,10 @@ export default defineSchema({
     paymentReturnToken: v.optional(v.string()), // token de retorno do gateway (ccard)
     paymentAmount: v.optional(v.number()),
     driverNotes: v.optional(v.string()),
+    /* Quem faz o serviço, escolhido no quadro dos Serviços ou na ficha
+       (funis.atribuirMotorista). Nome, não id: os motoristas vêm das
+       candidaturas aprovadas e dos perfis do site, e pode ser alguém de fora. */
+    motorista: v.optional(v.string()),
     selectedCheckoutAddons: v.optional(
       v.array(
         v.object({

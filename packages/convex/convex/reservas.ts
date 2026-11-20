@@ -3,6 +3,7 @@ import { internalMutation, mutation, query, type QueryCtx } from "./_generated/s
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, permite, temCapacidade } from "./lib/admin";
+import { acertarCartaoDaOrigem } from "./lib/funilEstado";
 
 /*
  * Reservas no dashboard (E2 do plano de reconstrução do back-office).
@@ -483,6 +484,8 @@ export const mudarEstado = mutation({
       nota,
       em: agora,
     });
+    /* O cartão no quadro dos Serviços acompanha (lib/funilEstado.ts). */
+    await acertarCartaoDaOrigem(ctx, "orders", o._id, a.para, quem.email ?? "");
     return { resultado: "feito" as const, para: a.para };
   },
 });

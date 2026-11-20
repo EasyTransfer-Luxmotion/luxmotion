@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
+import { acertarCartaoDaOrigem } from "./lib/funilEstado";
 
 /*
  * Operação → Pedidos no dashboard (E4). Os seis formulários de pedido do site
@@ -228,7 +229,7 @@ export const detalhe = query({
 export const mudarEstado = mutation({
   args: { tipo: vTipo, id: v.string(), estado: v.string() },
   handler: async (ctx, { tipo, id, estado }) => {
-    await exigirAdmin(ctx, "pedidos");
+    const quem = await exigirAdmin(ctx, "pedidos");
     if (!ESTADOS[tipo].includes(estado)) throw new ConvexError({ tipo: "invalido", mensagem: "Estado que este pedido não aceita." });
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     const d = nid ? await ctx.db.get(nid) : null;
@@ -236,6 +237,8 @@ export const mudarEstado = mutation({
     /* O corporate guarda quando foi revisto, como o setStatus antigo. */
     const extra = tipo === "corporate" ? { reviewedAt: Date.now() } : {};
     await ctx.db.patch(nid, { status: estado, ...extra } as never);
+    /* O cartão no quadro dos Pedidos acompanha (lib/funilEstado.ts). */
+    await acertarCartaoDaOrigem(ctx, TABELA[tipo], id, estado, quem.email ?? "");
     return { estado, grupo: grupoDe(estado) };
   },
 });

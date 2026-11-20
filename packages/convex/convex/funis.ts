@@ -5,6 +5,7 @@ import { exigirAdmin, lerAcesso, temCapacidade, type Acesso } from "./lib/admin"
 import type { Capacidade, Nivel } from "./lib/permissoes";
 import { CHAVES_FUNIL, FUNIS, eChaveFunil, tituloDaOrigem, type ChaveFunil, type Etapa } from "./lib/funis";
 import { colocarNoFunil, entrarNoFunil, entrarReservaNoFunil } from "./lib/funilEntrada";
+import { aplicarEtapaNaOrigem } from "./lib/funilEstado";
 import type { TabelaLead } from "./lib/pipedriveMapa";
 
 /*
@@ -84,7 +85,7 @@ function cartao(acesso: Acesso, n: Doc<"negocios">) {
  */
 async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
   const base = { email: n.pessoa.email ?? null, telefone: n.pessoa.telefone ?? null };
-  if (n.origem !== "orders" || !n.origemId) return { ...base, viagem: null, metodo: null, anuncio: null, referencia: null };
+  if (n.origem !== "orders" || !n.origemId) return { ...base, viagem: null, metodo: null, anuncio: null, referencia: null, motorista: null };
   const o = await ctx.db.get(n.origemId as Id<"orders">);
   return {
     ...base,
@@ -92,6 +93,7 @@ async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
     metodo: o?.paymentMethod ?? null,
     anuncio: o?.adSource?.utmSource?.trim().toLowerCase() || null,
     referencia: o?.orderNumber ?? null,
+    motorista: o?.motorista ?? null,
   };
 }
 
@@ -130,37 +132,74 @@ export const quadro = query({
   },
 });
 
+async function lerNegocio(ctx: QueryCtx, id: Id<"negocios">) {
+  const n0 = await ctx.db.get(id);
+  if (!n0) return null;
+  const { n, funil, acesso } = await exigirNegocio(ctx, id, "ver");
+  const atividades = await ctx.db
+    .query("negocioAtividades")
+    .withIndex("by_negocio", (q) => q.eq("negocioId", id))
+    .order("desc")
+    .take(100);
+  return {
+    ...cartao(acesso, n),
+    ...(await filtraveis(ctx, n)),
+    chave: funil.chave as ChaveFunil,
+    etapas: funil.etapas,
+    nota: n.nota ?? null,
+    origemId: n.origemId ?? null,
+    origemTitulo: tituloDaOrigem(n.origem),
+    motivoPerda: n.motivoPerda ?? null,
+    atualizadoEm: n.atualizadoEm,
+    atividades: atividades.map((a) => ({ id: a._id, tipo: a.tipo, por: a.por, texto: a.texto ?? null, em: a.em })),
+  };
+}
+
 export const negocio = query({
   args: { id: v.id("negocios") },
-  handler: async (ctx, { id }) => {
-    const n0 = await ctx.db.get(id);
-    if (!n0) return null;
-    const { n, funil, acesso } = await exigirNegocio(ctx, id, "ver");
-    const atividades = await ctx.db
-      .query("negocioAtividades")
-      .withIndex("by_negocio", (q) => q.eq("negocioId", id))
-      .order("desc")
-      .take(100);
-    /* Para o link "Abrir a reserva": as reservas abrem pelo número. */
-    let referencia: string | null = null;
-    if (n.origem === "orders" && n.origemId) {
-      const o = await ctx.db.get(n.origemId as Id<"orders">);
-      referencia = o?.orderNumber ?? null;
+  handler: async (ctx, { id }) => lerNegocio(ctx, id),
+});
+
+/*
+ * O cartão de um registo, para a ficha desse registo (a página da reserva,
+ * a folha do pedido ou da candidatura) mostrar a etapa, o motorista e as
+ * notas: uma ficha só por cada coisa. Numa reserva, a volta encontra o
+ * cartão da ida.
+ */
+export const negocioDaOrigem = query({
+  args: { origem: v.string(), origemId: v.string() },
+  handler: async (ctx, { origem, origemId }) => {
+    let chave = origemId;
+    if (origem === "orders") {
+      const id = ctx.db.normalizeId("orders", origemId);
+      const o = id ? await ctx.db.get(id) : null;
+      if (!o) return null;
+      const outra = o.relatedOrderId ? await ctx.db.get(o.relatedOrderId) : null;
+      if (outra && outra._creationTime < o._creationTime) chave = outra._id;
     }
-    return {
-      ...cartao(acesso, n),
-      chave: funil.chave as ChaveFunil,
-      etapas: funil.etapas,
-      email: n.pessoa.email ?? null,
-      telefone: n.pessoa.telefone ?? null,
-      nota: n.nota ?? null,
-      origemId: n.origemId ?? null,
-      origemTitulo: tituloDaOrigem(n.origem),
-      referencia,
-      motivoPerda: n.motivoPerda ?? null,
-      atualizadoEm: n.atualizadoEm,
-      atividades: atividades.map((a) => ({ id: a._id, tipo: a.tipo, por: a.por, texto: a.texto ?? null, em: a.em })),
-    };
+    const n = await ctx.db
+      .query("negocios")
+      .withIndex("by_origem", (q) => q.eq("origem", origem).eq("origemId", chave))
+      .first();
+    return n ? await lerNegocio(ctx, n._id) : null;
+  },
+});
+
+/* As sugestões para o motorista: os das candidaturas aprovadas e os perfis
+   do site. Pode escrever-se outro nome. */
+export const motoristas = query({
+  args: {},
+  handler: async (ctx) => {
+    await exigirAdmin(ctx, "reservas", "ver");
+    const nomes = new Set<string>();
+    for (const c of await ctx.db.query("driverApplications").collect()) {
+      if (c.status === "approved" && c.fullName?.trim()) nomes.add(c.fullName.trim());
+    }
+    for (const d of await ctx.db.query("drivers").collect()) if (d.name?.trim()) nomes.add(d.name.trim());
+    for (const o of await ctx.db.query("orders").withIndex("by_creation_time").order("desc").take(300)) {
+      if (o.motorista?.trim()) nomes.add(o.motorista.trim());
+    }
+    return [...nomes].sort((a, b) => a.localeCompare(b, "pt"));
   },
 });
 
@@ -213,6 +252,11 @@ export const mover = mutation({
         ? await ordemAntesDe(ctx, vizinho)
         : await ordemNoFim(ctx, n.funilId, etapaId);
 
+    /* O registo acompanha (lib/funilEstado.ts): uma reserva em Cancelada
+       fica cancelada. Antes de mexer no cartão, para que uma passagem
+       impossível não o deixe numa etapa que o registo não acompanha. */
+    if (mudaEtapa) await aplicarEtapaNaOrigem(ctx, n, funil.etapas, etapaId, quem(acesso));
+
     const agora = Date.now();
     await ctx.db.patch(id, {
       etapaId,
@@ -235,6 +279,44 @@ export const mover = mutation({
         em: agora,
       });
     }
+    return null;
+  },
+});
+
+/*
+ * Quem faz o serviço. Grava-se na reserva (ida e volta) e, se o cartão
+ * ainda está na 1.ª etapa (por atribuir), passa à seguinte — escolher o
+ * motorista é o que essa passagem quer dizer. Vazio tira o motorista.
+ */
+export const atribuirMotorista = mutation({
+  args: { id: v.id("negocios"), motorista: v.string() },
+  handler: async (ctx, { id, motorista }) => {
+    const { n, funil, acesso } = await exigirNegocio(ctx, id, "editar");
+    if (n.origem !== "orders" || !n.origemId) throw new ConvexError("Só os serviços têm motorista.");
+    const nome = motorista.trim().replace(/\s+/g, " ");
+    if (nome.length > 80) throw new ConvexError("O nome do motorista tem de caber em 80 caracteres.");
+    const ida = await ctx.db.get(n.origemId as Id<"orders">);
+    if (!ida) throw new ConvexError("Esta reserva já não existe.");
+    const agora = Date.now();
+    const pernas = [ida];
+    const volta = ida.relatedOrderId ? await ctx.db.get(ida.relatedOrderId) : null;
+    if (volta) pernas.push(volta);
+    for (const o of pernas) await ctx.db.patch(o._id, { motorista: nome || undefined, updatedAt: agora });
+
+    const abertas = funil.etapas.filter((e) => e.tipo === "aberta");
+    const destino = nome && abertas[0]?.id === n.etapaId ? (funil.etapas.find((e) => e.id === "atribuido") ?? abertas[1]) : undefined;
+    if (destino) {
+      await ctx.db.patch(id, { etapaId: destino.id, ordem: await ordemNoFim(ctx, funil._id, destino.id), movidoEm: agora, atualizadoEm: agora });
+    } else {
+      await ctx.db.patch(id, { atualizadoEm: agora });
+    }
+    await ctx.db.insert("negocioAtividades", {
+      negocioId: id,
+      tipo: destino ? "etapa" : "editado",
+      por: quem(acesso),
+      texto: nome ? `Motorista: ${nome}${destino ? ` · ${abertas[0]!.nome} → ${destino.nome}` : ""}` : "Tirou o motorista",
+      em: agora,
+    });
     return null;
   },
 });

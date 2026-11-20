@@ -57,6 +57,23 @@ async function servicosDoDia(ctx: QueryCtx, dia: string): Promise<number> {
   );
 }
 
+/*
+ * O que está na 1.ª etapa aberta do quadro de um ecrã: o que falta fazer
+ * (nos Serviços, «Por atribuir»). Era o volume (serviços do dia, pedidos
+ * novos), que não dizia se já alguém lhes tinha pegado. null sem funil —
+ * aí fica o número antigo.
+ */
+async function naPrimeiraEtapa(ctx: QueryCtx, chave: string): Promise<number | null> {
+  const funil = await ctx.db.query("funis").withIndex("by_chave", (q) => q.eq("chave", chave)).first();
+  const primeira = funil?.etapas.find((e) => e.tipo === "aberta");
+  if (!funil || !primeira) return null;
+  const docs = await ctx.db
+    .query("negocios")
+    .withIndex("by_funil_etapa", (q) => q.eq("funilId", funil._id).eq("etapaId", primeira.id))
+    .take(LIMITE);
+  return docs.length;
+}
+
 export const porTratar = query({
   /* O dia vem do browser (AAAA-MM-DD, hora de Lisboa) e não de Date.now():
      com o dia nos argumentos, a resposta guardada em cache muda à
@@ -106,6 +123,21 @@ export const porTratar = query({
       ve("reservas") && dia && /^\d{4}-\d{2}-\d{2}$/.test(dia) ? servicosDoDia(ctx, dia) : Promise.resolve(0),
     ]);
 
-    return { pedidos, candidaturas, avaliacoes, leads, reservasHoje, limite: LIMITE };
+    const [pedidosQuadro, candidaturasQuadro, servicosQuadro] = await Promise.all([
+      ve("pedidos") ? naPrimeiraEtapa(ctx, "pedidos") : Promise.resolve(0),
+      ve("candidaturas") ? naPrimeiraEtapa(ctx, "candidaturas") : Promise.resolve(0),
+      ve("reservas") ? naPrimeiraEtapa(ctx, "reservas") : Promise.resolve(0),
+    ]);
+
+    return {
+      pedidos: pedidosQuadro ?? pedidos,
+      candidaturas: candidaturasQuadro ?? candidaturas,
+      avaliacoes,
+      leads,
+      /* O nome ficou (o dashboard lê esta chave); conta os serviços por
+         atribuir. */
+      reservasHoje: servicosQuadro ?? reservasHoje,
+      limite: LIMITE,
+    };
   },
 });

@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
+import { acertarCartaoDaOrigem } from "./lib/funilEstado";
 import { safeStorageDelete } from "./lib/storage";
 
 /*
@@ -215,10 +216,12 @@ export const detalhe = query({
 export const mudarEstado = mutation({
   args: { tipo: vTipo, id: v.string(), estado: vEstado },
   handler: async (ctx, { tipo, id, estado }) => {
-    await exigirAdmin(ctx, "candidaturas");
+    const quem = await exigirAdmin(ctx, "candidaturas");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     if (!nid || !(await ctx.db.get(nid))) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta candidatura já não existe." });
     await ctx.db.patch(nid, { status: estado, reviewedAt: Date.now() });
+    /* O cartão no quadro das Candidaturas acompanha (lib/funilEstado.ts). */
+    await acertarCartaoDaOrigem(ctx, TABELA[tipo], id, estado, quem.email ?? "");
     return { estado, grupo: grupoDe(estado) };
   },
 });
