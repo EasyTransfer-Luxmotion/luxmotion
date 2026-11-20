@@ -1997,7 +1997,10 @@ export default defineSchema({
     por: v.string(),
     texto: v.optional(v.string()),
     em: v.number(),
-  }).index("by_negocio", ["negocioId", "em"]),
+  })
+    .index("by_negocio", ["negocioId", "em"])
+    /* As reuniões de todos os cartões, para o calendário (funis.calendario). */
+    .index("by_tipo", ["tipo", "em"]),
   /*
    * Organizações e contactos (contactos.ts): a base do CRM. Antes cada
    * formulário, encomenda e cartão guardava a sua cópia do nome, email e

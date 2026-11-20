@@ -721,3 +721,66 @@ export const preencherReunioes = internalMutation({
     return { feitos };
   },
 });
+
+/*
+ * O calendário das reuniões (Operação → Reuniões): todas as que caem entre
+ * «de» e «ate», marcadas, realizadas ou faltas, dos funis que o cargo pode
+ * ver. O histórico de cada cartão é uma sequência de registos; aqui viram
+ * acontecimentos: «marcada» abre uma reunião, «remarcada» muda a data da
+ * que está aberta, «realizada» e «falta» fecham-na (na data indicada).
+ */
+export const calendario = query({
+  args: { de: v.number(), ate: v.number() },
+  handler: async (ctx, { de, ate }) => {
+    await exigirAdmin(ctx);
+    const acesso = await lerAcesso(ctx);
+    const funis = new Map((await ctx.db.query("funis").collect()).map((f) => [f._id as string, f]));
+    const registos = await ctx.db
+      .query("negocioAtividades")
+      .withIndex("by_tipo", (q) => q.eq("tipo", "reuniao"))
+      .collect();
+    type Ev = { id: string; negocioId: Id<"negocios">; quando: number; estado: "marcada" | "realizada" | "remarcada" | "falta"; nota: string | null; por: string };
+    const porNegocio = new Map<string, Ev[]>();
+    for (const a of registos) {
+      if (!a.reuniao) continue;
+      const lista = porNegocio.get(a.negocioId) ?? [];
+      const aberta = [...lista].reverse().find((e) => e.estado === "marcada" || e.estado === "remarcada");
+      const { estado, quando } = a.reuniao;
+      const nota = a.texto ?? null;
+      if (estado === "marcada" || !aberta) lista.push({ id: a._id, negocioId: a.negocioId, quando, estado, nota, por: a.por });
+      else Object.assign(aberta, { quando, estado, nota: nota ?? aberta.nota, por: a.por });
+      porNegocio.set(a.negocioId, lista);
+    }
+    const linhas = [];
+    for (const [negocioId, eventos] of porNegocio) {
+      const dentro = eventos.filter((e) => e.quando >= de && e.quando <= ate);
+      if (!dentro.length) continue;
+      const n = await ctx.db.get(negocioId as Id<"negocios">);
+      if (!n || n.arquivadoEm) continue;
+      const f = funis.get(n.funilId);
+      if (!f || !eChaveFunil(f.chave)) continue;
+      if (!acesso.dono && !chega(acesso.permissoes[FUNIS[f.chave].modulo], "ver")) continue;
+      const etapa = f.etapas.find((e) => e.id === n.etapaId);
+      for (const e of dentro) {
+        linhas.push({
+          id: e.id,
+          negocioId: n._id as string,
+          quando: e.quando,
+          estado: e.estado,
+          nota: e.nota,
+          por: e.por,
+          titulo: n.titulo,
+          pessoa: n.pessoa.nome,
+          organizacao: n.organizacao ?? null,
+          chave: f.chave as ChaveFunil,
+          funil: FUNIS[f.chave].titulo,
+          etapa: etapa?.nome ?? "",
+          cor: etapa?.cor ?? "#64748b",
+          origem: n.origem,
+          origemId: n.origemId ?? null,
+        });
+      }
+    }
+    return linhas.sort((a, b) => a.quando - b.quando);
+  },
+});
