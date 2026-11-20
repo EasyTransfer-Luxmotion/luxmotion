@@ -34,6 +34,7 @@ import type * as driverApplications from "../driverApplications.js";
 import type * as drivers from "../drivers.js";
 import type * as emailVerification from "../emailVerification.js";
 import type * as equipa from "../equipa.js";
+import type * as estatistica from "../estatistica.js";
 import type * as events from "../events.js";
 import type * as flights from "../flights.js";
 import type * as fotosExtras from "../fotosExtras.js";
@@ -154,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   drivers: typeof drivers;
   emailVerification: typeof emailVerification;
   equipa: typeof equipa;
+  estatistica: typeof estatistica;
   events: typeof events;
   flights: typeof flights;
   fotosExtras: typeof fotosExtras;
