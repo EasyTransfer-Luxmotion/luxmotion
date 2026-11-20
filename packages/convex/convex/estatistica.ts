@@ -543,13 +543,30 @@ export const parceiros = query({
   },
 });
 
-/* ─── B2B (pedidos por medida) ───────────────────────────────────────── */
+/* ─── B2B: vendas a empresas ────────────────────────────────────────── */
+
+/*
+ * Uma reserva é de uma empresa quando está ligada a uma organização
+ * (contactos.ts) ou quando o NIF é de pessoa colectiva (os NIF portugueses
+ * de empresas começam por 5, 6, 8 ou 9; os de particulares por 1, 2 ou 3).
+ * As reservas que chegam pelos sites dos parceiros ficam na secção
+ * Parceiros: são clientes do parceiro.
+ */
+const NIF_EMPRESA = /^[5689]\d{8}$/;
+function empresaDe(o: Doc<"orders">, orgs: Map<string, string>): string | null {
+  if (o.organizacaoId) return orgs.get(o.organizacaoId) ?? "Empresa";
+  const nif = (o.customerNif ?? "").replace(/\D/g, "").replace(/^351/, "");
+  if (NIF_EMPRESA.test(nif)) return o.customerName?.trim() ? `${o.customerName.trim()} (NIF ${nif})` : `NIF ${nif}`;
+  return null;
+}
+
+/* ─── B2B (empresas e pedidos por medida) ───────────────────────────────────────── */
 
 export const b2b = query({
   args: vPeriodo,
   handler: async (ctx, { de, ate }) => {
     const acesso = await lerAcesso(ctx);
-    if (!acessoOuNull(acesso, "pedidos")) return null;
+    if (!acessoOuNull(acesso, "pedidos", "reservas")) return null;
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j) return null;
@@ -559,6 +576,27 @@ export const b2b = query({
       .first();
     if (!funil) return null;
     const etapa = new Map(funil.etapas.map((e) => [e.id, e]));
+
+    /* As reservas pagas de empresas (fora dos sites dos parceiros). */
+    const orgs = new Map((await ctx.db.query("organizacoes").collect()).map((o) => [o._id as string, o.nome]));
+    const pagas = (await lerReservas(ctx, j)).filter((l) => l.paga && parceiroDe(l.ida) === SEM_PARCEIRO);
+    const deEmpresa = (ls: Linha[]) => ls.map((l) => ({ l, empresa: empresaDe(l.ida, orgs) })).filter((x) => x.empresa !== null) as { l: Linha; empresa: string }[];
+    const empAgora = deEmpresa(pagas.filter((l) => qual(j, l.dia) === "agora"));
+    const empAntes = deEmpresa(pagas.filter((l) => qual(j, l.dia) === "antes"));
+    const totalAgora = pagas.filter((l) => qual(j, l.dia) === "agora").reduce((t, l) => t + l.valor, 0);
+    const resEmp = (xs: { l: Linha; empresa: string }[]) => {
+      const r = resumo(xs.map((x) => x.l));
+      return { ...semEuros(r, valores), empresas: new Set(xs.map((x) => x.empresa)).size };
+    };
+    const empresas = new Map<string, { rotulo: string; n: number; faturacao: number; ultima: string; produtos: Set<string> }>();
+    const serieEmpresas = j.baldes.map(() => 0);
+    for (const { l, empresa } of empAgora) {
+      const x = agrupar(empresas, empresa.toLowerCase(), () => ({ rotulo: empresa, n: 0, faturacao: 0, ultima: l.dia, produtos: new Set<string>() }), l.valor, !l.volta);
+      if (l.dia > x.ultima) x.ultima = l.dia;
+      x.produtos.add(l.produto === "transfer" ? "Transfers" : l.produto === "tour" ? "Tours" : "Eventos");
+      const b = j.balde(l.dia);
+      if (b >= 0) serieEmpresas[b]! += valores ? l.valor : l.volta ? 0 : 1;
+    }
     const negocios = await ctx.db.query("negocios").withIndex("by_funil_criado", (q) => q.eq("funilId", funil._id)).collect();
 
     const contas = (p: "agora" | "antes") => {
@@ -652,6 +690,14 @@ export const b2b = query({
         .slice(0, 10)
         .map((c) => ({ ...c, faturacao: valores ? c.faturacao : 0 })),
       funil: FUNIS.medida.titulo,
+      empresas: {
+        agora: { ...resEmp(empAgora), peso: totalAgora && valores ? Math.round((empAgora.reduce((t, x) => t + x.l.valor, 0) / totalAgora) * 1000) / 10 : null },
+        antes: resEmp(empAntes),
+        serie: serieEmpresas.map(arred),
+        ranking: [...empresas.values()]
+          .map((x) => ({ rotulo: x.rotulo, n: x.n, faturacao: valores ? arred(x.faturacao) : 0, ultima: x.ultima, produtos: [...x.produtos].join(", ") }))
+          .sort((a, b) => (valores ? b.faturacao - a.faturacao : 0) || b.n - a.n),
+      },
     };
   },
 });
