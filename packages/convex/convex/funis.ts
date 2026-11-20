@@ -185,6 +185,8 @@ async function lerNegocio(ctx: QueryCtx, id: Id<"negocios">) {
     origemTitulo: tituloDaOrigem(n.origem),
     motivoPerda: n.motivoPerda ?? null,
     arquivadoEm: n.arquivadoEm ?? null,
+    contactoId: n.contactoId ?? null,
+    organizacaoId: n.organizacaoId ?? null,
     atualizadoEm: n.atualizadoEm,
     atividades: atividades.map((a) => ({ id: a._id, tipo: a.tipo, por: a.por, texto: a.texto ?? null, em: a.em, reuniao: a.reuniao ?? null })),
   };

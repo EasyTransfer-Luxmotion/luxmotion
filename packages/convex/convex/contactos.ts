@@ -181,6 +181,24 @@ async function primeiraReserva(ctx: QueryCtx, o: Doc<"organizacoes">): Promise<{
   return p ? { numero: p.orderNumber ?? null, em: p._creationTime } : null;
 }
 
+/* Quem pode ser responsável: a equipa ativa e os donos. Com a permissão de
+   ver contactos (não a da Equipa), para o seletor funcionar a todos. */
+export const responsaveis = query({
+  args: {},
+  handler: async (ctx) => {
+    await exigirAdmin(ctx, "contactos", "ver");
+    const pessoas = (await ctx.db.query("colaboradores").collect())
+      .filter((c) => c.estado === "activo")
+      .map((c) => ({ email: c.email, nome: c.nome }));
+    const donos = (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e && !pessoas.some((p) => p.email === e))
+      .map((e) => ({ email: e, nome: e.split("@")[0]! }));
+    return [...pessoas, ...donos].sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
+  },
+});
+
 /* ─── Guardar ─────────────────────────────────────────────────────────── */
 
 const vOrg = {
