@@ -223,7 +223,10 @@ encomendas com dados pessoais e marcar uma encomenda como paga.
   Uma action agendada não tem sessão: se precisa de algo que o admin também usa,
   faz-se uma versão `…Interno` com o mesmo corpo (ver `blogs.create`).
 - **Abertas** só as que o site público, o checkout, as candidaturas e o servidor
-  do Next (sitemap, páginas) chamam.
+  do Next (sitemap, páginas) chamam. As do checkout só mexem numa reserva em
+  rascunho ou pendente (`exigirAlteravel`, em `orders.ts` e `tourBookings.ts`):
+  trocavam o carro a uma reserva paga. As de conteúdo (tours, eventos, artigos,
+  parcerias) só devolvem o publicado, e sem campos do back-office.
 
 Ao acrescentar uma função nova, decidir em qual das três cai. Na dúvida, admin.
 
@@ -308,6 +311,8 @@ são filtros, não funis. Não se criam funis: configuram-se as etapas. Cada
 registo cai sozinho na 1.ª etapa aberta do seu funil (`lib/funilEntrada.ts`),
 na mesma transação em que é gravado; o `by_origem` trava repetições. A etapa
 e o estado do registo andam juntos nos dois sentidos (`lib/funilEstado.ts`).
+O quadro das Parcerias junta dois módulos de permissão: abre com Leads ou
+Candidaturas, e cada cartão pede o da sua origem (`moduloDoCartao`).
 Num ambiente novo: `npx convex run funis:criarFunisIniciais` e
 `funis:preencher '{"dias":30}'`.
 
