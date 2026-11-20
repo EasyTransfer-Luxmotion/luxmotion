@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
 import { RELACOES, ligarContacto, ligarOrganizacao, normalizarEmail, normalizarNome, normalizarTelefone, relacaoDaOrigem, type Relacao } from "./lib/contactos";
 import { FUNIS, segmentoDaOrigem, tituloDaOrigem, type ChaveFunil } from "./lib/funis";
-import { ESTADOS_DE_SERVICO } from "./inicio";
+import { ESTADOS_DE_SERVICO, local } from "./inicio";
 
 /*
  * Contactos (organizações e pessoas, em Clientes · Parceiros · Motoristas) e Parceiros → Carteira (as
@@ -56,12 +56,22 @@ async function cartoesDe(ctx: QueryCtx, filtro: { contactoId?: Id<"contactos">; 
   return linhas.sort((a, b) => b.criadoEm - a.criadoEm);
 }
 
+/* As reservas de um contacto, para a ficha. O total só com «Ver valores»:
+   ia sempre, e a ficha é aberta por quem só tem Contactos. */
 async function reservasDe(ctx: QueryCtx, filtro: { contactoId?: Id<"contactos">; organizacaoId?: Id<"organizacoes"> }) {
+  const verValores = temCapacidade(await lerAcesso(ctx), "valores");
   const os = filtro.contactoId
     ? await ctx.db.query("orders").withIndex("by_contacto", (q) => q.eq("contactoId", filtro.contactoId)).collect()
     : await ctx.db.query("orders").withIndex("by_organizacao", (q) => q.eq("organizacaoId", filtro.organizacaoId)).collect();
   return os
-    .map((o) => ({ id: o._id, numero: o.orderNumber ?? null, estado: o.status, viagem: o.departureDate ? String(o.departureDate) : null, total: o.totalAmount ?? null }))
+    .map((o) => ({
+      id: o._id,
+      numero: o.orderNumber ?? null,
+      estado: o.status,
+      viagem: o.departureDate ? String(o.departureDate) : null,
+      rota: `${local(o.departure)} → ${local(o.arrival)}`,
+      total: verValores ? (o.totalAmount ?? null) : null,
+    }))
     .sort((a, b) => (b.viagem ?? "").localeCompare(a.viagem ?? ""));
 }
 
