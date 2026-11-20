@@ -57,17 +57,27 @@ function janela(de: string, ate: string) {
     const k = Math.floor((indiceDia(dia) - i0) / (granularidade === "dia" ? 1 : 7));
     return k >= 0 && k < baldes.length ? k : -1;
   };
+  /* O mesmo período do ano passado: é a comparação que conta num negócio
+     sazonal (agosto contra julho engana). */
+  const menosUmAno = (d: string) => `${Number(d.slice(0, 4)) - 1}${d.slice(4) === "-02-29" ? "-02-28" : d.slice(4)}`;
+  const anoDe = menosUmAno(de);
+  const anoAte = menosUmAno(ate);
+  /* O dia equivalente deste ano, para pôr o ano passado nos mesmos baldes. */
+  const maisUmAno = (d: string) => `${Number(d.slice(0, 4)) + 1}${d.slice(4)}`;
   /* Em ms, com folga de um dia de cada lado (fusos): o filtro fino é pelo dia de Lisboa. */
   const desdeMs = (indiceDia(antesDe) - 1) * 86_400_000;
   const ateMs = (i1 + 2) * 86_400_000;
-  return { de, ate, dias, antesDe, antesAte, granularidade, baldes, balde, desdeMs, ateMs };
+  const anoDesdeMs = (indiceDia(anoDe) - 1) * 86_400_000;
+  const anoAteMs = (indiceDia(anoAte) + 2) * 86_400_000;
+  return { de, ate, dias, antesDe, antesAte, anoDe, anoAte, maisUmAno, granularidade, baldes, balde, desdeMs, ateMs, anoDesdeMs, anoAteMs };
 }
 type Janela = NonNullable<ReturnType<typeof janela>>;
 
-/* Em que período cai um dia: o actual, o anterior, ou nenhum. */
-function qual(j: Janela, dia: string): "agora" | "antes" | null {
+/* Em que período cai um dia: o actual, o anterior, o do ano passado, ou nenhum. */
+function qual(j: Janela, dia: string): "agora" | "antes" | "ano" | null {
   if (dia >= j.de && dia <= j.ate) return "agora";
   if (dia >= j.antesDe && dia <= j.antesAte) return "antes";
+  if (dia >= j.anoDe && dia <= j.anoAte) return "ano";
   return null;
 }
 
@@ -87,10 +97,19 @@ type Linha = {
 
 /* As reservas do período e do anterior, com o que todas as secções precisam. */
 async function lerReservas(ctx: QueryCtx, j: Janela): Promise<Linha[]> {
-  const docs = await ctx.db
-    .query("orders")
-    .withIndex("by_creation_time", (q) => q.gte("_creationTime", j.desdeMs).lte("_creationTime", j.ateMs))
-    .collect();
+  const [recentes, doAno] = await Promise.all([
+    ctx.db
+      .query("orders")
+      .withIndex("by_creation_time", (q) => q.gte("_creationTime", j.desdeMs).lte("_creationTime", j.ateMs))
+      .collect(),
+    j.anoAteMs < j.desdeMs
+      ? ctx.db
+          .query("orders")
+          .withIndex("by_creation_time", (q) => q.gte("_creationTime", j.anoDesdeMs).lte("_creationTime", j.anoAteMs))
+          .collect()
+      : Promise.resolve([] as Doc<"orders">[]),
+  ]);
+  const docs = [...doAno, ...recentes];
   const porId = new Map(docs.map((o) => [o._id as string, o]));
   const outras = new Map<string, Doc<"orders"> | null>();
   await Promise.all(
@@ -126,6 +145,30 @@ async function lerReservas(ctx: QueryCtx, j: Janela): Promise<Linha[]> {
   }
   return linhas;
 }
+
+/*
+ * As linhas de negócio, com os nomes do resto do back-office: Reservas (o
+ * que se vende directamente no site, a particulares e a empresas),
+ * Parceiros (o que vendem as páginas dos parceiros), Tours e Eventos.
+ */
+export const LINHAS_NEGOCIO = ["Reservas", "Parceiros", "Tours", "Eventos"] as const;
+type LinhaNegocio = (typeof LINHAS_NEGOCIO)[number];
+function linhaDe(l: Linha): LinhaNegocio {
+  if (l.produto === "tour") return "Tours";
+  if (l.produto === "evento") return "Eventos";
+  return parceiroDe(l.ida) === SEM_PARCEIRO ? "Reservas" : "Parceiros";
+}
+
+/* IVA estimado (o preço mostrado já o inclui): 6% no transporte, 23% nos
+   tours e eventos. A confirmar com a contabilidade; o dashboard marca-o
+   como estimativa. */
+const IVA: Record<Produto, number> = { transfer: 0.06, tour: 0.23, evento: 0.23 };
+const liquido = (l: Linha) => l.valor / (1 + IVA[l.produto]);
+/* Taxa do cartão: os ~2% que se absorvem (não se passam ao cliente) em
+   todos os pagamentos pelo Stripe — cartão, Link, MB WAY e Multibanco. */
+const TAXA_STRIPE = 0.02;
+const PELO_STRIPE = new Set(["ccard", "card", "link", "mbway", "mb", "multibanco"]);
+const taxaDe = (l: Linha) => (PELO_STRIPE.has((l.ida.paymentMethod ?? "").trim().toLowerCase()) ? l.valor * TAXA_STRIPE : 0);
 
 function acessoOuNull(acesso: Acesso, ...modulos: Parameters<typeof permite>[1][]) {
   return modulos.some((m) => permite(acesso, m));
@@ -277,15 +320,17 @@ const ANTECEDENCIA = [
 ];
 
 export const transfers = query({
-  args: vPeriodo,
-  handler: async (ctx, { de, ate }) => {
+  /* soSite: só o que se vende directamente no site (Finanças → Reservas);
+     as dos sites dos parceiros estão em Parceiros. */
+  args: { ...vPeriodo, soSite: v.optional(v.boolean()) },
+  handler: async (ctx, { de, ate, soSite }) => {
     const acesso = await lerAcesso(ctx);
     if (!acessoOuNull(acesso, "reservas")) return null;
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j) return null;
-    const todas = (await lerReservas(ctx, j)).filter((l) => l.produto === "transfer");
-    const doPeriodo = (p: "agora" | "antes") => todas.filter((l) => qual(j, l.dia) === p);
+    const todas = (await lerReservas(ctx, j)).filter((l) => l.produto === "transfer" && (!soSite || parceiroDe(l.ida) === SEM_PARCEIRO));
+    const doPeriodo = (p: "agora" | "antes" | "ano") => todas.filter((l) => qual(j, l.dia) === p);
 
     const indicadores = (ls: Linha[]) => {
       const pagas = ls.filter((l) => l.paga);
@@ -363,7 +408,32 @@ export const transfers = query({
       baldes: j.baldes,
       agora: indicadores(doPeriodo("agora")),
       antes: indicadores(doPeriodo("antes")),
+      ano: indicadores(doPeriodo("ano")),
       serie: { viagens: serieViagens, faturacao: serieFaturacao.map((x) => (valores ? arred(x) : 0)) },
+      serieAno: (() => {
+        const f = j.baldes.map(() => 0);
+        const n = j.baldes.map(() => 0);
+        for (const l of doPeriodo("ano").filter((x) => x.paga)) {
+          const b = j.balde(j.maisUmAno(l.dia));
+          if (b < 0) continue;
+          f[b]! += l.valor;
+          if (!l.volta) n[b]!++;
+        }
+        return { viagens: n, faturacao: f.map((x) => (valores ? arred(x) : 0)) };
+      })(),
+      /* Particulares ou empresas (NIF de empresa ou ligadas a uma organização). */
+      particularesEmpresas: await (async () => {
+        const orgs = new Map((await ctx.db.query("organizacoes").collect()).map((o) => [o._id as string, o.nome]));
+        let pf = 0, pn = 0, ef = 0, en = 0;
+        for (const l of agora) {
+          const emp = empresaDe(l.ida, orgs) !== null;
+          if (emp) { ef += l.valor; if (!l.volta) en++; } else { pf += l.valor; if (!l.volta) pn++; }
+        }
+        return [
+          { rotulo: "Particulares", n: pn, faturacao: valores ? arred(pf) : 0 },
+          { rotulo: "Empresas", n: en, faturacao: valores ? arred(ef) : 0 },
+        ];
+      })(),
       rotas: lista(rotas, valores).slice(0, 10).map(zeroF),
       viaturas: lista(viaturas, valores).map(zeroF),
       metodos: lista(metodos, valores).map(zeroF),
@@ -380,16 +450,18 @@ export const transfers = query({
 /* ─── Tours e eventos ────────────────────────────────────────────────── */
 
 export const tours = query({
-  args: vPeriodo,
-  handler: async (ctx, { de, ate }) => {
+  /* tipo: só tours ou só eventos (Finanças → Tours, Finanças → Eventos). */
+  args: { ...vPeriodo, tipo: v.optional(v.union(v.literal("tour"), v.literal("evento"))) },
+  handler: async (ctx, { de, ate, tipo }) => {
     const acesso = await lerAcesso(ctx);
     if (!acessoOuNull(acesso, "reservas")) return null;
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j) return null;
-    const todas = (await lerReservas(ctx, j)).filter((l) => l.produto !== "transfer" && l.paga);
+    const todas = (await lerReservas(ctx, j)).filter((l) => l.produto !== "transfer" && l.paga && (!tipo || l.produto === tipo));
     const agora = todas.filter((l) => qual(j, l.dia) === "agora");
     const antes = todas.filter((l) => qual(j, l.dia) === "antes");
+    const ano = todas.filter((l) => qual(j, l.dia) === "ano");
     const serie = { tour: j.baldes.map(() => 0), evento: j.baldes.map(() => 0) };
     const produtos = new Map<string, { rotulo: string; tipo: Produto; n: number; pessoas: number; faturacao: number }>();
     for (const l of agora) {
@@ -407,6 +479,23 @@ export const tours = query({
       baldes: j.baldes,
       agora: semEuros(resumo(agora), valores),
       antes: semEuros(resumo(antes), valores),
+      ano: semEuros(resumo(ano), valores),
+      serieAno: (() => {
+        const f = j.baldes.map(() => 0);
+        for (const l of ano) {
+          const b = j.balde(j.maisUmAno(l.dia));
+          if (b >= 0) f[b]! += valores ? l.valor : l.volta ? 0 : 1;
+        }
+        return f.map(arred);
+      })(),
+      serieTotal: (() => {
+        const f = j.baldes.map(() => 0);
+        for (const l of agora) {
+          const b = j.balde(l.dia);
+          if (b >= 0) f[b]! += valores ? l.valor : l.volta ? 0 : 1;
+        }
+        return f.map(arred);
+      })(),
       tours: porTipo(agora, "tour"),
       eventos: porTipo(agora, "evento"),
       serie: [
@@ -529,6 +618,7 @@ export const parceiros = query({
         novos,
       },
       antes: { ...semEuros(rPB, valores), activos: ranking.filter((r) => r.antesN > 0).length },
+      ano: semEuros(resumo(dePar(pagas.filter((l) => qual(j, l.dia) === "ano"))), valores),
       serie: serie.map(arred),
       ranking,
       inactivos,
@@ -599,7 +689,7 @@ export const b2b = query({
     }
     const negocios = await ctx.db.query("negocios").withIndex("by_funil_criado", (q) => q.eq("funilId", funil._id)).collect();
 
-    const contas = (p: "agora" | "antes") => {
+    const contas = (p: "agora" | "antes" | "ano") => {
       let recebidos = 0;
       let ganhos = 0;
       let perdidos = 0;
@@ -672,6 +762,7 @@ export const b2b = query({
       baldes: j.baldes,
       agora: contas("agora"),
       antes: contas("antes"),
+      ano: contas("ano"),
       emAberto: { n: abertos.length, valor: valores ? arred(abertos.reduce((t, n) => t + (n.valor ?? 0), 0)) : 0 },
       pipeline,
       serie: [
@@ -698,6 +789,109 @@ export const b2b = query({
           .map((x) => ({ rotulo: x.rotulo, n: x.n, faturacao: valores ? arred(x.faturacao) : 0, ultima: x.ultima, produtos: [...x.produtos].join(", ") }))
           .sort((a, b) => (valores ? b.faturacao - a.faturacao : 0) || b.n - a.n),
       },
+    };
+  },
+});
+
+/* ─── Finanças → Resumo ──────────────────────────────────────────────── */
+
+/*
+ * O que um CFO pergunta primeiro: quanto ganhámos de verdade (líquido de
+ * IVA e da taxa do cartão), se estamos a crescer face ao mesmo período do
+ * ano passado, de onde vem o dinheiro, quanto já está garantido para os
+ * próximos meses e onde está o risco (concentração, cancelamentos pagos).
+ * IVA e taxa do cartão são estimativas (ver IVA e TAXA_STRIPE).
+ */
+export const resumoFinancas = query({
+  args: { ...vPeriodo, hoje: v.string() },
+  handler: async (ctx, { de, ate, hoje }) => {
+    const acesso = await lerAcesso(ctx);
+    if (!acessoOuNull(acesso, "reservas")) return null;
+    const valores = temCapacidade(acesso, "valores");
+    const j = janela(de, ate);
+    if (!j || !DIA.test(hoje)) return null;
+    const todas = await lerReservas(ctx, j);
+    const pagas = todas.filter((l) => l.paga);
+    const de_ = (p: "agora" | "antes" | "ano") => pagas.filter((l) => qual(j, l.dia) === p);
+
+    const contas = (ls: Linha[]) => {
+      const bruto = ls.reduce((t, l) => t + l.valor, 0);
+      const semIva = ls.reduce((t, l) => t + liquido(l), 0);
+      const taxas = ls.reduce((t, l) => t + taxaDe(l), 0);
+      const servicos = ls.filter((l) => !l.volta).length;
+      return {
+        bruto: arred(bruto),
+        liquido: arred(semIva - taxas),
+        iva: arred(bruto - semIva),
+        taxas: arred(taxas),
+        servicos,
+        ticket: servicos ? arred(bruto / servicos) : null,
+      };
+    };
+    const zero = <T extends Record<string, number | null>>(x: T): T =>
+      valores ? x : (Object.fromEntries(Object.entries(x).map(([k, val]) => [k, k === "servicos" ? val : k === "ticket" ? null : 0])) as T);
+
+    /* De onde vem o dinheiro: as quatro linhas, agora e há um ano. */
+    const porLinha = LINHAS_NEGOCIO.map((linha) => {
+      const a = de_("agora").filter((l) => linhaDe(l) === linha);
+      const y = de_("ano").filter((l) => linhaDe(l) === linha);
+      return { linha, servicos: a.filter((l) => !l.volta).length, liquido: valores ? arred(a.reduce((t, l) => t + liquido(l) - taxaDe(l), 0)) : 0, liquidoAno: valores ? arred(y.reduce((t, l) => t + liquido(l) - taxaDe(l), 0)) : 0 };
+    });
+
+    /* A evolução: receita líquida por balde, este período e o mesmo do ano passado. */
+    const serie = j.baldes.map(() => 0);
+    const serieAno = j.baldes.map(() => 0);
+    for (const l of de_("agora")) {
+      const b = j.balde(l.dia);
+      if (b >= 0) serie[b]! += liquido(l) - taxaDe(l);
+    }
+    for (const l of de_("ano")) {
+      const b = j.balde(j.maisUmAno(l.dia));
+      if (b >= 0) serieAno[b]! += liquido(l) - taxaDe(l);
+    }
+
+    /* Garantido: viagens já pagas que ainda vão acontecer (por data da viagem). */
+    const fim = deIndice(indiceDia(hoje) + 90);
+    const futuras = (await ctx.db
+      .query("orders")
+      .withIndex("by_departure_date", (q) => q.gte("departureDate", hoje).lte("departureDate", fim + "￿"))
+      .collect()).filter((o) => ESTADOS_DE_SERVICO.has(o.status));
+    const garantido = [30, 60, 90].map((dias) => {
+      const limite = deIndice(indiceDia(hoje) + dias);
+      const os = futuras.filter((o) => o.departureDate.slice(0, 10) <= limite);
+      return { dias, valor: valores ? arred(os.reduce((t, o) => t + (o.totalAmount ?? 0), 0)) : 0, servicos: os.filter((o) => !o.relatedOrderId || o.isRoundTrip !== false).length };
+    });
+
+    /* Concentração: quanto vale o top 5 de clientes e de parceiros. */
+    const agora = de_("agora");
+    const total = agora.reduce((t, l) => t + l.valor, 0);
+    const topN = (chave: (l: Linha) => string | null) => {
+      const m = new Map<string, number>();
+      for (const l of agora) {
+        const k = chave(l);
+        if (k) m.set(k, (m.get(k) ?? 0) + l.valor);
+      }
+      const top = [...m.values()].sort((a, b) => b - a).slice(0, 5).reduce((t, x) => t + x, 0);
+      return total ? Math.round((top / total) * 1000) / 10 : null;
+    };
+
+    /* Perdas: canceladas depois de pagas (o dinheiro entrou e saiu). */
+    const canceladasPagas = todas.filter((l) => qual(j, l.dia) === "agora" && l.o.status === "cancelled" && l.o.paymentStatus === "completed");
+
+    const cA = contas(agora);
+    return {
+      valores,
+      periodo: { de: j.de, ate: j.ate, antesDe: j.antesDe, antesAte: j.antesAte, anoDe: j.anoDe, anoAte: j.anoAte, dias: j.dias },
+      granularidade: j.granularidade,
+      baldes: j.baldes,
+      agora: zero(cA),
+      antes: zero(contas(de_("antes"))),
+      ano: zero(contas(de_("ano"))),
+      porLinha,
+      serie: { agora: serie.map((x) => (valores ? arred(x) : 0)), ano: serieAno.map((x) => (valores ? arred(x) : 0)) },
+      garantido,
+      concentracao: { clientes: topN((l) => l.cliente), parceiros: topN((l) => (parceiroDe(l.ida) === SEM_PARCEIRO ? null : parceiroDe(l.ida))) },
+      perdas: { canceladas: canceladasPagas.filter((l) => !l.volta).length, valor: valores ? arred(canceladasPagas.reduce((t, l) => t + l.valor, 0)) : 0 },
     };
   },
 });
