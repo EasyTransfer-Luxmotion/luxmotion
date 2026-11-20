@@ -300,8 +300,8 @@ nunca ao carregar em enviar.
 
 **Funis substituem o Pipedrive.** Três funis (`lib/funis.ts`), cada um com
 quadro e lista no dashboard e os mesmos filtros nas duas vistas:
-Serviços → Website (`reservas`: reservas pagas no site e nos sites dos
-parceiros, despacho), Serviços → Por medida (`medida`: os pedidos de
+Operação → Transfers (`reservas`: reservas pagas no site e nos sites dos
+parceiros, despacho), Operação → Pedidos Parceiros (`medida`: os pedidos de
 orçamento — casamentos, ultra-luxo, corporate, escolas) e Parcerias
 (`parcerias`: leads da página Hotéis e todas as candidaturas). Os segmentos
 são filtros, não funis. Não se criam funis: configuram-se as etapas. Cada
