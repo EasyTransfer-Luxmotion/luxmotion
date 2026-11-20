@@ -8,7 +8,9 @@ import { exigirAdmin } from "./lib/admin";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const blogs = await ctx.db.query("blogs").collect();
+    /* Pública: só o que está publicado. O back-office tem as suas (catalogo*), e
+       esta devolvia rascunhos e arquivados a quem a chamasse. */
+    const blogs = await ctx.db.query("blogs").withIndex("by_status", (q) => q.eq("status", "published")).collect();
 
     const blogsWithUrls = await Promise.all(
       blogs.map(async (blog) => {
@@ -178,7 +180,8 @@ export const getBySlug = query({
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .first();
 
-    if (!blog) return null;
+    // Um artigo em rascunho não se lê pelo endereço antes de ser publicado.
+    if (!blog || blog.status !== "published") return null;
 
     const heroImageUrl = blog.heroImageId
       ? await urlDaImagem(ctx, blog.heroImageId)
@@ -212,7 +215,7 @@ export const getById = query({
   args: { id: v.id("blogs") },
   handler: async (ctx, args) => {
     const blog = await ctx.db.get(args.id);
-    if (!blog) return null;
+    if (!blog || blog.status !== "published") return null;
 
     const heroImageUrl = blog.heroImageId
       ? await urlDaImagem(ctx, blog.heroImageId)

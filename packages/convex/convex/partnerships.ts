@@ -13,17 +13,18 @@ const landingTemplateValidator = v.optional(
   ),
 );
 
+/*
+ * Pública por causa do sitemap, que só quer o endereço das parcerias activas.
+ * Devolvia todas, com o email de contacto e o ajuste de preço de cada uma, a
+ * quem a chamasse.
+ */
 export const list = query({
   args: {},
   handler: async (ctx) => {
     const partnerships = await ctx.db.query("partnerships").collect();
-    return Promise.all(
-      partnerships.map(async (p) => ({
-        ...p,
-        logoUrl: p.logoId ? await urlDaImagem(ctx, p.logoId) : null,
-        heroImageUrl: p.heroImageId ? await urlDaImagem(ctx, p.heroImageId) : null,
-      }))
-    );
+    return partnerships
+      .filter((p) => p.status === "active")
+      .map((p) => ({ _id: p._id, name: p.name, slug: p.slug, status: p.status, updatedAt: p.updatedAt }));
   },
 });
 
@@ -64,8 +65,10 @@ export const getBySlug = query({
        compara e reencaminha. */
     const partnership = await parceriaPorSlug(ctx, args.slug);
     if (!partnership) return null;
+    // O que a página e o checkout do parceiro precisam; o resto é do back-office.
+    const { contactEmail: _e, ajustePreco: _a, veiculosEscondidos: _v, slugsAntigos: _s, ...publica } = partnership;
     return {
-      ...partnership,
+      ...publica,
       logoUrl: partnership.logoId ? await urlDaImagem(ctx, partnership.logoId) : null,
       heroImageUrl: partnership.heroImageId ? await urlDaImagem(ctx, partnership.heroImageId) : null,
     };

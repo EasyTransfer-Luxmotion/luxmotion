@@ -11,7 +11,9 @@ import { exigirAdmin } from "./lib/admin";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const tours = await ctx.db.query("tours").collect();
+    /* Pública: só o que está publicado. O back-office tem as suas (catalogo*), e
+       esta devolvia rascunhos e arquivados a quem a chamasse. */
+    const tours = await ctx.db.query("tours").withIndex("by_status", (q) => q.eq("status", "published")).collect();
 
     const toursWithUrls = await Promise.all(
       tours.map(async (tour) => {
@@ -472,7 +474,7 @@ export const getById = query({
   args: { id: v.id("tours") },
   handler: async (ctx, args) => {
     const tour = await ctx.db.get(args.id);
-    if (!tour) return null;
+    if (!tour || tour.status !== "published") return null;
 
     const bannerImageUrl = tour.bannerImageId
       ? await urlDaImagem(ctx, tour.bannerImageId)
@@ -616,7 +618,7 @@ export const listNearCoordinates = query({
 export const getDestinations = query({
   args: {},
   handler: async (ctx) => {
-    const tours = await ctx.db.query("tours").collect();
+    const tours = await ctx.db.query("tours").withIndex("by_status", (q) => q.eq("status", "published")).collect();
     const destinations = [
       ...new Set(
         tours

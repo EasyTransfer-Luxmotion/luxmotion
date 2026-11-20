@@ -1,9 +1,9 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { exigirAdmin, lerAcesso, temCapacidade, type Acesso } from "./lib/admin";
+import { exigirAdmin, lerAcesso, permite, temCapacidade, type Acesso } from "./lib/admin";
 import { chega, type Capacidade, type Nivel } from "./lib/permissoes";
-import { CHAVES_FUNIL, FUNIS, SEGMENTOS, eChaveFunil, segmentoDaOrigem, tituloDaOrigem, type ChaveFunil, type Etapa } from "./lib/funis";
+import { CHAVES_FUNIL, FUNIS, SEGMENTOS, eChaveFunil, moduloDoCartao, modulosDoFunil, segmentoDaOrigem, tituloDaOrigem, type ChaveFunil, type Etapa } from "./lib/funis";
 import { colocarNoFunil, entrarNoFunil, entrarReservaNoFunil } from "./lib/funilEntrada";
 import { aplicarEtapaNaOrigem } from "./lib/funilEstado";
 import { ativarCarteira } from "./contactos";
@@ -43,7 +43,7 @@ async function funilPorChave(ctx: Ctx, chave: ChaveFunil): Promise<Doc<"funis"> 
 /* Abrir um funil pede o módulo do ecrã onde ele vive. */
 async function exigirFunil(ctx: Ctx, funil: Doc<"funis"> | null, nivel: Nivel, capacidade?: Capacidade) {
   if (!funil || !eChaveFunil(funil.chave)) throw new ConvexError("Este funil já não existe. Recarregue a página.");
-  await exigirAdmin(ctx, FUNIS[funil.chave].modulo, nivel, capacidade);
+  await exigirAdmin(ctx, modulosDoFunil(funil.chave), nivel, capacidade);
   return { acesso: await lerAcesso(ctx), chave: funil.chave };
 }
 
@@ -51,7 +51,10 @@ async function exigirNegocio(ctx: Ctx, id: Id<"negocios">, nivel: Nivel, capacid
   const n = await ctx.db.get(id);
   if (!n) throw new ConvexError("Este cartão já não existe.");
   const funil = await ctx.db.get(n.funilId);
-  return { n, funil: funil!, ...(await exigirFunil(ctx, funil, nivel, capacidade)) };
+  const r = { n, funil: funil!, ...(await exigirFunil(ctx, funil, nivel, capacidade)) };
+  // O quadro abre com um dos módulos; o cartão pede o da sua origem.
+  await exigirAdmin(ctx, moduloDoCartao(r.chave, n.origem), nivel, capacidade);
+  return r;
 }
 
 function quem(acesso: Acesso): string {
@@ -158,7 +161,7 @@ export const quadro = query({
   args: { chave: v.string() },
   handler: async (ctx, { chave }) => {
     if (!eChaveFunil(chave)) return null;
-    await exigirAdmin(ctx, FUNIS[chave].modulo, "ver");
+    await exigirAdmin(ctx, modulosDoFunil(chave), "ver");
     const funil = await funilPorChave(ctx, chave);
     if (!funil) return null;
     const acesso = await lerAcesso(ctx);
@@ -166,7 +169,10 @@ export const quadro = query({
     for (const etapa of funil.etapas) {
       const { lista, mais } = await cartoesDaEtapa(ctx, funil, etapa);
       const cartoes = [];
-      for (const n of lista) cartoes.push({ ...cartao(acesso, n), ...(await filtraveis(ctx, n)) });
+      for (const n of lista) {
+        if (!permite(acesso, moduloDoCartao(chave, n.origem))) continue;
+        cartoes.push({ ...cartao(acesso, n), ...(await filtraveis(ctx, n)) });
+      }
       colunas.push({ etapa, mais, cartoes });
     }
     return { funilId: funil._id, chave, colunas, verValores: temCapacidade(acesso, "valores") };
@@ -400,6 +406,8 @@ export const criarManual = mutation({
     if (!FUNIS[a.chave].manual) throw new ConvexError(`No quadro das ${FUNIS[a.chave].titulo.toLowerCase()} os cartões só chegam sozinhos.`);
     const funil = await funilPorChave(ctx, a.chave);
     const { acesso } = await exigirFunil(ctx, funil, "editar");
+    // Um cartão feito à mão é do módulo do funil (nas Parcerias, uma lead).
+    await exigirAdmin(ctx, FUNIS[a.chave].modulo, "editar");
     if (a.etapaId && !funil!.etapas.some((e) => e.id === a.etapaId)) throw new ConvexError("Essa etapa já não existe.");
     const d = limparDados(a);
     const id = await colocarNoFunil(ctx, {
@@ -665,8 +673,7 @@ export const reunioes = query({
       if (n.arquivadoEm || n.proximaReuniao === undefined) continue;
       const f = funis.get(n.funilId);
       if (!f || !eChaveFunil(f.chave)) continue;
-      const modulo = FUNIS[f.chave].modulo;
-      if (!acesso.dono && !chega(acesso.permissoes[modulo], "ver")) continue;
+      if (!acesso.dono && !chega(acesso.permissoes[moduloDoCartao(f.chave, n.origem)], "ver")) continue;
       const etapa = f.etapas.find((e) => e.id === n.etapaId);
       const ultima = await ctx.db
         .query("negocioAtividades")
@@ -759,7 +766,7 @@ export const calendario = query({
       if (!n || n.arquivadoEm) continue;
       const f = funis.get(n.funilId);
       if (!f || !eChaveFunil(f.chave)) continue;
-      if (!acesso.dono && !chega(acesso.permissoes[FUNIS[f.chave].modulo], "ver")) continue;
+      if (!acesso.dono && !chega(acesso.permissoes[moduloDoCartao(f.chave, n.origem)], "ver")) continue;
       const etapa = f.etapas.find((e) => e.id === n.etapaId);
       for (const e of dentro) {
         linhas.push({

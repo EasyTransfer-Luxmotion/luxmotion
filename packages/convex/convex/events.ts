@@ -11,7 +11,9 @@ import { exigirAdmin } from "./lib/admin";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const events = await ctx.db.query("events").collect();
+    /* Pública: só o que está publicado. O back-office tem as suas (catalogo*), e
+       esta devolvia rascunhos e arquivados a quem a chamasse. */
+    const events = await ctx.db.query("events").withIndex("by_status", (q) => q.eq("status", "published")).collect();
 
     const eventsWithUrls = await Promise.all(
       events.map(async (event) => {
@@ -304,7 +306,7 @@ export const getById = query({
   args: { id: v.id("events") },
   handler: async (ctx, args) => {
     const event = await ctx.db.get(args.id);
-    if (!event) return null;
+    if (!event || event.status !== "published") return null;
 
     const bannerImageUrl = event.bannerImageId
       ? await urlDaImagem(ctx, event.bannerImageId)
@@ -362,7 +364,7 @@ export const getTranslation = query({
 export const getLocations = query({
   args: {},
   handler: async (ctx) => {
-    const events = await ctx.db.query("events").collect();
+    const events = await ctx.db.query("events").withIndex("by_status", (q) => q.eq("status", "published")).collect();
     const locations = [...new Set(events.map((e) => e.location))];
     return locations.sort();
   },

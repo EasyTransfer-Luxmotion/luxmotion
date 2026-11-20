@@ -3,11 +3,25 @@ import { ConvexError, v } from "convex/values";
 import { isNightDeparture } from "./lib/pricing";
 import { mutation, query, action, internalMutation, internalQuery } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { resolveReferral } from "./lib/referral";
 import { exigirAdmin } from "./lib/admin";
 import { exigirAdminAccao } from "./lib/adminAccao";
+
+/*
+ * O checkout é aberto e o _id da encomenda chega ao browser. Sem isto, quem
+ * tivesse uma reserva já paga podia trocar-lhe o carro, a data ou o contacto
+ * pelas mesmas mutations do checkout, e a Operação via o carro novo como pago.
+ * Igual ao `exigirAlteravel` das reservas de tours.
+ */
+function exigirAlteravel(order: Doc<"orders"> | null): Doc<"orders"> {
+  if (!order) throw new ConvexError("Reserva não encontrada.");
+  if ((order.status !== "draft" && order.status !== "pending") || order.paymentStatus === "completed") {
+    throw new ConvexError("Esta reserva já não pode ser alterada.");
+  }
+  return order;
+}
 
 /* Reservas de transfer pagas em dinheiro -> n8n. Só por variável, e com nome
    próprio: usava o mesmo nome do destino de `webhooks.ts`, com outro endereço
@@ -229,10 +243,7 @@ export const createReturnOrder = mutation({
     const now = Date.now();
     
     // Verificar se a ordem de ida existe
-    const outboundOrder = await ctx.db.get(args.outboundOrderId);
-    if (!outboundOrder) {
-      throw new Error("Outbound order not found");
-    }
+    const outboundOrder = exigirAlteravel(await ctx.db.get(args.outboundOrderId));
 
     // Verificar se já existe ordem de retorno
     if ((outboundOrder as any).relatedOrderId) {
@@ -316,10 +327,7 @@ export const selectCar = mutation({
     passengerCapacity: v.number(),
   },
   handler: async (ctx, args) => {
-    const order = await ctx.db.get(args.orderId);
-    if (!order) {
-      throw new Error("Order not found");
-    }
+    const order = exigirAlteravel(await ctx.db.get(args.orderId));
 
      await ctx.db.patch(args.orderId, {
       vehicleId: args.vehicleId,
@@ -394,10 +402,7 @@ export const registTrip = mutation({
     })),
   },
   handler: async (ctx, args) => {
-    const order = await ctx.db.get(args.orderId);
-    if (!order) {
-      throw new Error("Order not found");
-    }
+    const order = exigirAlteravel(await ctx.db.get(args.orderId));
 
     const passengers = args.passengers ?? (args.adults != null && args.children != null ? args.adults + args.children : undefined);
     const updates: any = {
@@ -551,6 +556,8 @@ export const registContactInformation = mutation({
       passengerWhatsapp: args.passengerWhatsapp,
       passengerRelationship: args.passengerRelationship,
     });
+
+    exigirAlteravel(await ctx.db.get(args.orderId));
 
     const contacto = {
       customerName: args.name,

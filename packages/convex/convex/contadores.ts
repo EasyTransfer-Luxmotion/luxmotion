@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, type QueryCtx } from "./_generated/server";
 import { lerAcesso, permite } from "./lib/admin";
 import type { ModuloPermissao } from "./lib/permissoes";
+import { moduloDoCartao } from "./lib/funis";
 
 /*
  * Os números ao lado dos módulos na sidebar do dashboard: Pedidos e
@@ -63,7 +64,7 @@ async function servicosDoDia(ctx: QueryCtx, dia: string): Promise<number> {
  * novos), que não dizia se já alguém lhes tinha pegado. null sem funil —
  * aí fica o número antigo.
  */
-async function naPrimeiraEtapa(ctx: QueryCtx, chave: string): Promise<number | null> {
+async function naPrimeiraEtapa(ctx: QueryCtx, chave: string, ver: (origem: string) => boolean = () => true): Promise<number | null> {
   const funil = await ctx.db.query("funis").withIndex("by_chave", (q) => q.eq("chave", chave)).first();
   const primeira = funil?.etapas.find((e) => e.tipo === "aberta");
   if (!funil || !primeira) return null;
@@ -71,7 +72,7 @@ async function naPrimeiraEtapa(ctx: QueryCtx, chave: string): Promise<number | n
     .query("negocios")
     .withIndex("by_funil_etapa", (q) => q.eq("funilId", funil._id).eq("etapaId", primeira.id))
     .take(LIMITE);
-  return docs.length;
+  return docs.filter((n) => ver(n.origem)).length;
 }
 
 export const porTratar = query({
@@ -124,7 +125,11 @@ export const porTratar = query({
     ]);
 
     const [leadsQuadro, pedidosQuadro, servicosQuadro] = await Promise.all([
-      ve("leads") ? naPrimeiraEtapa(ctx, "parcerias") : Promise.resolve(0),
+      /* As Parcerias juntam leads e candidaturas: conta só os cartões que esta
+         pessoa vê no quadro (ver moduloDoCartao). */
+      ve("leads") || ve("candidaturas")
+        ? naPrimeiraEtapa(ctx, "parcerias", (o) => ve(moduloDoCartao("parcerias", o)))
+        : Promise.resolve(0),
       ve("pedidos") ? naPrimeiraEtapa(ctx, "medida") : Promise.resolve(0),
       ve("reservas") ? naPrimeiraEtapa(ctx, "reservas") : Promise.resolve(0),
     ]);

@@ -89,6 +89,24 @@ export const CORES_ETAPA = [
 
 export type Etapa = { id: string; nome: string; cor: string; tipo: TipoEtapa };
 
+/*
+ * O quadro das Parcerias junta leads e candidaturas, que são dois módulos de
+ * permissão. Com um só («leads»), o Comercial via as candidaturas dos
+ * motoristas (nome, telefone, zona) sem ter Candidaturas, e a Operação, que
+ * trata delas, não abria o quadro. Cada cartão segue o módulo da sua origem;
+ * o quadro abre a quem tenha algum dos módulos dos seus cartões.
+ */
+const ORIGENS_CANDIDATURA = new Set(["partnerApplications", "driverApplications"]);
+
+export function moduloDoCartao(chave: ChaveFunil, origem: string): "reservas" | "pedidos" | "leads" | "candidaturas" {
+  if (chave === "parcerias" && ORIGENS_CANDIDATURA.has(origem)) return "candidaturas";
+  return FUNIS[chave].modulo;
+}
+
+export function modulosDoFunil(chave: ChaveFunil): ("reservas" | "pedidos" | "leads" | "candidaturas")[] {
+  return chave === "parcerias" ? ["leads", "candidaturas"] : [FUNIS[chave].modulo];
+}
+
 /* Cada funil: o nome, o módulo de permissão que o abre (o do ecrã onde vive),
    se se criam cartões à mão, e as etapas com que começa. */
 export const FUNIS: Record<

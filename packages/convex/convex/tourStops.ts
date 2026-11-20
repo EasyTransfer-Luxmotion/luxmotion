@@ -6,6 +6,9 @@ import { exigirAdmin } from "./lib/admin";
 export const listByTour = query({
   args: { tourId: v.id("tours") },
   handler: async (ctx, args) => {
+    // As paragens de um tour por publicar ficam com ele.
+    const tour = await ctx.db.get(args.tourId);
+    if (!tour || tour.status !== "published") return [];
     const stops = await ctx.db
       .query("tourStops")
       .withIndex("by_tour", (q) => q.eq("tourId", args.tourId))
