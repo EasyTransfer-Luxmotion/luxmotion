@@ -69,7 +69,7 @@ async function reservasDe(ctx: QueryCtx, filtro: { contactoId?: Id<"contactos">;
 /*
  * Os segmentos de cada contacto e de cada organização (lib/contactos.ts,
  * RELACOES): a origem do primeiro registo, os cartões dos funis
- * (B2C e B2B fazem cliente; Parcerias faz parceiro ou, vindo de uma
+ * (Reservas e Orçamentos fazem cliente; Parcerias faz parceiro ou, vindo de uma
  * candidatura de motorista ou de empresa de transporte, motorista) e a
  * Carteira. Uma
  * pessoa de uma organização parceira é parceira; uma organização é tudo o

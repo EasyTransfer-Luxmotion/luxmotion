@@ -12,8 +12,8 @@
  * importa este ficheiro (@workspace/convex/convex/lib/funis).
  */
 
-/* «reservas» é Operação → B2C (os transfers pagos no site e nos sites
-   dos parceiros: despacho); «medida» é Operação → B2B (casamentos,
+/* «reservas» é Operação → Reservas (os transfers pagos no site e nos sites
+   dos parceiros: despacho); «medida» é Operação → Orçamentos (casamentos,
    ultra-luxo, corporate, escolas: venda); «parcerias» é a aquisição de
    parceiros (leads da página Hotéis e todas as candidaturas). Os que houve
    antes («pedidos», «candidaturas») apaga-os criarFunisIniciais. */
@@ -96,7 +96,7 @@ export const FUNIS: Record<
   { titulo: string; modulo: "reservas" | "pedidos" | "leads"; manual: boolean; etapas: Etapa[] }
 > = {
   reservas: {
-    titulo: "B2C",
+    titulo: "Reservas",
     modulo: "reservas",
     manual: false,
     etapas: [
@@ -108,7 +108,7 @@ export const FUNIS: Record<
     ],
   },
   medida: {
-    titulo: "B2B",
+    titulo: "Orçamentos",
     modulo: "pedidos",
     manual: true,
     etapas: [
