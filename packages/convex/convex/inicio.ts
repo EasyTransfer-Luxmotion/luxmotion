@@ -76,6 +76,9 @@ export const servicos = query({
           : "ida"
         : null;
       return {
+        /* Escolhido no quadro das Reservas (funis.atribuirMotorista). O Início
+           marca os serviços do dia que ainda não o têm. */
+        motorista: o.motorista?.trim() || outra?.motorista?.trim() || null,
         _id: o._id,
         orderNumber: o.orderNumber ?? "",
         hora: o.departureDate.slice(11, 16) || null,
