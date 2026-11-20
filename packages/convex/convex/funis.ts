@@ -150,8 +150,13 @@ async function cartoesDaEtapa(ctx: QueryCtx, funil: Doc<"funis">, etapa: Etapa) 
 }
 
 export const quadro = query({
-  args: { chave: vChave },
+  /* Texto e não a lista das chaves: um dashboard mais antigo ainda pede os
+     funis que já não existem («pedidos», «candidaturas»), e um erro de
+     argumento deitava o ecrã abaixo («Este ecrã não abriu»). Recebe null e
+     mostra a lista. */
+  args: { chave: v.string() },
   handler: async (ctx, { chave }) => {
+    if (!eChaveFunil(chave)) return null;
     await exigirAdmin(ctx, FUNIS[chave].modulo, "ver");
     const funil = await funilPorChave(ctx, chave);
     if (!funil) return null;
