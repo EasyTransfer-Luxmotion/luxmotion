@@ -128,6 +128,9 @@ async function historias(ctx: QueryCtx) {
   const criada = new Map(pagas.map((o) => [o._id as string, o._creationTime]));
   const porContacto = new Map<string, Historia>();
   const porOrganizacao = new Map<string, Historia>();
+  /* O que se vendeu pela página de cada parceria: é o número de um parceiro
+     (as reservas dele não são da organização, são dos clientes dele). */
+  const porParceria = new Map<string, Historia>();
   const de = (m: Map<string, Historia>, k: string) => {
     let h = m.get(k);
     if (!h) m.set(k, (h = { reservas: 0, gasto: 0, ultima: null, pedidos: 0 }));
@@ -142,13 +145,14 @@ async function historias(ctx: QueryCtx) {
   for (const o of pagas) {
     if (o.contactoId) somar(de(porContacto, o.contactoId), o);
     if (o.organizacaoId) somar(de(porOrganizacao, o.organizacaoId), o);
+    if (o.partnershipId) somar(de(porParceria, o.partnershipId), o);
   }
   for (const n of await ctx.db.query("negocios").collect()) {
     if (n.origem === "orders" || n.arquivadoEm) continue;
     if (n.contactoId) de(porContacto, n.contactoId).pedidos++;
     if (n.organizacaoId) de(porOrganizacao, n.organizacaoId).pedidos++;
   }
-  return { porContacto, porOrganizacao };
+  return { porContacto, porOrganizacao, porParceria };
 }
 
 /* De onde veio, em palavras: a primeira origem guardada no contacto. */
@@ -164,12 +168,16 @@ export const lista = query({
   handler: async (ctx, { tipo, pesquisa, relacao }) => {
     await exigirAdmin(ctx, "contactos", "ver");
     const verValores = temCapacidade(await lerAcesso(ctx), "valores");
-    const { porContacto, porOrganizacao } = await historias(ctx);
+    const { porContacto, porOrganizacao, porParceria } = await historias(ctx);
     const colunas = (h: Historia | undefined) => ({
       reservas: h?.reservas ?? 0,
       gasto: verValores ? Math.round((h?.gasto ?? 0) * 100) / 100 : null,
       ultimaReserva: h?.ultima ?? null,
       pedidos: h?.pedidos ?? 0,
+    });
+    const vendasDa = (h: Historia | undefined) => ({
+      vendasPagina: h?.reservas ?? 0,
+      faturadoPagina: verValores ? Math.round((h?.gasto ?? 0) * 100) / 100 : null,
     });
     const q = semAcentos(pesquisa?.trim() ?? "");
     const todosOrgs = await ctx.db.query("organizacoes").collect();
@@ -210,6 +218,7 @@ export const lista = query({
             origem: null as string | null,
             desde: o.criadoEm,
             ...colunas(porOrganizacao.get(o._id)),
+            ...vendasDa(o.carteira?.partnershipId ? porParceria.get(o.carteira.partnershipId) : undefined),
           })),
       };
     }
@@ -245,6 +254,7 @@ export const lista = query({
             origem: rotuloDaOrigem(c.primeiraOrigem),
             desde: c.criadoEm,
             ...colunas(porContacto.get(c._id)),
+            ...vendasDa(undefined),
           };
         }),
     };
