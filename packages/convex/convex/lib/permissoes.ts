@@ -20,9 +20,20 @@ const DEFINICAO = [
     id: "operacao",
     titulo: "Operação",
     modulos: [
-      { chave: "reservas", titulo: "Reservas", ajuda: "Transfers, tours e eventos pagos; confirmar pagamentos e mudar estados." },
+      { chave: "reservas", titulo: "Serviços", ajuda: "Transfers, tours e eventos pagos; confirmar pagamentos e mudar estados." },
       { chave: "pedidos", titulo: "Pedidos", ajuda: "Formulários de orçamento e contacto do site, e a newsletter." },
       { chave: "candidaturas", titulo: "Candidaturas", ajuda: "Motoristas e parceiros que se candidataram, com os documentos." },
+    ],
+  },
+  {
+    id: "equipa",
+    titulo: "Equipa",
+    modulos: [
+      {
+        chave: "equipa",
+        titulo: "Membros e cargos",
+        ajuda: "Quem entra no back-office e o que cada cargo vê. Quem pode editar isto pode dar-se qualquer acesso.",
+      },
     ],
   },
   {
@@ -62,17 +73,6 @@ const DEFINICAO = [
     modulos: [
       { chave: "definicoes", titulo: "Definições do site", ajuda: "Barra de anúncio, antecedência, câmbios, sobretaxas e números." },
       { chave: "escassez", titulo: "Escassez (Ultra)", ajuda: "Números da secção de disponibilidade da página Ultra-luxo." },
-    ],
-  },
-  {
-    id: "equipa",
-    titulo: "Equipa",
-    modulos: [
-      {
-        chave: "equipa",
-        titulo: "Membros e cargos",
-        ajuda: "Quem entra no back-office e o que cada cargo vê. Quem pode editar isto pode dar-se qualquer acesso.",
-      },
     ],
   },
 ] as const;

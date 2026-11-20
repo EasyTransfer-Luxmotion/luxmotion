@@ -22,7 +22,7 @@ export function eChaveFunil(x: string): x is ChaveFunil {
    tours vendidos em upsell no mesmo cartão); `manual`, um pedido que chegou
    por fora do site e se criou no back-office. */
 export const ORIGENS_FUNIL = [
-  { chave: "orders", titulo: "Reserva", funil: "reservas" },
+  { chave: "orders", titulo: "Serviço", funil: "reservas" },
   { chave: "contactSubmissions", titulo: "Contacto", funil: "pedidos" },
   { chave: "contactQuotes", titulo: "Orçamento corporate", funil: "pedidos" },
   { chave: "tourInquiries", titulo: "Ultra-luxo", funil: "pedidos" },
@@ -87,7 +87,7 @@ export const FUNIS: Record<
   { titulo: string; modulo: "reservas" | "pedidos" | "candidaturas"; manual: boolean; etapas: Etapa[] }
 > = {
   reservas: {
-    titulo: "Reservas",
+    titulo: "Serviços",
     modulo: "reservas",
     manual: false,
     etapas: [
