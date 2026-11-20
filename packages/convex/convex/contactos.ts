@@ -69,8 +69,9 @@ async function reservasDe(ctx: QueryCtx, filtro: { contactoId?: Id<"contactos">;
 /*
  * Os segmentos de cada contacto e de cada organização (lib/contactos.ts,
  * RELACOES): a origem do primeiro registo, os cartões dos funis
- * (Transfers e Pedidos Parceiros fazem cliente; Parcerias faz parceiro ou,
- * vindo de uma candidatura de motorista, motorista) e a Carteira. Uma
+ * (B2C e B2B fazem cliente; Parcerias faz parceiro ou, vindo de uma
+ * candidatura de motorista ou de empresa de transporte, motorista) e a
+ * Carteira. Uma
  * pessoa de uma organização parceira é parceira; uma organização é tudo o
  * que as suas pessoas são. Sem nada ligado, é cliente.
  */
@@ -161,6 +162,9 @@ export const lista = query({
       tipo,
       linhas: contactos
         .filter((c) => doSegmento(c._id))
+        /* Nos Motoristas, as Pessoas são os individuais: quem é de uma
+           empresa de motoristas aparece na ficha da empresa. */
+        .filter((c) => relacao !== "motoristas" || !c.organizacaoId)
         .filter((c) => !q || semAcentos([c.nome, c.email, c.telefone, c.funcao, orgs.get(c.organizacaoId ?? "")?.nome, ...c.etiquetas].filter(Boolean).join(" ")).includes(q))
         .sort((a, b) => b.atualizadoEm - a.atualizadoEm)
         .map((c) => {

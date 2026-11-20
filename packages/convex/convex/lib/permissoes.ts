@@ -20,8 +20,8 @@ const DEFINICAO = [
     id: "operacao",
     titulo: "Operação",
     modulos: [
-      { chave: "reservas", titulo: "Transfers", ajuda: "Transfers, tours e eventos pagos; confirmar pagamentos e mudar estados." },
-      { chave: "pedidos", titulo: "Pedidos Parceiros", ajuda: "Formulários de orçamento e contacto do site, e a newsletter." },
+      { chave: "reservas", titulo: "B2C", ajuda: "Transfers, tours e eventos pagos; confirmar pagamentos e mudar estados." },
+      { chave: "pedidos", titulo: "B2B", ajuda: "Formulários de orçamento e contacto do site, e a newsletter." },
       { chave: "candidaturas", titulo: "Candidaturas", ajuda: "Motoristas e parceiros que se candidataram, com os documentos." },
     ],
   },

@@ -129,8 +129,10 @@ export function relacaoDaOrigem(origem: string | undefined): Relacao | null {
     const r = origem.slice("manual:".length);
     return eRelacao(r) ? r : null;
   }
-  if (origem === "driverApplications") return "motoristas";
-  if (origem === "partnerLeads" || origem === "partnerApplications") return "parceiros";
+  /* As candidaturas de empresa são empresas de transporte (com motoristas
+     e veículos): motoristas, como empresa. As de motorista, individuais. */
+  if (origem === "driverApplications" || origem === "partnerApplications") return "motoristas";
+  if (origem === "partnerLeads") return "parceiros";
   /* As reservas e os seis formulários de pedido. */
   return "clientes";
 }

@@ -158,6 +158,10 @@ export const lista = query({
     pesquisa: v.optional(v.string()),
     /* O nome do parceiro, ou "direto" para os que chegaram sem parceiro. */
     parceiro: v.optional(v.string()),
+    /* Só os recebidos desde este instante (o filtro Período: hoje, 7 dias,
+       30 dias, este mês, este ano). O browser manda o início do dia, para
+       a subscrição não mudar a cada segundo. */
+    desde: v.optional(v.number()),
     pagina: v.number(),
     porPagina: v.number(),
   },
@@ -183,6 +187,7 @@ export const lista = query({
     const filtrados = doTipo
       .filter((x) => a.grupo === "todos" || x.grupo === a.grupo)
       .filter((x) => !a.parceiro || (a.parceiro === "direto" ? !x.parceiro?.trim() : x.parceiro?.trim() === a.parceiro))
+      .filter((x) => a.desde === undefined || x.recebido >= a.desde)
       .filter((x) => !q || [x.nome, x.empresa, x.email, x.telefone, x.linha, x.parceiro].some((c) => c && semAcentos(c).includes(q)))
       .sort((x, y) => y.recebido - x.recebido);
 
