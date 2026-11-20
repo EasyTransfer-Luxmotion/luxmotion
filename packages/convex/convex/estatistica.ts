@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, type QueryCtx } from "./_generated/server";
+import { internalMutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { lerAcesso, permite, temCapacidade, type Acesso } from "./lib/admin";
 import { FUNIS, tituloDaOrigem } from "./lib/funis";
@@ -73,13 +73,17 @@ function janela(de: string, ate: string) {
 }
 type Janela = NonNullable<ReturnType<typeof janela>>;
 
-/* Em que período cai um dia: o actual, o anterior, o do ano passado, ou nenhum. */
-function qual(j: Janela, dia: string): "agora" | "antes" | "ano" | null {
-  if (dia >= j.de && dia <= j.ate) return "agora";
-  if (dia >= j.antesDe && dia <= j.antesAte) return "antes";
-  if (dia >= j.anoDe && dia <= j.anoAte) return "ano";
-  return null;
+/* Se um dia cai num dos períodos. Um dia pode estar no anterior e no do
+   ano passado ao mesmo tempo (em «12 meses» e «Este ano» sobrepõem-se):
+   com uma só resposta, contava só como «anterior» e o ano passado ficava
+   sem esses dias. */
+type Periodo = "agora" | "antes" | "ano";
+function em(j: Janela, dia: string, p: Periodo): boolean {
+  if (p === "agora") return dia >= j.de && dia <= j.ate;
+  if (p === "antes") return dia >= j.antesDe && dia <= j.antesAte;
+  return dia >= j.anoDe && dia <= j.anoAte;
 }
+const algum = (j: Janela, dia: string) => em(j, dia, "agora") || em(j, dia, "antes") || em(j, dia, "ano");
 
 type Produto = "transfer" | "tour" | "evento";
 type Linha = {
@@ -102,10 +106,12 @@ async function lerReservas(ctx: QueryCtx, j: Janela): Promise<Linha[]> {
       .query("orders")
       .withIndex("by_creation_time", (q) => q.gte("_creationTime", j.desdeMs).lte("_creationTime", j.ateMs))
       .collect(),
-    j.anoAteMs < j.desdeMs
+    /* O ano passado, só a parte que não está já nos recentes. Antes só se
+       lia quando não se sobrepunham, e em «Este ano» faltava o início. */
+    j.anoDesdeMs < j.desdeMs
       ? ctx.db
           .query("orders")
-          .withIndex("by_creation_time", (q) => q.gte("_creationTime", j.anoDesdeMs).lte("_creationTime", j.anoAteMs))
+          .withIndex("by_creation_time", (q) => q.gte("_creationTime", j.anoDesdeMs).lt("_creationTime", Math.min(j.desdeMs, j.anoAteMs + 1)))
           .collect()
       : Promise.resolve([] as Doc<"orders">[]),
   ]);
@@ -122,7 +128,7 @@ async function lerReservas(ctx: QueryCtx, j: Janela): Promise<Linha[]> {
   const linhas: Linha[] = [];
   for (const o of docs) {
     const dia = paraDia(o._creationTime);
-    if (!qual(j, dia)) continue;
+    if (!algum(j, dia)) continue;
     const outra = o.relatedOrderId ? (porId.get(o.relatedOrderId) ?? outras.get(o.relatedOrderId) ?? null) : null;
     /* A volta é a perna mais recente das duas: conta na faturação, não nas viagens. */
     const volta = Boolean(outra && outra._creationTime < o._creationTime);
@@ -215,100 +221,6 @@ const semEuros = <T extends { faturacao: number; ticket: number | null }>(r: T, 
 const SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 const diaDaSemana = (dia: string) => (new Date(`${dia}T12:00:00Z`).getUTCDay() + 6) % 7;
 
-/* ─── Geral ──────────────────────────────────────────────────────────── */
-
-export const geral = query({
-  args: vPeriodo,
-  handler: async (ctx, { de, ate }) => {
-    const acesso = await lerAcesso(ctx);
-    if (!acessoOuNull(acesso, "reservas")) return null;
-    const valores = temCapacidade(acesso, "valores");
-    const j = janela(de, ate);
-    if (!j) return null;
-    const todas = await lerReservas(ctx, j);
-    const pagas = todas.filter((l) => l.paga);
-    const agora = pagas.filter((l) => qual(j, l.dia) === "agora");
-    const antes = pagas.filter((l) => qual(j, l.dia) === "antes");
-
-    /* Linhas de negócio: transfers do site, transfers de parceiros, tours,
-       eventos e B2B (orçamentos ganhos, pelo valor do cartão). */
-    const LINHAS = ["Transfers (site)", "Transfers (parceiros)", "Tours", "Eventos", "B2B"] as const;
-    const linhaDe = (l: Linha) =>
-      l.produto === "tour" ? "Tours" : l.produto === "evento" ? "Eventos" : parceiroDe(l.ida) === SEM_PARCEIRO ? "Transfers (site)" : "Transfers (parceiros)";
-    const serie = Object.fromEntries(LINHAS.map((n) => [n, j.baldes.map(() => 0)])) as Record<(typeof LINHAS)[number], number[]>;
-    const porLinha = new Map(LINHAS.map((n) => [n, { linha: n, n: 0, faturacao: 0, antes: 0 }]));
-    for (const l of agora) {
-      const k = linhaDe(l);
-      const b = j.balde(l.dia);
-      if (b >= 0) serie[k][b]! += l.valor;
-      const x = porLinha.get(k)!;
-      x.faturacao += l.valor;
-      if (!l.volta) x.n++;
-    }
-    for (const l of antes) porLinha.get(linhaDe(l))!.antes += l.valor;
-
-    /* B2B ganho: cartões do funil «medida» que fecharam ganhos no período. */
-    const funilMedida = await ctx.db
-      .query("funis")
-      .filter((q) => q.eq(q.field("chave"), "medida"))
-      .first();
-    let b2bAgora = 0;
-    let b2bAntes = 0;
-    if (funilMedida) {
-      const ganho = new Set(funilMedida.etapas.filter((e) => e.tipo === "ganho").map((e) => e.id));
-      for (const n of await ctx.db.query("negocios").withIndex("by_funil_criado", (q) => q.eq("funilId", funilMedida._id)).collect()) {
-        if (!n.fechadoEm || !ganho.has(n.etapaId)) continue;
-        const p = qual(j, paraDia(n.fechadoEm));
-        if (!p) continue;
-        if (p === "agora") {
-          b2bAgora += n.valor ?? 0;
-          const x = porLinha.get("B2B")!;
-          x.n++;
-          x.faturacao += n.valor ?? 0;
-          const b = j.balde(paraDia(n.fechadoEm));
-          if (b >= 0) serie.B2B[b]! += n.valor ?? 0;
-        } else b2bAntes += n.valor ?? 0;
-      }
-    }
-
-    /* Clientes que voltam: no período e com uma compra paga antes dele. */
-    const clientesAgora = new Set(agora.filter((l) => !l.volta).map((l) => l.cliente));
-    const antesDoPeriodo = await ctx.db
-      .query("orders")
-      .withIndex("by_creation_time", (q) => q.lt("_creationTime", (indiceDia(j.de) - 1) * 86_400_000))
-      .collect();
-    const jaCompraram = new Set(
-      antesDoPeriodo
-        .filter((o) => ESTADOS_DE_SERVICO.has(o.status) && paraDia(o._creationTime) < j.de)
-        .map((o) => (o.customerEmail ?? "").trim().toLowerCase() || (o.customerPhone ?? "").replace(/\D/g, ""))
-        .filter(Boolean),
-    );
-    const recorrentes = [...clientesAgora].filter((c) => jaCompraram.has(c)).length;
-
-    const porDiaSemana = SEMANA.map((rotulo) => ({ rotulo, n: 0, faturacao: 0 }));
-    for (const l of agora) {
-      const d = porDiaSemana[diaDaSemana(l.dia)]!;
-      d.faturacao += l.valor;
-      if (!l.volta) d.n++;
-    }
-
-    const rA = resumo(agora);
-    const rB = resumo(antes);
-    return {
-      valores,
-      periodo: { de: j.de, ate: j.ate, antesDe: j.antesDe, antesAte: j.antesAte, dias: j.dias },
-      granularidade: j.granularidade,
-      baldes: j.baldes,
-      agora: { ...semEuros(rA, valores), faturacaoTotal: valores ? arred(rA.faturacao + b2bAgora) : 0, recorrentes, novos: clientesAgora.size - recorrentes },
-      antes: { ...semEuros(rB, valores), faturacaoTotal: valores ? arred(rB.faturacao + b2bAntes) : 0 },
-      linhas: [...porLinha.values()].map((x) => ({ ...x, faturacao: valores ? arred(x.faturacao) : 0, antes: valores ? arred(x.antes) : 0 })),
-      serie: LINHAS.map((nome) => ({ nome, pontos: serie[nome].map((x) => (valores ? arred(x) : 0)) })),
-      topClientes: topClientes(agora, valores),
-      porDiaSemana: porDiaSemana.map((d) => ({ ...d, faturacao: valores ? arred(d.faturacao) : 0 })),
-    };
-  },
-});
-
 /* ─── Transfers ──────────────────────────────────────────────────────── */
 
 const ANTECEDENCIA = [
@@ -325,12 +237,12 @@ export const transfers = query({
   args: { ...vPeriodo, soSite: v.optional(v.boolean()) },
   handler: async (ctx, { de, ate, soSite }) => {
     const acesso = await lerAcesso(ctx);
-    if (!acessoOuNull(acesso, "reservas")) return null;
+    if (!acessoOuNull(acesso, "financas")) return null;
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j) return null;
     const todas = (await lerReservas(ctx, j)).filter((l) => l.produto === "transfer" && (!soSite || parceiroDe(l.ida) === SEM_PARCEIRO));
-    const doPeriodo = (p: "agora" | "antes" | "ano") => todas.filter((l) => qual(j, l.dia) === p);
+    const doPeriodo = (p: Periodo) => todas.filter((l) => em(j, l.dia, p));
 
     const indicadores = (ls: Linha[]) => {
       const pagas = ls.filter((l) => l.paga);
@@ -454,14 +366,14 @@ export const tours = query({
   args: { ...vPeriodo, tipo: v.optional(v.union(v.literal("tour"), v.literal("evento"))) },
   handler: async (ctx, { de, ate, tipo }) => {
     const acesso = await lerAcesso(ctx);
-    if (!acessoOuNull(acesso, "reservas")) return null;
+    if (!acessoOuNull(acesso, "financas")) return null;
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j) return null;
     const todas = (await lerReservas(ctx, j)).filter((l) => l.produto !== "transfer" && l.paga && (!tipo || l.produto === tipo));
-    const agora = todas.filter((l) => qual(j, l.dia) === "agora");
-    const antes = todas.filter((l) => qual(j, l.dia) === "antes");
-    const ano = todas.filter((l) => qual(j, l.dia) === "ano");
+    const agora = todas.filter((l) => em(j, l.dia, "agora"));
+    const antes = todas.filter((l) => em(j, l.dia, "antes"));
+    const ano = todas.filter((l) => em(j, l.dia, "ano"));
     const serie = { tour: j.baldes.map(() => 0), evento: j.baldes.map(() => 0) };
     const produtos = new Map<string, { rotulo: string; tipo: Produto; n: number; pessoas: number; faturacao: number }>();
     for (const l of agora) {
@@ -514,13 +426,13 @@ export const parceiros = query({
   args: vPeriodo,
   handler: async (ctx, { de, ate }) => {
     const acesso = await lerAcesso(ctx);
-    if (!acessoOuNull(acesso, "parcerias", "leads")) return null;
+    if (!acessoOuNull(acesso, "financas")) return null;
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j) return null;
     const pagas = (await lerReservas(ctx, j)).filter((l) => l.paga);
-    const agora = pagas.filter((l) => qual(j, l.dia) === "agora");
-    const antes = pagas.filter((l) => qual(j, l.dia) === "antes");
+    const agora = pagas.filter((l) => em(j, l.dia, "agora"));
+    const antes = pagas.filter((l) => em(j, l.dia, "antes"));
     const dePar = (ls: Linha[]) => ls.filter((l) => parceiroDe(l.ida) !== SEM_PARCEIRO);
 
     type P = { rotulo: string; n: number; faturacao: number; antesN: number; antesF: number; ultima: string; clientes: Set<string> };
@@ -567,7 +479,7 @@ export const parceiros = query({
       .filter((p) => p.status !== "inactive" && !comReservas.has(p.name.trim().toLowerCase()))
       .map((p) => ({ rotulo: p.name, ultima: ultimaDe.get(p.name.trim().toLowerCase()) ?? null, desde: paraDia(p.createdAt ?? p._creationTime) }))
       .sort((a, b) => (b.ultima ?? "").localeCompare(a.ultima ?? "") || a.rotulo.localeCompare(b.rotulo, "pt"));
-    const novos = paginas.filter((p) => qual(j, paraDia(p.createdAt ?? p._creationTime)) === "agora").length;
+    const novos = paginas.filter((p) => em(j, paraDia(p.createdAt ?? p._creationTime), "agora")).length;
 
     /* A angariação: o funil das Parcerias no período. */
     const funil = await ctx.db
@@ -581,12 +493,12 @@ export const parceiros = query({
     if (funil) {
       const tipo = new Map(funil.etapas.map((e) => [e.id, e.tipo]));
       for (const n of await ctx.db.query("negocios").withIndex("by_funil_criado", (q) => q.eq("funilId", funil._id)).collect()) {
-        if (qual(j, paraDia(n.criadoEm)) === "agora") {
+        if (em(j, paraDia(n.criadoEm), "agora")) {
           recebidas++;
           const r = tituloDaOrigem(n.origem);
           agrupar(porOrigem, r, () => ({ rotulo: r, n: 0, faturacao: 0, ganhas: 0 }), 0);
         }
-        if (n.fechadoEm && qual(j, paraDia(n.fechadoEm)) === "agora") {
+        if (n.fechadoEm && em(j, paraDia(n.fechadoEm), "agora")) {
           if (tipo.get(n.etapaId) === "ganho") {
             ganhas++;
             const r = tituloDaOrigem(n.origem);
@@ -618,7 +530,7 @@ export const parceiros = query({
         novos,
       },
       antes: { ...semEuros(rPB, valores), activos: ranking.filter((r) => r.antesN > 0).length },
-      ano: semEuros(resumo(dePar(pagas.filter((l) => qual(j, l.dia) === "ano"))), valores),
+      ano: semEuros(resumo(dePar(pagas.filter((l) => em(j, l.dia, "ano")))), valores),
       serie: serie.map(arred),
       ranking,
       inactivos,
@@ -650,13 +562,14 @@ function empresaDe(o: Doc<"orders">, orgs: Map<string, string>): string | null {
   return null;
 }
 
-/* ─── B2B (empresas e pedidos por medida) ───────────────────────────────────────── */
+/* ─── Pedidos de orçamento ───────────────────────────────────────── */
 
-export const b2b = query({
+/* Finanças → Pedidos de orçamento: o funil «medida». */
+export const orcamentos = query({
   args: vPeriodo,
   handler: async (ctx, { de, ate }) => {
     const acesso = await lerAcesso(ctx);
-    if (!acessoOuNull(acesso, "pedidos", "reservas")) return null;
+    if (!acessoOuNull(acesso, "financas")) return null;
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j) return null;
@@ -666,38 +579,17 @@ export const b2b = query({
       .first();
     if (!funil) return null;
     const etapa = new Map(funil.etapas.map((e) => [e.id, e]));
-
-    /* As reservas pagas de empresas (fora dos sites dos parceiros). */
-    const orgs = new Map((await ctx.db.query("organizacoes").collect()).map((o) => [o._id as string, o.nome]));
-    const pagas = (await lerReservas(ctx, j)).filter((l) => l.paga && parceiroDe(l.ida) === SEM_PARCEIRO);
-    const deEmpresa = (ls: Linha[]) => ls.map((l) => ({ l, empresa: empresaDe(l.ida, orgs) })).filter((x) => x.empresa !== null) as { l: Linha; empresa: string }[];
-    const empAgora = deEmpresa(pagas.filter((l) => qual(j, l.dia) === "agora"));
-    const empAntes = deEmpresa(pagas.filter((l) => qual(j, l.dia) === "antes"));
-    const totalAgora = pagas.filter((l) => qual(j, l.dia) === "agora").reduce((t, l) => t + l.valor, 0);
-    const resEmp = (xs: { l: Linha; empresa: string }[]) => {
-      const r = resumo(xs.map((x) => x.l));
-      return { ...semEuros(r, valores), empresas: new Set(xs.map((x) => x.empresa)).size };
-    };
-    const empresas = new Map<string, { rotulo: string; n: number; faturacao: number; ultima: string; produtos: Set<string> }>();
-    const serieEmpresas = j.baldes.map(() => 0);
-    for (const { l, empresa } of empAgora) {
-      const x = agrupar(empresas, empresa.toLowerCase(), () => ({ rotulo: empresa, n: 0, faturacao: 0, ultima: l.dia, produtos: new Set<string>() }), l.valor, !l.volta);
-      if (l.dia > x.ultima) x.ultima = l.dia;
-      x.produtos.add(l.produto === "transfer" ? "Transfers" : l.produto === "tour" ? "Tours" : "Eventos");
-      const b = j.balde(l.dia);
-      if (b >= 0) serieEmpresas[b]! += valores ? l.valor : l.volta ? 0 : 1;
-    }
     const negocios = await ctx.db.query("negocios").withIndex("by_funil_criado", (q) => q.eq("funilId", funil._id)).collect();
 
-    const contas = (p: "agora" | "antes" | "ano") => {
+    const contas = (p: Periodo) => {
       let recebidos = 0;
       let ganhos = 0;
       let perdidos = 0;
       let valorGanho = 0;
       const tempos: number[] = [];
       for (const n of negocios) {
-        if (qual(j, paraDia(n.criadoEm)) === p) recebidos++;
-        if (!n.fechadoEm || qual(j, paraDia(n.fechadoEm)) !== p) continue;
+        if (em(j, paraDia(n.criadoEm), p)) recebidos++;
+        if (!n.fechadoEm || !em(j, paraDia(n.fechadoEm), p)) continue;
         const t = etapa.get(n.etapaId)?.tipo;
         if (t === "ganho") {
           ganhos++;
@@ -732,12 +624,12 @@ export const b2b = query({
     const serieGanhos = j.baldes.map(() => 0);
     for (const n of negocios) {
       const tipo = tituloDaOrigem(n.origem);
-      if (qual(j, paraDia(n.criadoEm)) === "agora") {
+      if (em(j, paraDia(n.criadoEm), "agora")) {
         agrupar(porTipo, tipo, () => ({ rotulo: tipo, n: 0, faturacao: 0, ganhos: 0, perdidos: 0 }), 0);
         const b = j.balde(paraDia(n.criadoEm));
         if (b >= 0) serieRecebidos[b]!++;
       }
-      if (!n.fechadoEm || qual(j, paraDia(n.fechadoEm)) !== "agora") continue;
+      if (!n.fechadoEm || !em(j, paraDia(n.fechadoEm), "agora")) continue;
       const t = etapa.get(n.etapaId)?.tipo;
       const x = porTipo.get(tipo) ?? { rotulo: tipo, n: 0, faturacao: 0, ganhos: 0, perdidos: 0 };
       if (t === "ganho") {
@@ -781,14 +673,6 @@ export const b2b = query({
         .slice(0, 10)
         .map((c) => ({ ...c, faturacao: valores ? c.faturacao : 0 })),
       funil: FUNIS.medida.titulo,
-      empresas: {
-        agora: { ...resEmp(empAgora), peso: totalAgora && valores ? Math.round((empAgora.reduce((t, x) => t + x.l.valor, 0) / totalAgora) * 1000) / 10 : null },
-        antes: resEmp(empAntes),
-        serie: serieEmpresas.map(arred),
-        ranking: [...empresas.values()]
-          .map((x) => ({ rotulo: x.rotulo, n: x.n, faturacao: valores ? arred(x.faturacao) : 0, ultima: x.ultima, produtos: [...x.produtos].join(", ") }))
-          .sort((a, b) => (valores ? b.faturacao - a.faturacao : 0) || b.n - a.n),
-      },
     };
   },
 });
@@ -806,13 +690,13 @@ export const resumoFinancas = query({
   args: { ...vPeriodo, hoje: v.string() },
   handler: async (ctx, { de, ate, hoje }) => {
     const acesso = await lerAcesso(ctx);
-    if (!acessoOuNull(acesso, "reservas")) return null;
+    if (!acessoOuNull(acesso, "financas")) return null;
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j || !DIA.test(hoje)) return null;
     const todas = await lerReservas(ctx, j);
     const pagas = todas.filter((l) => l.paga);
-    const de_ = (p: "agora" | "antes" | "ano") => pagas.filter((l) => qual(j, l.dia) === p);
+    const de_ = (p: Periodo) => pagas.filter((l) => em(j, l.dia, p));
 
     const contas = (ls: Linha[]) => {
       const bruto = ls.reduce((t, l) => t + l.valor, 0);
@@ -859,7 +743,9 @@ export const resumoFinancas = query({
     const garantido = [30, 60, 90].map((dias) => {
       const limite = deIndice(indiceDia(hoje) + dias);
       const os = futuras.filter((o) => o.departureDate.slice(0, 10) <= limite);
-      return { dias, valor: valores ? arred(os.reduce((t, o) => t + (o.totalAmount ?? 0), 0)) : 0, servicos: os.filter((o) => !o.relatedOrderId || o.isRoundTrip !== false).length };
+      /* Uma ida e volta é uma viagem: conta-se o par uma vez (a perna com o id menor). */
+      const viagens = new Set(os.map((o) => (o.relatedOrderId && o.relatedOrderId < o._id ? o.relatedOrderId : o._id) as string)).size;
+      return { dias, valor: valores ? arred(os.reduce((t, o) => t + (o.totalAmount ?? 0), 0)) : 0, servicos: viagens };
     });
 
     /* Concentração: quanto vale o top 5 de clientes e de parceiros. */
@@ -876,7 +762,7 @@ export const resumoFinancas = query({
     };
 
     /* Perdas: canceladas depois de pagas (o dinheiro entrou e saiu). */
-    const canceladasPagas = todas.filter((l) => qual(j, l.dia) === "agora" && l.o.status === "cancelled" && l.o.paymentStatus === "completed");
+    const canceladasPagas = todas.filter((l) => em(j, l.dia, "agora") && l.o.status === "cancelled" && l.o.paymentStatus === "completed");
 
     const cA = contas(agora);
     return {
@@ -893,5 +779,22 @@ export const resumoFinancas = query({
       concentracao: { clientes: topN((l) => l.cliente), parceiros: topN((l) => (parceiroDe(l.ida) === SEM_PARCEIRO ? null : parceiroDe(l.ida))) },
       perdas: { canceladas: canceladasPagas.filter((l) => !l.volta).length, valor: valores ? arred(canceladasPagas.reduce((t, l) => t + l.valor, 0)) : 0 },
     };
+  },
+});
+
+/* O módulo «financas» aos cargos que já viam os euros («Ver valores e
+   faturação»), só para ver. Pode correr mais de uma vez.
+     npx convex run estatistica:darAcessoFinancas */
+export const darAcessoFinancas = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const feitos: string[] = [];
+    for (const c of await ctx.db.query("cargos").collect()) {
+      if (c.permissoes.some((p) => p.modulo === "financas")) continue;
+      if (!(c.capacidades ?? []).includes("valores")) continue;
+      await ctx.db.patch(c._id, { permissoes: [...c.permissoes, { modulo: "financas", nivel: "ver" }], actualizadoEm: Date.now() });
+      feitos.push(c.nome);
+    }
+    return feitos;
   },
 });

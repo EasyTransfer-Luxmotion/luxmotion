@@ -36,6 +36,20 @@ const DEFINICAO = [
     ],
   },
   {
+    /* O negócio em dinheiro (dashboard → Finanças). Módulo próprio: as
+       Reservas deixavam ver o Resumo financeiro a quem só despacha. Os
+       euros continuam a pedir «Ver valores e faturação». */
+    id: "financas",
+    titulo: "Finanças",
+    modulos: [
+      {
+        chave: "financas",
+        titulo: "Finanças",
+        ajuda: "Receita, crescimento face ao ano passado, o que está garantido e os números de cada linha de negócio. Os euros só com «Ver valores e faturação».",
+      },
+    ],
+  },
+  {
     id: "equipa",
     titulo: "Equipa",
     modulos: [
