@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { lerAcesso, permite, temCapacidade, type Acesso } from "./lib/admin";
-import { FUNIS, tituloDaOrigem } from "./lib/funis";
+import { tituloDaOrigem } from "./lib/funis";
 import {
   ESTADOS_DE_SERVICO,
   METODOS,
@@ -561,121 +561,6 @@ function empresaDe(o: Doc<"orders">, orgs: Map<string, string>): string | null {
   if (NIF_EMPRESA.test(nif)) return o.customerName?.trim() ? `${o.customerName.trim()} (NIF ${nif})` : `NIF ${nif}`;
   return null;
 }
-
-/* ─── Pedidos de orçamento ───────────────────────────────────────── */
-
-/* Finanças → Pedidos de orçamento: o funil «medida». */
-export const orcamentos = query({
-  args: vPeriodo,
-  handler: async (ctx, { de, ate }) => {
-    const acesso = await lerAcesso(ctx);
-    if (!acessoOuNull(acesso, "financas")) return null;
-    const valores = temCapacidade(acesso, "valores");
-    const j = janela(de, ate);
-    if (!j) return null;
-    const funil = await ctx.db
-      .query("funis")
-      .filter((q) => q.eq(q.field("chave"), "medida"))
-      .first();
-    if (!funil) return null;
-    const etapa = new Map(funil.etapas.map((e) => [e.id, e]));
-    const negocios = await ctx.db.query("negocios").withIndex("by_funil_criado", (q) => q.eq("funilId", funil._id)).collect();
-
-    const contas = (p: Periodo) => {
-      let recebidos = 0;
-      let ganhos = 0;
-      let perdidos = 0;
-      let valorGanho = 0;
-      const tempos: number[] = [];
-      for (const n of negocios) {
-        if (em(j, paraDia(n.criadoEm), p)) recebidos++;
-        if (!n.fechadoEm || !em(j, paraDia(n.fechadoEm), p)) continue;
-        const t = etapa.get(n.etapaId)?.tipo;
-        if (t === "ganho") {
-          ganhos++;
-          valorGanho += n.valor ?? 0;
-          tempos.push((n.fechadoEm - n.criadoEm) / 86_400_000);
-        } else if (t === "perdido") perdidos++;
-      }
-      return {
-        recebidos,
-        ganhos,
-        perdidos,
-        conversao: ganhos + perdidos ? Math.round((ganhos / (ganhos + perdidos)) * 1000) / 10 : null,
-        valorGanho: valores ? arred(valorGanho) : 0,
-        ticket: valores && ganhos ? arred(valorGanho / ganhos) : null,
-        diasAteFechar: tempos.length ? Math.round((tempos.reduce((a, b) => a + b, 0) / tempos.length) * 10) / 10 : null,
-      };
-    };
-
-    /* O que está em aberto agora (não depende do período). */
-    const abertos = negocios.filter((n) => !n.arquivadoEm && etapa.get(n.etapaId)?.tipo === "aberta");
-    const pipeline = funil.etapas
-      .filter((e) => e.tipo === "aberta")
-      .map((e) => {
-        const ns = abertos.filter((n) => n.etapaId === e.id);
-        return { rotulo: e.nome, cor: e.cor, n: ns.length, faturacao: valores ? arred(ns.reduce((t, n) => t + (n.valor ?? 0), 0)) : 0 };
-      });
-
-    const porTipo = new Map<string, { rotulo: string; n: number; faturacao: number; ganhos: number; perdidos: number }>();
-    const motivos = new Map<string, number>();
-    const clientes = new Map<string, { rotulo: string; n: number; faturacao: number }>();
-    const serieRecebidos = j.baldes.map(() => 0);
-    const serieGanhos = j.baldes.map(() => 0);
-    for (const n of negocios) {
-      const tipo = tituloDaOrigem(n.origem);
-      if (em(j, paraDia(n.criadoEm), "agora")) {
-        agrupar(porTipo, tipo, () => ({ rotulo: tipo, n: 0, faturacao: 0, ganhos: 0, perdidos: 0 }), 0);
-        const b = j.balde(paraDia(n.criadoEm));
-        if (b >= 0) serieRecebidos[b]!++;
-      }
-      if (!n.fechadoEm || !em(j, paraDia(n.fechadoEm), "agora")) continue;
-      const t = etapa.get(n.etapaId)?.tipo;
-      const x = porTipo.get(tipo) ?? { rotulo: tipo, n: 0, faturacao: 0, ganhos: 0, perdidos: 0 };
-      if (t === "ganho") {
-        x.ganhos++;
-        x.faturacao += n.valor ?? 0;
-        const b = j.balde(paraDia(n.fechadoEm));
-        if (b >= 0) serieGanhos[b]!++;
-        const quem = n.organizacao?.trim() || n.pessoa.nome;
-        agrupar(clientes, quem.toLowerCase(), () => ({ rotulo: quem, n: 0, faturacao: 0 }), n.valor ?? 0);
-      } else if (t === "perdido") {
-        x.perdidos++;
-        const mtv = n.motivoPerda?.trim() || "Sem motivo";
-        motivos.set(mtv, (motivos.get(mtv) ?? 0) + 1);
-      }
-      porTipo.set(tipo, x);
-    }
-
-    return {
-      valores,
-      periodo: { de: j.de, ate: j.ate, antesDe: j.antesDe, antesAte: j.antesAte, dias: j.dias },
-      granularidade: j.granularidade,
-      baldes: j.baldes,
-      agora: contas("agora"),
-      antes: contas("antes"),
-      ano: contas("ano"),
-      emAberto: { n: abertos.length, valor: valores ? arred(abertos.reduce((t, n) => t + (n.valor ?? 0), 0)) : 0 },
-      pipeline,
-      serie: [
-        { nome: "Recebidos", pontos: serieRecebidos },
-        { nome: "Ganhos", pontos: serieGanhos },
-      ],
-      porTipo: [...porTipo.values()]
-        .map((x) => ({
-          ...x,
-          faturacao: valores ? arred(x.faturacao) : 0,
-          conversao: x.ganhos + x.perdidos ? Math.round((x.ganhos / (x.ganhos + x.perdidos)) * 1000) / 10 : null,
-        }))
-        .sort((a, b) => b.n - a.n || b.ganhos - a.ganhos),
-      motivos: [...motivos.entries()].map(([rotulo, n]) => ({ rotulo, n })).sort((a, b) => b.n - a.n),
-      topClientes: lista(clientes, valores)
-        .slice(0, 10)
-        .map((c) => ({ ...c, faturacao: valores ? c.faturacao : 0 })),
-      funil: FUNIS.medida.titulo,
-    };
-  },
-});
 
 /* ─── Finanças → Resumo ──────────────────────────────────────────────── */
 
