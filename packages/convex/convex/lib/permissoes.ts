@@ -50,17 +50,6 @@ const DEFINICAO = [
     ],
   },
   {
-    id: "equipa",
-    titulo: "Equipa",
-    modulos: [
-      {
-        chave: "equipa",
-        titulo: "Membros e cargos",
-        ajuda: "Quem entra no back-office e o que cada cargo vê. Quem pode editar isto pode dar-se qualquer acesso.",
-      },
-    ],
-  },
-  {
     id: "parceiros",
     titulo: "Parceiros",
     modulos: [
@@ -89,6 +78,17 @@ const DEFINICAO = [
       { chave: "avaliacoes", titulo: "Avaliações", ajuda: "Aprovar, destacar e responder a avaliações." },
       { chave: "equipaSite", titulo: "Equipa no site", ajuda: "Perfis públicos da equipa na página Sobre nós." },
       { chave: "motoristas", titulo: "Motoristas", ajuda: "Perfis públicos dos motoristas no site." },
+    ],
+  },
+  {
+    id: "equipa",
+    titulo: "Equipa",
+    modulos: [
+      {
+        chave: "equipa",
+        titulo: "Membros e cargos",
+        ajuda: "Quem entra no back-office e o que cada cargo vê. Quem pode editar isto pode dar-se qualquer acesso.",
+      },
     ],
   },
   {
