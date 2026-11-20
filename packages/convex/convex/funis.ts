@@ -69,6 +69,8 @@ function cartao(acesso: Acesso, n: Doc<"negocios">) {
     organizacao: n.organizacao ?? null,
     valor: valorVisivel(acesso, n),
     origem: n.origem,
+    /* Para abrir a ficha do registo (a reserva, o pedido, a candidatura). */
+    origemId: n.origemId ?? null,
     canal: n.canal ?? null,
     criadoEm: n.criadoEm,
     movidoEm: n.movidoEm,
@@ -147,7 +149,6 @@ async function lerNegocio(ctx: QueryCtx, id: Id<"negocios">) {
     chave: funil.chave as ChaveFunil,
     etapas: funil.etapas,
     nota: n.nota ?? null,
-    origemId: n.origemId ?? null,
     origemTitulo: tituloDaOrigem(n.origem),
     motivoPerda: n.motivoPerda ?? null,
     atualizadoEm: n.atualizadoEm,
