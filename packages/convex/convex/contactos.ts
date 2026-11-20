@@ -4,7 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { exigirAdmin, lerAcesso } from "./lib/admin";
 import { ligarContacto, ligarOrganizacao, normalizarEmail, normalizarNome, normalizarTelefone } from "./lib/contactos";
-import { FUNIS, type ChaveFunil } from "./lib/funis";
+import { FUNIS, segmentoDaOrigem, type ChaveFunil } from "./lib/funis";
 
 /*
  * Operação → Contactos (organizações e pessoas) e Parceiros → Carteira (as
@@ -509,8 +509,16 @@ export async function ativarCarteira(ctx: MutationCtx, n: Doc<"negocios">) {
   }
   const o = await ctx.db.get(organizacaoId);
   if (!o || o.carteira) return;
+  /* O segmento do cartão: escolhido à mão, ou o da origem (o tipo de
+     parceiro da lead, a candidatura). */
+  let tipoParceiro: string | undefined;
+  if (n.origem === "partnerLeads" && n.origemId) {
+    const lid = ctx.db.normalizeId("partnerLeads", n.origemId);
+    tipoParceiro = lid ? (await ctx.db.get(lid))?.partnerType : undefined;
+  }
+  const segmento = o.segmento ?? n.segmento ?? segmentoDaOrigem(n.origem, tipoParceiro) ?? undefined;
   const agora = Date.now();
-  await ctx.db.patch(o._id, { carteira: { estado: "ativacao", aceiteEm: agora }, estadoCarteira: "ativacao", segmento: o.segmento ?? n.segmento, atualizadoEm: agora });
+  await ctx.db.patch(o._id, { carteira: { estado: "ativacao", aceiteEm: agora }, estadoCarteira: "ativacao", segmento, atualizadoEm: agora });
 }
 
 /* ─── Migração ────────────────────────────────────────────────────────── */

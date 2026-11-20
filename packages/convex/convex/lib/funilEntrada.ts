@@ -24,6 +24,7 @@ import {
   mapearCorporateRequest,
   mapearDriverApplication,
   mapearPartnerApplication,
+  mapearPartnerLead,
   mapearReservaPaga,
   mapearSchoolQuote,
   mapearTourInquiry,
@@ -176,6 +177,10 @@ export async function lerLead(ctx: MutationCtx, tabela: TabelaLead, id: string):
     case "corporateRequests": {
       const d = await ctx.db.get(id as Id<typeof tabela>);
       return d ? mapearCorporateRequest(d) : null;
+    }
+    case "partnerLeads": {
+      const d = await ctx.db.get(id as Id<typeof tabela>);
+      return d ? mapearPartnerLead(d) : null;
     }
     case "driverApplications": {
       const d = await ctx.db.get(id as Id<typeof tabela>);
