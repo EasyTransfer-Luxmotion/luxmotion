@@ -371,72 +371,19 @@ export const guardarContacto = mutation({
   },
 });
 
-/* ─── Duplicados ──────────────────────────────────────────────────────── */
+/* ─── Apagar ───────────────────────────────────────────────────────────── */
 
 /*
- * Os possíveis duplicados: contactos com o mesmo telefone e emails
- * diferentes (ou o mesmo nome e a mesma organização), e organizações com
- * nomes que se contêm um ao outro («Avenida Palace» e «Hotel Avenida
- * Palace»). Os pares marcados como «não são o mesmo» não voltam.
+ * Apagar um contacto ou uma organização. Sem nada ligado, apaga. Com
+ * reservas, cartões, pessoas ou estabelecimentos, essas ligações passam
+ * primeiro para outro registo (passarPara) — o que antes era «juntar
+ * duplicados» num ecrã à parte: a mesma pessoa com dois emails ficava com
+ * meia história em cada um, e apagar um deixava reservas a apontar para
+ * ninguém. Os dados que faltam no que fica (email, telefone, NIF…) vêm do
+ * que se apaga.
  */
-export const duplicados = query({
-  args: { tipo: vTipo },
-  handler: async (ctx, { tipo }) => {
-    await exigirAdmin(ctx, "contactos", "ver");
-    const ignorados = new Set(
-      (await ctx.db.query("duplicadosIgnorados").collect()).filter((x) => x.tipo === tipo).map((x) => `${x.a}|${x.b}`),
-    );
-    const par = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
-    const pares: { a: { id: string; nome: string; detalhe: string }; b: { id: string; nome: string; detalhe: string }; porque: string }[] = [];
-    if (tipo === "contactos") {
-      const cs = await ctx.db.query("contactos").collect();
-      const porTel = new Map<string, Doc<"contactos">[]>();
-      for (const c of cs) if (c.telefone) porTel.set(c.telefone, [...(porTel.get(c.telefone) ?? []), c]);
-      for (const [tel, lista] of porTel) {
-        for (let i = 1; i < lista.length; i++) {
-          const a = lista[0]!, b = lista[i]!;
-          if (ignorados.has(par(a._id, b._id))) continue;
-          pares.push({ a: { id: a._id, nome: a.nome, detalhe: a.email ?? tel }, b: { id: b._id, nome: b.nome, detalhe: b.email ?? tel }, porque: `Mesmo telefone (${tel})` });
-        }
-      }
-    } else {
-      const os = (await ctx.db.query("organizacoes").collect()).filter((o) => o.nomeNormalizado.length >= 4);
-      for (let i = 0; i < os.length; i++) {
-        for (let j = i + 1; j < os.length; j++) {
-          const a = os[i]!, b = os[j]!;
-          if (a.grupoId === b._id || b.grupoId === a._id) continue;
-          const na = a.nomeNormalizado, nb = b.nomeNormalizado;
-          if (!(na.includes(nb) || nb.includes(na))) continue;
-          if (ignorados.has(par(a._id, b._id))) continue;
-          pares.push({ a: { id: a._id, nome: a.nome, detalhe: a.localidade ?? "" }, b: { id: b._id, nome: b.nome, detalhe: b.localidade ?? "" }, porque: "Nomes parecidos" });
-        }
-      }
-    }
-    return pares.slice(0, 200);
-  },
-});
-
-export const ignorarDuplicado = mutation({
-  args: { tipo: vTipo, a: v.string(), b: v.string() },
-  handler: async (ctx, { tipo, a, b }) => {
-    await exigirAdmin(ctx, "contactos", "editar");
-    const acesso = await lerAcesso(ctx);
-    const [x, y] = a < b ? [a, b] : [b, a];
-    await ctx.db.insert("duplicadosIgnorados", { tipo, a: x, b: y, por: acesso.email ?? "", em: Date.now() });
-    return null;
-  },
-});
-
-/*
- * Juntar dois registos: o que fica recebe os campos que lhe faltavam e todas
- * as ligações do outro (cartões, reservas, pessoas, estabelecimentos), e o
- * outro apaga-se.
- */
-export const juntar = mutation({
-  args: { tipo: vTipo, manter: v.string(), apagar: v.string() },
-  handler: async (ctx, { tipo, manter, apagar }) => {
-    await exigirAdmin(ctx, "contactos", "editar");
-    if (manter === apagar) throw new ConvexError("Escolha dois registos diferentes.");
+async function passarEApagar(ctx: MutationCtx, tipo: "organizacoes" | "contactos", manter: string, apagar: string) {
+    if (manter === apagar) throw new ConvexError("Escolha outro registo para ficar com as ligações.");
     if (tipo === "contactos") {
       const m = ctx.db.normalizeId("contactos", manter), x = ctx.db.normalizeId("contactos", apagar);
       const cm = m && (await ctx.db.get(m)), cx = x && (await ctx.db.get(x));
@@ -482,6 +429,42 @@ export const juntar = mutation({
     for (const n of await ctx.db.query("negocios").withIndex("by_organizacao", (q) => q.eq("organizacaoId", ox._id)).collect()) await ctx.db.patch(n._id, { organizacaoId: om._id });
     for (const o of await ctx.db.query("orders").withIndex("by_organizacao", (q) => q.eq("organizacaoId", ox._id)).collect()) await ctx.db.patch(o._id, { organizacaoId: om._id });
     await ctx.db.delete(ox._id);
+    return null;
+}
+
+async function ligacoes(ctx: MutationCtx, tipo: "organizacoes" | "contactos", id: string): Promise<number> {
+  if (tipo === "contactos") {
+    const c = ctx.db.normalizeId("contactos", id);
+    if (!c) return 0;
+    const n = await ctx.db.query("negocios").withIndex("by_contacto", (q) => q.eq("contactoId", c)).take(1);
+    const o = await ctx.db.query("orders").withIndex("by_contacto", (q) => q.eq("contactoId", c)).take(1);
+    return n.length + o.length;
+  }
+  const o = ctx.db.normalizeId("organizacoes", id);
+  if (!o) return 0;
+  const contas = await Promise.all([
+    ctx.db.query("contactos").withIndex("by_organizacao", (q) => q.eq("organizacaoId", o)).take(1),
+    ctx.db.query("organizacoes").withIndex("by_grupo", (q) => q.eq("grupoId", o)).take(1),
+    ctx.db.query("negocios").withIndex("by_organizacao", (q) => q.eq("organizacaoId", o)).take(1),
+    ctx.db.query("orders").withIndex("by_organizacao", (q) => q.eq("organizacaoId", o)).take(1),
+  ]);
+  return contas.reduce((t, x) => t + x.length, 0);
+}
+
+export const apagar = mutation({
+  args: { tipo: vTipo, id: v.string(), passarPara: v.optional(v.string()) },
+  handler: async (ctx, { tipo, id, passarPara }) => {
+    await exigirAdmin(ctx, "contactos", "editar", "apagar");
+    if (passarPara) {
+      await passarEApagar(ctx, tipo, passarPara, id);
+      return null;
+    }
+    if ((await ligacoes(ctx, tipo, id)) > 0) {
+      throw new ConvexError("Tem reservas, pedidos ou pessoas ligadas: escolha para quem passam antes de apagar.");
+    }
+    const nid = tipo === "contactos" ? ctx.db.normalizeId("contactos", id) : ctx.db.normalizeId("organizacoes", id);
+    if (!nid || !(await ctx.db.get(nid))) throw new ConvexError("Este registo já não existe.");
+    await ctx.db.delete(nid);
     return null;
   },
 });
