@@ -1937,6 +1937,9 @@ export default defineSchema({
     /* O _id do pedido, da lead ou da encomenda (a ida). Vazio no manual. */
     origemId: v.optional(v.string()),
     canal: v.optional(v.string()),
+    /* O segmento de um cartão criado à mão (lib/funis.ts → SEGMENTOS); nos
+       outros vem da origem. */
+    segmento: v.optional(v.string()),
     criadoEm: v.number(),
     atualizadoEm: v.number(),
     movidoEm: v.number(),

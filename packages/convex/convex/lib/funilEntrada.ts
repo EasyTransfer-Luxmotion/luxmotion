@@ -57,6 +57,7 @@ type Novo = {
   valor?: number;
   nota?: string;
   canal?: string;
+  segmento?: string;
   /* Quem criou: um email, ou "sistema" quando chegou do site. */
   por: string;
   /* Na migração (funis.preencher), quando a lead foi gravada e em que etapa
@@ -121,6 +122,7 @@ export async function colocarNoFunil(ctx: MutationCtx, n: Novo): Promise<Id<"neg
     origem: n.origem,
     origemId: n.origemId,
     canal: n.canal,
+    segmento: n.segmento,
     criadoEm,
     atualizadoEm: agora,
     movidoEm: criadoEm,

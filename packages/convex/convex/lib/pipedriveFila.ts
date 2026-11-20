@@ -7,8 +7,8 @@
  * Tem de correr na mesma transação da submissão: escrita depois, duas
  * submissões simultâneas do mesmo formulário criavam dois cartões.
  *
- * Os pedidos do site e a newsletter também a chamam e não entram: não têm
- * funil, e têm a sua caixa no back-office.
+ * A newsletter também a chama e não entra: não é um negócio, e tem a sua
+ * caixa no back-office.
  */
 
 import type { MutationCtx } from "../_generated/server";

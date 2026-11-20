@@ -1,5 +1,6 @@
 /*
- * Os três funis do back-office — Serviços, Parcerias e Candidaturas — e o que
+ * Os três funis do back-office — Serviços do website, Serviços por medida e
+ * Parcerias — e o que
  * eles e o dashboard têm de dizer da mesma maneira: que origens caem em cada
  * um, que módulo de permissão o abre, as etapas com que começa e as cores.
  *
@@ -11,10 +12,12 @@
  * importa este ficheiro (@workspace/convex/convex/lib/funis).
  */
 
-/* "pedidos" houve até 2026-11-20: os pedidos do site voltaram a ser só
-   lista, e o quadro do meio passou a ser o das parcerias (Parceiros →
-   Leads). criarFunisIniciais apaga o funil antigo. */
-export const CHAVES_FUNIL = ["reservas", "parcerias", "candidaturas"] as const;
+/* «reservas» é Serviços → Website (os transfers pagos no site e nos sites
+   dos parceiros: despacho); «medida» é Serviços → Por medida (casamentos,
+   ultra-luxo, corporate, escolas: venda); «parcerias» é a aquisição de
+   parceiros (leads da página Hotéis e todas as candidaturas). Os que houve
+   antes («pedidos», «candidaturas») apaga-os criarFunisIniciais. */
+export const CHAVES_FUNIL = ["reservas", "medida", "parcerias"] as const;
 export type ChaveFunil = (typeof CHAVES_FUNIL)[number];
 
 export function eChaveFunil(x: string): x is ChaveFunil {
@@ -22,15 +25,22 @@ export function eChaveFunil(x: string): x is ChaveFunil {
 }
 
 /* De onde vem um cartão. `orders` é uma reserva paga (a ida, com a volta e os
-   tours vendidos em upsell no mesmo cartão); `partnerLeads`, um hotel ou
-   empresa que pediu para ser parceiro na página Hotéis; `manual`, uma
-   parceria que começou por fora do site e se criou no back-office. */
+   tours vendidos em upsell no mesmo cartão); os formulários de pedido do
+   site são venda por medida; as leads da página Hotéis e as candidaturas
+   são parcerias; `manual`, o que começou por fora do site. */
 export const ORIGENS_FUNIL = [
-  { chave: "orders", titulo: "Serviço", funil: "reservas" },
+  { chave: "orders", titulo: "Website", funil: "reservas" },
+  { chave: "contactSubmissions", titulo: "Contacto", funil: "medida" },
+  { chave: "contactQuotes", titulo: "Orçamento corporate", funil: "medida" },
+  { chave: "tourInquiries", titulo: "Ultra-luxo", funil: "medida" },
+  { chave: "weddingQuoteSubmissions", titulo: "Casamento", funil: "medida" },
+  { chave: "schoolQuoteSubmissions", titulo: "Escolas", funil: "medida" },
+  { chave: "corporateRequests", titulo: "Proposta corporate", funil: "medida" },
   { chave: "partnerLeads", titulo: "Lead do site", funil: "parcerias" },
-  { chave: "manual", titulo: "Criada à mão", funil: "parcerias" },
-  { chave: "driverApplications", titulo: "Motorista", funil: "candidaturas" },
-  { chave: "partnerApplications", titulo: "Empresa parceira", funil: "candidaturas" },
+  { chave: "driverApplications", titulo: "Candidatura de motorista", funil: "parcerias" },
+  { chave: "partnerApplications", titulo: "Candidatura de empresa", funil: "parcerias" },
+  /* Criado à mão: o funil é o do quadro onde se carregou em «Novo». */
+  { chave: "manual", titulo: "Criado à mão", funil: "medida" },
 ] as const satisfies readonly { chave: string; titulo: string; funil: ChaveFunil }[];
 
 export type OrigemFunil = (typeof ORIGENS_FUNIL)[number]["chave"];
@@ -51,7 +61,7 @@ export function origensDoFunil(chave: ChaveFunil): OrigemFunil[] {
   return ORIGENS_FUNIL.filter((o) => o.funil === chave).map((o) => o.chave);
 }
 
-/* Por onde chegou uma parceria criada à mão. */
+/* Por onde chegou o que se criou à mão. */
 export const CANAIS = [
   { chave: "telefone", titulo: "Telefone" },
   { chave: "whatsapp", titulo: "WhatsApp" },
@@ -83,10 +93,10 @@ export type Etapa = { id: string; nome: string; cor: string; tipo: TipoEtapa };
    se se criam cartões à mão, e as etapas com que começa. */
 export const FUNIS: Record<
   ChaveFunil,
-  { titulo: string; modulo: "reservas" | "leads" | "candidaturas"; manual: boolean; etapas: Etapa[] }
+  { titulo: string; modulo: "reservas" | "pedidos" | "leads"; manual: boolean; etapas: Etapa[] }
 > = {
   reservas: {
-    titulo: "Serviços",
+    titulo: "Website",
     modulo: "reservas",
     manual: false,
     etapas: [
@@ -95,6 +105,19 @@ export const FUNIS: Record<
       { id: "confirmada", nome: "Confirmada com o cliente", cor: "#8b5cf6", tipo: "aberta" },
       { id: "concluida", nome: "Concluída", cor: "#16a34a", tipo: "ganho" },
       { id: "cancelada", nome: "Cancelada", cor: "#dc2626", tipo: "perdido" },
+    ],
+  },
+  medida: {
+    titulo: "Por medida",
+    modulo: "pedidos",
+    manual: true,
+    etapas: [
+      { id: "recolha", nome: "Recolha de Informações", cor: "#64748b", tipo: "aberta" },
+      { id: "orcamento", nome: "Envio do Orçamento", cor: "#3b82f6", tipo: "aberta" },
+      { id: "aguardar", nome: "A Aguardar Confirmação", cor: "#d97706", tipo: "aberta" },
+      { id: "negociacao", nome: "Negociação", cor: "#8b5cf6", tipo: "aberta" },
+      { id: "confirmada", nome: "Reserva Confirmada", cor: "#16a34a", tipo: "ganho" },
+      { id: "perdido", nome: "Perdido", cor: "#dc2626", tipo: "perdido" },
     ],
   },
   parcerias: {
@@ -113,16 +136,48 @@ export const FUNIS: Record<
       { id: "perdido", nome: "Perdido", cor: "#dc2626", tipo: "perdido" },
     ],
   },
-  candidaturas: {
-    titulo: "Candidaturas",
-    modulo: "candidaturas",
-    manual: false,
-    etapas: [
-      { id: "nova", nome: "Nova", cor: "#3b82f6", tipo: "aberta" },
-      { id: "analise", nome: "Em análise", cor: "#8b5cf6", tipo: "aberta" },
-      { id: "entrevista", nome: "Entrevista", cor: "#d97706", tipo: "aberta" },
-      { id: "aprovada", nome: "Aprovada", cor: "#16a34a", tipo: "ganho" },
-      { id: "recusada", nome: "Recusada", cor: "#dc2626", tipo: "perdido" },
-    ],
-  },
 };
+
+/*
+ * Os segmentos de cada funil: no arranque, um filtro (não um funil cada).
+ * Vêm da origem do cartão; num cartão criado à mão escolhe-se.
+ */
+export const SEGMENTOS: Record<ChaveFunil, string[]> = {
+  reservas: [],
+  medida: ["Casamentos", "Ultra-luxo", "Corporate", "Escolas", "Contactos", "Outro"],
+  parcerias: ["Hotelaria", "Weddings", "Agências e operadores", "Restauração", "Motoristas", "Empresas de motoristas", "Outro"],
+};
+
+/* O tipo de parceiro chega como o formulário o mostrou (em pt ou en). */
+function segmentoDoTipo(tipo: string): string {
+  const t = tipo.toLowerCase();
+  if (/hotel|resort/.test(t)) return "Hotelaria";
+  if (/quinta|estate|evento|event|venue/.test(t)) return "Weddings";
+  if (/ag[eê]nc|agency|operador|operator/.test(t)) return "Agências e operadores";
+  if (/restaura/.test(t)) return "Restauração";
+  return "Outro";
+}
+
+export function segmentoDaOrigem(origem: string, tipoParceiro?: string | null): string | null {
+  switch (origem) {
+    case "weddingQuoteSubmissions":
+      return "Casamentos";
+    case "tourInquiries":
+      return "Ultra-luxo";
+    case "contactQuotes":
+    case "corporateRequests":
+      return "Corporate";
+    case "schoolQuoteSubmissions":
+      return "Escolas";
+    case "contactSubmissions":
+      return "Contactos";
+    case "partnerLeads":
+      return tipoParceiro ? segmentoDoTipo(tipoParceiro) : "Outro";
+    case "driverApplications":
+      return "Motoristas";
+    case "partnerApplications":
+      return "Empresas de motoristas";
+    default:
+      return null;
+  }
+}
