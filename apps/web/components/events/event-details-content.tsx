@@ -94,9 +94,13 @@ function InfoBox({
   value: string
   size?: "desktop" | "mobile"
 }) {
-  const iconSize = size === "mobile" ? "size-[40px] border-[1.667px]" : "size-[32px] border-[1.333px]"
+  /* No telemóvel são duas colunas de ~160 px: com o ícone de 40 px e o texto
+     numa linha, «sex., 1 de mai. de 2026» ficava «sex., 1 d…» — a data e a
+     hora eram justamente o que se cortava. Ícone mais pequeno e o valor pode
+     ir para duas linhas. */
+  const iconSize = size === "mobile" ? "size-[32px] border-[1.333px]" : "size-[32px] border-[1.333px]"
   return (
-    <div className="flex-1 min-w-0 flex items-center gap-[10px] bg-[var(--lm-surface,#141414)] border-[0.8px] border-[rgba(var(--lm-accent-rgb,154,117,53),0.22)] pl-[16.8px] pr-[16.8px] py-[8.8px]">
+    <div className={`flex-1 min-w-0 flex items-center bg-[var(--lm-surface,#141414)] border-[0.8px] border-[rgba(var(--lm-accent-rgb,154,117,53),0.22)] py-[8.8px] ${size === "mobile" ? "gap-[8px] px-[10px]" : "gap-[10px] px-[16.8px]"}`}>
       <div className={`shrink-0 ${iconSize} bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border-[rgba(var(--lm-accent-rgb,201,169,110),0.25)] flex items-center justify-center`}>
         {icon}
       </div>
@@ -108,8 +112,13 @@ function InfoBox({
           {label}
         </span>
         <span
-          className="text-[14px] font-medium text-[var(--lm-text,#fff)] leading-none whitespace-nowrap overflow-hidden text-ellipsis"
+          className={
+            size === "mobile"
+              ? "text-[14px] font-medium text-[var(--lm-text,#fff)] leading-[1.2] break-words"
+              : "text-[14px] font-medium text-[var(--lm-text,#fff)] leading-none whitespace-nowrap overflow-hidden text-ellipsis"
+          }
           style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
+          title={value}
         >
           {value}
         </span>
