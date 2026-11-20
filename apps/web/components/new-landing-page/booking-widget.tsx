@@ -423,10 +423,10 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
 
               <div className="hidden lg:flex items-center gap-2">
                 <div className="h-3 w-px bg-[rgba(var(--lm-text-rgb,255,255,255),0.1)]" />
-                <BadgeCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+                <BadgeCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
                 <span className="text-[12px] font-semibold text-[rgba(var(--lm-text-rgb,255,255,255),0.7)] tracking-[0.33px]">{trustTranslations.exclusive}</span>
                 <div className="h-3 w-px bg-[rgba(var(--lm-text-rgb,255,255,255),0.1)]" />
-                <ShieldCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+                <ShieldCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
                 <span className="text-[12px] font-semibold text-[rgba(var(--lm-text-rgb,255,255,255),0.7)] tracking-[0.33px]">{trustTranslations.flexibleCancellation}</span>
               </div>
             </div>
@@ -447,10 +447,10 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
 
           <div className="flex lg:hidden flex-col gap-2">
             <div className="flex items-center gap-2">
-              <BadgeCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+              <BadgeCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
               <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.33px]">{trustTranslations.exclusive}</span>
               <div className="h-3 w-px bg-[rgba(var(--lm-accent-rgb,201,169,110),0.25)]" />
-              <ShieldCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+              <ShieldCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
               <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.33px]">{trustTranslations.flexibleCancellation}</span>
             </div>
           </div>
@@ -460,10 +460,10 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
       {mounted && !isTransferMode && (
         <div className="mt-2 flex flex-col gap-2 items-start px-0.5">
           <div className="flex items-center gap-2">
-            <BadgeCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+            <BadgeCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
             <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.33px]">{trustTranslations.exclusive}</span>
             <div className="h-3 w-px bg-[rgba(var(--lm-accent-rgb,201,169,110),0.25)]" />
-            <ShieldCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+            <ShieldCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
             <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.33px]">{trustTranslations.flexibleCancellation}</span>
           </div>
         </div>

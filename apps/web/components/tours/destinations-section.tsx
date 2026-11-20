@@ -73,7 +73,7 @@ function DestinationCard({
             </span>
           </div>
           <div className="size-[32px] border border-[rgba(var(--lm-text-rgb,255,255,255),0.3)] flex items-center justify-center shrink-0 transition-colors duration-300 group-hover:border-[var(--lm-accent,#C9A96E)] group-hover:bg-[var(--lm-accent,#C9A96E)]">
-            <ChevronRight className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors duration-300 group-hover:text-[#0d0d0d]" />
+            <ChevronRight className="size-[18px] text-[var(--lm-accent,#C9A96E)] transition-colors duration-300 group-hover:text-[#0d0d0d]" />
           </div>
         </div>
       </div>
@@ -185,7 +185,7 @@ export function DestinationsSection() {
             )}
             aria-label="Previous"
           >
-            <ChevronLeft className="size-[14px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+            <ChevronLeft className="size-[14px] text-[var(--lm-accent,#C9A96E)]" />
           </button>
 
           <div className="flex gap-[6px] items-center">
@@ -212,7 +212,7 @@ export function DestinationsSection() {
             )}
             aria-label="Next"
           >
-            <ChevronRight className="size-[14px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+            <ChevronRight className="size-[14px] text-[var(--lm-accent,#C9A96E)]" />
           </button>
         </div>
       </div>

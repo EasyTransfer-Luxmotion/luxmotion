@@ -427,17 +427,17 @@ export function Hero({
 
         <div className={cn("flex flex-col lg:flex-row border border-[rgba(var(--lm-text-rgb,255,255,255),0.12)] divide-y lg:divide-y-0 lg:divide-x divide-[rgba(var(--lm-text-rgb,255,255,255),0.12)]", enter("delay-[500ms]"))}>
           <FeatureCard
-            icon={<Plane className="size-6 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />}
+            icon={<Plane className="size-6 text-[var(--lm-accent,#C9A96E)]" />}
             title={t("flightMonitoring")}
             description={t("flightMonitoringDesc")}
           />
           <FeatureCard
-            icon={<Phone className="size-6 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />}
+            icon={<Phone className="size-6 text-[var(--lm-accent,#C9A96E)]" />}
             title={t("conciergeSupport")}
             description={t("conciergeSupportDesc")}
           />
           <FeatureCard
-            icon={<ShieldCheck className="size-6 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />}
+            icon={<ShieldCheck className="size-6 text-[var(--lm-accent,#C9A96E)]" />}
             title={t("privateTransfers")}
             description={t("privateTransfersDesc")}
           />

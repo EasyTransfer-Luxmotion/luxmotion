@@ -73,7 +73,7 @@ function CardFooter({ event, isHero }: { event: Partial<EventData>; isHero?: boo
         )}
       </div>
       <div className="size-8 border-[1.143px] border-[rgba(var(--lm-accent-rgb,154,117,53),0.22)] flex items-center justify-center">
-        <ArrowRight className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />
+        <ArrowRight className="size-[18px] text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />
       </div>
     </div>
   )

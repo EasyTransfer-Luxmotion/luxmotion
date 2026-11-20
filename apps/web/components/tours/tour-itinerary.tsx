@@ -97,7 +97,7 @@ function ItineraryCard({
             <ChevronDown
               className={cn(
                 "size-[16px] transition-all duration-300",
-                isOpen ? "text-[#0D0D0D] rotate-180" : "text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]"
+                isOpen ? "text-[#0D0D0D] rotate-180" : "text-[var(--lm-accent,#c9a96e)]"
               )}
             />
           </button>

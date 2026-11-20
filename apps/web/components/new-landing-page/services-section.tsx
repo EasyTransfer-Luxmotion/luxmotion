@@ -128,7 +128,7 @@ export function ServicesSection() {
             )}
             aria-label="Previous"
           >
-            <ChevronLeft className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+            <ChevronLeft className="size-[18px] text-[var(--lm-accent,#C9A96E)]" />
           </button>
           <button
             onClick={nextSlide}
@@ -138,7 +138,7 @@ export function ServicesSection() {
             )}
             aria-label="Next"
           >
-            <ChevronRight className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+            <ChevronRight className="size-[18px] text-[var(--lm-accent,#C9A96E)]" />
           </button>
         </div>
       </div>

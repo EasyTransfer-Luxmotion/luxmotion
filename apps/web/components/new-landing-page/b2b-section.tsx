@@ -116,13 +116,13 @@ function GuestCheckInCard() {
 
       <div className="flex flex-col gap-1.5 mb-3">
         <div className="flex items-center gap-2 text-[10px] text-[var(--lm-muted,#C9C9C9)]">
-          <Plane className="w-3 h-3 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+          <Plane className="w-3 h-3 text-[var(--lm-accent,#C9A96E)]" />
           <span style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>
             {t("tag1")}
           </span>
         </div>
         <div className="flex items-center gap-2 text-[10px] text-[var(--lm-muted,#C9C9C9)]">
-          <Clock className="w-3 h-3 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+          <Clock className="w-3 h-3 text-[var(--lm-accent,#C9A96E)]" />
           <span style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>
             {t("tag2")}
           </span>

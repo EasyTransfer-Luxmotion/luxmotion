@@ -358,7 +358,7 @@ export function FeaturedBlogsSection({
                 <span className="text-[12px] font-medium text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] uppercase tracking-[1.1px]" style={sans}>
                   {t("seeMore")}
                 </span>
-                <ArrowRight className="size-4 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />
+                <ArrowRight className="size-4 text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />
               </Link>
             )}
           </>

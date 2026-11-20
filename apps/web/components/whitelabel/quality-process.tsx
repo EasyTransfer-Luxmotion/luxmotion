@@ -40,7 +40,7 @@ function StepCard({ step }: { step: Step }) {
         {step.num}
       </p>
       <div className="size-11 flex items-center justify-center bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.18)]">
-        <Icon className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" strokeWidth={1.75} />
+        <Icon className="size-[18px] text-[var(--lm-accent,#c9a96e)]" strokeWidth={1.75} />
       </div>
       <h3
         className="text-[14px] font-bold text-[var(--lm-text,#fff)] leading-normal"
@@ -64,7 +64,7 @@ function ArrowConnector({ leftPercent }: { leftPercent: number }) {
       className="hidden lg:flex absolute size-8 bg-[var(--lm-surface,#1c1b18)] items-center justify-center pointer-events-none -translate-x-1/2 -translate-y-1/2"
       style={{ left: `${leftPercent}%`, top: "50%" }}
     >
-      <ArrowRight className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" strokeWidth={2} />
+      <ArrowRight className="size-[18px] text-[var(--lm-accent,#c9a96e)]" strokeWidth={2} />
     </div>
   )
 }

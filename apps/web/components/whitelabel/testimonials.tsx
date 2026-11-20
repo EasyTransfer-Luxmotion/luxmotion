@@ -166,7 +166,7 @@ function RatingBlock({ reviewsCount }: { reviewsCount: string }) {
           {Array.from({ length: 5 }).map((_, i) => (
             <Star
               key={i}
-              className="size-[14px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] fill-[var(--lm-accent,#c9a96e)]"
+              className="size-[14px] text-[var(--lm-accent,#c9a96e)] fill-[var(--lm-accent,#c9a96e)]"
               strokeWidth={0}
             />
           ))}

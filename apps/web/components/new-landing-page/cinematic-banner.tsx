@@ -115,7 +115,7 @@ export function CinematicBanner() {
               {t("cta")}
             </span>
             <ArrowRight
-              className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-transform group-hover:translate-x-1"
+              className="size-[18px] text-[var(--lm-accent,#C9A96E)] transition-transform group-hover:translate-x-1"
               strokeWidth={1.5}
             />
           </Link>

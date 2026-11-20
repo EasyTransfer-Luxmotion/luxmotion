@@ -190,7 +190,7 @@ export function ThreePillars() {
                 className="flex items-center gap-2 bg-[var(--lm-bg,#0D0D0D)] px-5 py-5 md:px-9 md:py-6"
               >
                 <ArrowRight
-                  className="size-[18px] shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
+                  className="size-[18px] shrink-0 text-[var(--lm-accent,#C9A96E)]"
                   strokeWidth={2}
                 />
                 <p

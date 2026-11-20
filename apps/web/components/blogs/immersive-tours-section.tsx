@@ -39,7 +39,7 @@ const PER_PAGE_DESKTOP = 3
 function FeaturePill({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
     <div className="flex items-center gap-[10px] bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.2)] px-[16.8px] py-[14.8px] flex-1 min-w-0">
-      <Icon className="size-[14px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] shrink-0" strokeWidth={2} />
+      <Icon className="size-[14px] text-[var(--lm-accent,#C9A96E)] shrink-0" strokeWidth={2} />
       <span
         className="text-[11px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] whitespace-nowrap overflow-hidden text-ellipsis"
         style={sans}

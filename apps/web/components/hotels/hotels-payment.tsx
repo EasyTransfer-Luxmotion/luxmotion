@@ -54,7 +54,7 @@ export function HotelsPayment() {
                 <div className="mt-auto flex flex-col gap-4 pt-2">
                   <div className="h-px w-full bg-[rgba(var(--lm-text-rgb,255,255,255),0.08)]" />
                   <div className="flex items-start gap-2.5 text-[13.5px] text-[var(--lm-muted,#d8d3c8)]">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={2} />
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--lm-accent,#C9A96E)]" strokeWidth={2} />
                     {o.feature}
                   </div>
                 </div>

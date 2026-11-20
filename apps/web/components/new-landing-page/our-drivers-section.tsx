@@ -157,7 +157,7 @@ export function OurDriversSection() {
                     >
                       <Icon
                         className={`size-5 lg:size-6 ${
-                          step.gold ? "text-[var(--lm-text,#fff)]" : "text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
+                          step.gold ? "text-[var(--lm-text,#fff)]" : "text-[var(--lm-accent,#C9A96E)]"
                         }`}
                         strokeWidth={2}
                       />

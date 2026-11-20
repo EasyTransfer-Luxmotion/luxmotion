@@ -148,7 +148,7 @@ export function TransferForm({
                   {t.labelFrom}
                 </span>
                 <div className="flex items-center gap-2 min-w-0 w-full">
-                  <MapPin className="w-6 h-6 shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.2} />
+                  <MapPin className="w-6 h-6 shrink-0 text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.2} />
                   <span className={fromLocation.text ? "text-[14px] font-medium text-[var(--lm-text,#fff)] truncate" : "text-[14px] text-[var(--lm-muted,#696969)] truncate"}>
                     {fromLocation.text || t.placeholderFrom}
                   </span>
@@ -243,7 +243,7 @@ export function TransferForm({
                       {t.labelTo}
                     </span>
                     <div className="flex items-center gap-2 min-w-0 w-full">
-                      <MapPin className="w-6 h-6 shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.2} />
+                      <MapPin className="w-6 h-6 shrink-0 text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.2} />
                       <span className={dest.text ? "text-[14px] font-medium text-[var(--lm-text,#fff)] truncate" : "text-[14px] text-[var(--lm-muted,#696969)] truncate"}>
                         {dest.text || t.placeholderTo}
                       </span>

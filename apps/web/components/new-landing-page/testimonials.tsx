@@ -400,7 +400,7 @@ export function Testimonials({
       <div className="max-w-[1280px] mx-auto px-4 flex flex-col items-center">
         <div className="group relative overflow-hidden cursor-default backdrop-blur-sm bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[var(--lm-accent,#C9A96E)] flex items-center gap-2 px-4 py-2">
           <div className="pointer-events-none absolute inset-0 w-0 bg-[var(--lm-accent,#C9A96E)] transition-all duration-500 ease-out group-hover:w-full" />
-          <BadgeCheck className="relative size-6 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors duration-300 group-hover:text-[#0D0D0D]" strokeWidth={1.5} />
+          <BadgeCheck className="relative size-6 text-[var(--lm-accent,#C9A96E)] transition-colors duration-300 group-hover:text-[#0D0D0D]" strokeWidth={1.5} />
           <span className="relative text-[14px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.28px] transition-colors duration-300 group-hover:text-[#0D0D0D]">
             {t("exclusive")}
           </span>
@@ -423,7 +423,7 @@ export function Testimonials({
           <div className="flex items-center gap-3 md:gap-4">
             <div className="relative">
               <span className="font-semibold text-[64px] md:text-[96px] text-[var(--lm-accent-text,var(--lm-accent,#ab9c6b))] leading-[0.95] tracking-[0.48px]">{ratingDisplay}</span>
-              <Star className="size-6 md:size-[43px] text-[var(--lm-accent-text,var(--lm-accent,#ab9c6b))] fill-[var(--lm-accent,#ab9c6b)] absolute right-[-28px] md:right-[-44px] top-[12px] md:top-[14px]" />
+              <Star className="size-6 md:size-[43px] text-[var(--lm-accent,#ab9c6b)] fill-[var(--lm-accent,#ab9c6b)] absolute right-[-28px] md:right-[-44px] top-[12px] md:top-[14px]" />
             </div>
             <div className="w-[2px] h-[40px] md:h-[60px] bg-[var(--lm-text,#fff)] rotate-[12deg] ml-6 md:ml-10" />
             <span className="font-semibold text-[64px] md:text-[96px] text-[var(--lm-accent-text,var(--lm-accent,#ab9c6b))] leading-[0.95] tracking-[0.48px]">{totalDisplay}</span>

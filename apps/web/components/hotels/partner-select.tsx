@@ -100,7 +100,7 @@ export function PartnerSelect({
                 }`}
               >
                 <Check
-                  className={`h-4 w-4 shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] ${active ? "opacity-100" : "opacity-0"}`}
+                  className={`h-4 w-4 shrink-0 text-[var(--lm-accent,#C9A96E)] ${active ? "opacity-100" : "opacity-0"}`}
                   strokeWidth={2.2}
                 />
                 <span className="truncate">{o.label}</span>

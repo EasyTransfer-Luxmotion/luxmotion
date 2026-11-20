@@ -51,11 +51,11 @@ function FilterDropdown({ icon, label, value, options, onChange, onClear }: Filt
             }}
             className="size-[18px] rounded-full bg-[rgba(var(--lm-accent-rgb,201,169,110),0.2)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] flex items-center justify-center transition-colors duration-200"
           >
-            <X className="size-[11px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+            <X className="size-[11px] text-[var(--lm-accent,#C9A96E)]" />
           </button>
         ) : (
           <ChevronDown
-            className={cn("size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-transform duration-200", isOpen && "rotate-180")}
+            className={cn("size-[18px] text-[var(--lm-accent,#C9A96E)] transition-transform duration-200", isOpen && "rotate-180")}
           />
         )}
       </button>
@@ -264,12 +264,12 @@ export function BlogResultsSection({ searchQuery: initialQuery }: BlogResultsSec
                   onClick={handleClearSearch}
                   className="size-[18px] rounded-full bg-[rgba(var(--lm-accent-rgb,201,169,110),0.2)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] flex items-center justify-center transition-colors duration-200"
                 >
-                  <X className="size-[11px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+                  <X className="size-[11px] text-[var(--lm-accent,#C9A96E)]" />
                 </button>
               </div>
             )}
             <FilterDropdown
-              icon={<MapPin className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />}
+              icon={<MapPin className="size-[18px] text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />}
               label={t("searchByLocation")}
               value={locationFilter}
               options={locations}
@@ -277,7 +277,7 @@ export function BlogResultsSection({ searchQuery: initialQuery }: BlogResultsSec
               onClear={locationFilter ? handleClearLocation : undefined}
             />
             <FilterDropdown
-              icon={<ArrowDownUp className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />}
+              icon={<ArrowDownUp className="size-[18px] text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />}
               label={t("sortByDate")}
               value={sortBy === "newest" ? t("newest") : sortBy === "oldest" ? t("oldest") : ""}
               options={[t("newest"), t("oldest")]}

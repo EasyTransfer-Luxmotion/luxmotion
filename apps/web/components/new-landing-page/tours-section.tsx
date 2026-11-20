@@ -230,7 +230,7 @@ function TourCard({
             </p>
           </div>
           <div className="size-8 border border-[rgba(var(--lm-text-rgb,255,255,255),0.3)] flex items-center justify-center shrink-0 transition-colors group-hover:border-[var(--lm-accent,#C9A96E)] group-hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.15)]">
-            <ArrowRight className="size-[18px] text-[var(--lm-text,#fff)] transition-colors group-hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />
+            <ArrowRight className="size-[18px] text-[var(--lm-text,#fff)] transition-colors group-hover:text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />
           </div>
         </div>
       </div>

@@ -230,7 +230,7 @@ export function GooglePlacesInput({
           // dá o padding). Com ícone (tours hero) mantém-se o espaço da lupa.
           hideLeftIcon ? "pl-0" : "pl-[13px]",
         )}>
-          {!hideLeftIcon && <Search className="w-[24px] h-[24px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] shrink-0" />}
+          {!hideLeftIcon && <Search className="w-[24px] h-[24px] text-[var(--lm-accent,#C9A96E)] shrink-0" />}
           <input
             suppressHydrationWarning
             value={value.location}
@@ -275,7 +275,7 @@ export function GooglePlacesInput({
               : "bg-white border-[#e0e0e0] focus-within:border-[#a08248] focus-within:ring-2 focus-within:ring-[#a08248]/20"
           )}
         >
-          <Search className={cn("w-5 h-5 shrink-0", dark ? "text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" : "text-[#a2a2a2]")} aria-hidden />
+          <Search className={cn("w-5 h-5 shrink-0", dark ? "text-[var(--lm-accent,#C9A96E)]" : "text-[#a2a2a2]")} aria-hidden />
           <input
             suppressHydrationWarning
             value={value.location}

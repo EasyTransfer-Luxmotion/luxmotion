@@ -164,7 +164,7 @@ export function HotelsResults() {
                       <ul className="flex flex-col gap-3.5">
                         {col.items.map((it, i) => (
                           <li key={i} className="flex items-start gap-2.5 text-[13px] leading-[1.4] text-[var(--lm-muted,#b8b3a9)]" style={sans}>
-                            <Check className="mt-[3px] h-[14px] w-[14px] shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.75} />
+                            <Check className="mt-[3px] h-[14px] w-[14px] shrink-0 text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.75} />
                             {it}
                           </li>
                         ))}

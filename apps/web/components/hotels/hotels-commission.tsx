@@ -160,7 +160,7 @@ export function HotelsCommission() {
           <ul className="mt-6 flex flex-col gap-3 border-t border-[rgba(var(--lm-text-rgb,255,255,255),0.1)] pt-5">
             {data.features.map((f) => (
               <li key={f} className="flex items-start gap-2.5 text-[13.5px] text-[var(--lm-muted,#bdb7ad)]" style={sans}>
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={2} />
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--lm-accent,#C9A96E)]" strokeWidth={2} />
                 {f}
               </li>
             ))}

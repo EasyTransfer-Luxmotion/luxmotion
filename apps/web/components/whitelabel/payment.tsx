@@ -85,7 +85,7 @@ export function Payment() {
 
           <div className="flex flex-wrap gap-4 items-center pt-1">
             <div className="flex items-center gap-1.5">
-              <ShieldCheck className="size-[14px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" strokeWidth={1.75} />
+              <ShieldCheck className="size-[14px] text-[var(--lm-accent,#c9a96e)]" strokeWidth={1.75} />
               <span
                 className="text-[12px] text-[var(--lm-muted,#999)] leading-none"
                 style={SANS_FONT}
@@ -94,7 +94,7 @@ export function Payment() {
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Lock className="size-[14px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" strokeWidth={1.75} />
+              <Lock className="size-[14px] text-[var(--lm-accent,#c9a96e)]" strokeWidth={1.75} />
               <span
                 className="text-[12px] text-[var(--lm-muted,#999)] leading-none"
                 style={SANS_FONT}

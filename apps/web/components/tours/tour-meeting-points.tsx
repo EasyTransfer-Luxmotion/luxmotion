@@ -64,7 +64,7 @@ export function TourMeetingPoints({ pickup, dropoff, hasMapSection }: TourMeetin
           className="flex-1 text-left bg-[var(--lm-surface,#1a1a1a)] border-l-[1.6px] border-transparent p-[24px] flex flex-col gap-[8px] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.06)] hover:border-[var(--lm-accent,#c9a96e)] cursor-pointer"
         >
           <div className="size-[24px] rounded-[12px] bg-[rgba(var(--lm-accent-rgb,201,169,110),0.15)] border-[0.857px] border-[rgba(var(--lm-accent-rgb,201,169,110),0.3)] flex items-center justify-center">
-            <MapPin className="size-[10px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" strokeWidth={2} />
+            <MapPin className="size-[10px] text-[var(--lm-accent,#c9a96e)]" strokeWidth={2} />
           </div>
           <span
             className="text-[8px] font-bold text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] tracking-[1.2px] uppercase"
