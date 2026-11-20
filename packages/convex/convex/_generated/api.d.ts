@@ -22,6 +22,7 @@ import type * as catalogoExtras from "../catalogoExtras.js";
 import type * as catalogoTours from "../catalogoTours.js";
 import type * as contactQuotes from "../contactQuotes.js";
 import type * as contactSubmissions from "../contactSubmissions.js";
+import type * as contactos from "../contactos.js";
 import type * as contadores from "../contadores.js";
 import type * as convites from "../convites.js";
 import type * as corporateExperiences from "../corporateExperiences.js";
@@ -139,6 +140,7 @@ declare const fullApi: ApiFromModules<{
   catalogoTours: typeof catalogoTours;
   contactQuotes: typeof contactQuotes;
   contactSubmissions: typeof contactSubmissions;
+  contactos: typeof contactos;
   contadores: typeof contadores;
   convites: typeof convites;
   corporateExperiences: typeof corporateExperiences;

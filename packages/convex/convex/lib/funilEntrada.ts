@@ -17,6 +17,7 @@
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { eOrigem, funilDaOrigem as chaveDaOrigem, type OrigemFunil } from "./funis";
+import { ligarContacto } from "./contactos";
 import {
   mapearContactQuote,
   mapearContactSubmission,
@@ -110,6 +111,14 @@ export async function colocarNoFunil(ctx: MutationCtx, n: Novo): Promise<Id<"neg
   }
   const agora = Date.now();
   const criadoEm = n.criadoEm ?? agora;
+  /* A pessoa e a empresa como contacto e organização (lib/contactos.ts). */
+  const ligacao = await ligarContacto(ctx, {
+    nome: n.pessoa.nome,
+    email: n.pessoa.email,
+    telefone: n.pessoa.telefone,
+    empresa: n.organizacao,
+    origem: n.origem,
+  });
   const id = await ctx.db.insert("negocios", {
     funilId: funil._id,
     etapaId: etapa.id,
@@ -123,6 +132,8 @@ export async function colocarNoFunil(ctx: MutationCtx, n: Novo): Promise<Id<"neg
     origemId: n.origemId,
     canal: n.canal,
     segmento: n.segmento,
+    contactoId: ligacao.contactoId ?? undefined,
+    organizacaoId: ligacao.organizacaoId ?? undefined,
     criadoEm,
     atualizadoEm: agora,
     movidoEm: criadoEm,
@@ -219,7 +230,7 @@ export async function entrarReservaNoFunil(
   encomendas.push(...tours);
   const negocio = mapearReservaPaga(encomendas);
   if (!negocio) return null;
-  return await colocarNoFunil(ctx, {
+  const id = await colocarNoFunil(ctx, {
     origem: "orders",
     origemId: ida._id,
     titulo: negocio.titulo,
@@ -229,4 +240,12 @@ export async function entrarReservaNoFunil(
     por: "sistema",
     ...extra,
   });
+  /* A reserva fica ligada ao mesmo contacto que o cartão (ida e volta). */
+  const cartao = id ? await ctx.db.get(id) : null;
+  if (cartao?.contactoId) {
+    for (const o of [ida, volta].filter(Boolean) as Doc<"orders">[]) {
+      if (!o.contactoId) await ctx.db.patch(o._id, { contactoId: cartao.contactoId, organizacaoId: cartao.organizacaoId });
+    }
+  }
+  return id;
 }

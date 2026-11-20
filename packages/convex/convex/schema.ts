@@ -193,6 +193,11 @@ export default defineSchema({
        (funis.atribuirMotorista). Nome, não id: os motoristas vêm das
        candidaturas aprovadas e dos perfis do site, e pode ser alguém de fora. */
     motorista: v.optional(v.string()),
+    /* Quem reservou, como contacto (contactos.ts): liga a reserva às outras
+       do mesmo cliente. Preenche-se quando é paga (funis.entrarReserva) e,
+       nas antigas, com contactos:preencher. */
+    contactoId: v.optional(v.id("contactos")),
+    organizacaoId: v.optional(v.id("organizacoes")),
     selectedCheckoutAddons: v.optional(
       v.array(
         v.object({
@@ -306,7 +311,9 @@ export default defineSchema({
        isso o dia é um intervalo do índice. */
     .index("by_departure_date", ["departureDate"])
     .index("by_tour_booking", ["tourBookingId"])
-    .index("by_transfer_order", ["transferOrderId"]),
+    .index("by_transfer_order", ["transferOrderId"])
+    .index("by_contacto", ["contactoId"])
+    .index("by_organizacao", ["organizacaoId"]),
 
   bookings: defineTable({
     customerId: v.string(),
@@ -1940,6 +1947,9 @@ export default defineSchema({
     /* O segmento de um cartão criado à mão (lib/funis.ts → SEGMENTOS); nos
        outros vem da origem. */
     segmento: v.optional(v.string()),
+    /* A pessoa e a empresa do cartão (contactos.ts). */
+    contactoId: v.optional(v.id("contactos")),
+    organizacaoId: v.optional(v.id("organizacoes")),
     criadoEm: v.number(),
     atualizadoEm: v.number(),
     movidoEm: v.number(),
@@ -1952,7 +1962,9 @@ export default defineSchema({
     .index("by_funil_etapa", ["funilId", "etapaId", "ordem"])
     .index("by_funil_etapa_fechado", ["funilId", "etapaId", "fechadoEm"])
     .index("by_origem", ["origem", "origemId"])
-    .index("by_funil_criado", ["funilId", "criadoEm"]),
+    .index("by_funil_criado", ["funilId", "criadoEm"])
+    .index("by_contacto", ["contactoId"])
+    .index("by_organizacao", ["organizacaoId"]),
 
   /* O histórico de cada cartão: criado, mudou de etapa, notas, editado. */
   negocioAtividades: defineTable({
@@ -1980,4 +1992,85 @@ export default defineSchema({
     texto: v.optional(v.string()),
     em: v.number(),
   }).index("by_negocio", ["negocioId", "em"]),
+  /*
+   * Organizações e contactos (contactos.ts): a base do CRM. Antes cada
+   * formulário, encomenda e cartão guardava a sua cópia do nome, email e
+   * telefone, e não se sabia que o mesmo hotel já tinha pedido três vezes.
+   * Um contacto sem organização é um particular. Um grupo (um grupo
+   * hoteleiro) é uma organização-mãe; cada estabelecimento aponta para ela
+   * pelo grupoId.
+   */
+  organizacoes: defineTable({
+    nome: v.string(),
+    /* Sem acentos, minúsculas, sem «Lda»/«S.A.»: é por aqui que se encontra
+       a mesma empresa escrita de outra maneira. */
+    nomeNormalizado: v.string(),
+    nif: v.optional(v.string()),
+    segmento: v.optional(v.string()),
+    etiquetas: v.array(v.string()),
+    email: v.optional(v.string()),
+    telefone: v.optional(v.string()),
+    site: v.optional(v.string()),
+    idioma: v.optional(v.string()),
+    localidade: v.optional(v.string()),
+    pais: v.optional(v.string()),
+    morada: v.optional(v.string()),
+    grupoId: v.optional(v.id("organizacoes")),
+    /* Quem trata: um campo. Quem vê é decidido pelas permissões do cargo. */
+    responsavel: v.optional(v.string()),
+    /* A ficha permanente de uma parceria ganha (Parceiros → Carteira).
+       «Sem atividade» não é perda. */
+    carteira: v.optional(
+      v.object({
+        estado: v.union(v.literal("ativacao"), v.literal("ativa"), v.literal("semAtividade"), v.literal("suspensa"), v.literal("terminada")),
+        aceiteEm: v.optional(v.number()),
+        ativadaEm: v.optional(v.number()),
+        formacaoEm: v.optional(v.number()),
+        proximoAcompanhamento: v.optional(v.number()),
+        partnershipId: v.optional(v.id("partnerships")),
+        acesso: v.optional(v.string()),
+      }),
+    ),
+    /* O estado da carteira à parte, para o índice. */
+    estadoCarteira: v.optional(v.string()),
+    primeiraOrigem: v.optional(v.string()),
+    notas: v.optional(v.string()),
+    criadoEm: v.number(),
+    atualizadoEm: v.number(),
+  })
+    .index("by_nome_normalizado", ["nomeNormalizado"])
+    .index("by_grupo", ["grupoId"])
+    .index("by_email", ["email"])
+    .index("by_estado_carteira", ["estadoCarteira"]),
+
+  contactos: defineTable({
+    nome: v.string(),
+    /* Em minúsculas. */
+    email: v.optional(v.string()),
+    /* Só algarismos com o indicativo à frente (+351912345678): o mesmo
+       número escrito com espaços ou sem o +351 é o mesmo contacto. */
+    telefone: v.optional(v.string()),
+    idioma: v.optional(v.string()),
+    funcao: v.optional(v.string()),
+    etiquetas: v.array(v.string()),
+    responsavel: v.optional(v.string()),
+    organizacaoId: v.optional(v.id("organizacoes")),
+    primeiraOrigem: v.optional(v.string()),
+    notas: v.optional(v.string()),
+    criadoEm: v.number(),
+    atualizadoEm: v.number(),
+  })
+    .index("by_email", ["email"])
+    .index("by_telefone", ["telefone"])
+    .index("by_organizacao", ["organizacaoId"]),
+
+  /* Pares que alguém viu na lista de possíveis duplicados e disse que não
+     são o mesmo: não voltam a aparecer. */
+  duplicadosIgnorados: defineTable({
+    tipo: v.union(v.literal("organizacoes"), v.literal("contactos")),
+    a: v.string(),
+    b: v.string(),
+    por: v.string(),
+    em: v.number(),
+  }).index("by_par", ["tipo", "a", "b"]),
 });

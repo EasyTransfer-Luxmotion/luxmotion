@@ -6,6 +6,7 @@ import type { Capacidade, Nivel } from "./lib/permissoes";
 import { CHAVES_FUNIL, FUNIS, SEGMENTOS, eChaveFunil, segmentoDaOrigem, tituloDaOrigem, type ChaveFunil, type Etapa } from "./lib/funis";
 import { colocarNoFunil, entrarNoFunil, entrarReservaNoFunil } from "./lib/funilEntrada";
 import { aplicarEtapaNaOrigem } from "./lib/funilEstado";
+import { ativarCarteira } from "./contactos";
 import type { TabelaLead } from "./lib/pipedriveMapa";
 import { zona } from "./candidaturas";
 
@@ -290,6 +291,8 @@ export const mover = mutation({
        fica cancelada. Antes de mexer no cartão, para que uma passagem
        impossível não o deixe numa etapa que o registo não acompanha. */
     if (mudaEtapa) await aplicarEtapaNaOrigem(ctx, n, funil.etapas, etapaId, quem(acesso));
+    /* Onboarding concluído: a parceria ganha entra na Carteira (contactos.ts). */
+    if (mudaEtapa && funil.chave === "parcerias" && destino.tipo === "ganho") await ativarCarteira(ctx, n);
 
     const agora = Date.now();
     await ctx.db.patch(id, {
