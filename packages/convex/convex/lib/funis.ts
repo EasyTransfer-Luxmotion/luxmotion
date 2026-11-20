@@ -1,5 +1,5 @@
 /*
- * Os três funis do back-office — Reservas, Pedidos e Candidaturas — e o que
+ * Os três funis do back-office — Serviços, Parcerias e Candidaturas — e o que
  * eles e o dashboard têm de dizer da mesma maneira: que origens caem em cada
  * um, que módulo de permissão o abre, as etapas com que começa e as cores.
  *
@@ -11,7 +11,10 @@
  * importa este ficheiro (@workspace/convex/convex/lib/funis).
  */
 
-export const CHAVES_FUNIL = ["reservas", "pedidos", "candidaturas"] as const;
+/* "pedidos" houve até 2026-11-20: os pedidos do site voltaram a ser só
+   lista, e o quadro do meio passou a ser o das parcerias (Parceiros →
+   Leads). criarFunisIniciais apaga o funil antigo. */
+export const CHAVES_FUNIL = ["reservas", "parcerias", "candidaturas"] as const;
 export type ChaveFunil = (typeof CHAVES_FUNIL)[number];
 
 export function eChaveFunil(x: string): x is ChaveFunil {
@@ -19,17 +22,13 @@ export function eChaveFunil(x: string): x is ChaveFunil {
 }
 
 /* De onde vem um cartão. `orders` é uma reserva paga (a ida, com a volta e os
-   tours vendidos em upsell no mesmo cartão); `manual`, um pedido que chegou
-   por fora do site e se criou no back-office. */
+   tours vendidos em upsell no mesmo cartão); `partnerLeads`, um hotel ou
+   empresa que pediu para ser parceiro na página Hotéis; `manual`, uma
+   parceria que começou por fora do site e se criou no back-office. */
 export const ORIGENS_FUNIL = [
   { chave: "orders", titulo: "Serviço", funil: "reservas" },
-  { chave: "contactSubmissions", titulo: "Contacto", funil: "pedidos" },
-  { chave: "contactQuotes", titulo: "Orçamento corporate", funil: "pedidos" },
-  { chave: "tourInquiries", titulo: "Ultra-luxo", funil: "pedidos" },
-  { chave: "weddingQuoteSubmissions", titulo: "Casamento", funil: "pedidos" },
-  { chave: "schoolQuoteSubmissions", titulo: "Escolas", funil: "pedidos" },
-  { chave: "corporateRequests", titulo: "Proposta corporate", funil: "pedidos" },
-  { chave: "manual", titulo: "Criado à mão", funil: "pedidos" },
+  { chave: "partnerLeads", titulo: "Lead do site", funil: "parcerias" },
+  { chave: "manual", titulo: "Criada à mão", funil: "parcerias" },
   { chave: "driverApplications", titulo: "Motorista", funil: "candidaturas" },
   { chave: "partnerApplications", titulo: "Empresa parceira", funil: "candidaturas" },
 ] as const satisfies readonly { chave: string; titulo: string; funil: ChaveFunil }[];
@@ -52,7 +51,7 @@ export function origensDoFunil(chave: ChaveFunil): OrigemFunil[] {
   return ORIGENS_FUNIL.filter((o) => o.funil === chave).map((o) => o.chave);
 }
 
-/* Por onde chegou um pedido criado à mão. */
+/* Por onde chegou uma parceria criada à mão. */
 export const CANAIS = [
   { chave: "telefone", titulo: "Telefone" },
   { chave: "whatsapp", titulo: "WhatsApp" },
@@ -84,7 +83,7 @@ export type Etapa = { id: string; nome: string; cor: string; tipo: TipoEtapa };
    se se criam cartões à mão, e as etapas com que começa. */
 export const FUNIS: Record<
   ChaveFunil,
-  { titulo: string; modulo: "reservas" | "pedidos" | "candidaturas"; manual: boolean; etapas: Etapa[] }
+  { titulo: string; modulo: "reservas" | "leads" | "candidaturas"; manual: boolean; etapas: Etapa[] }
 > = {
   reservas: {
     titulo: "Serviços",
@@ -98,15 +97,19 @@ export const FUNIS: Record<
       { id: "cancelada", nome: "Cancelada", cor: "#dc2626", tipo: "perdido" },
     ],
   },
-  pedidos: {
-    titulo: "Pedidos",
-    modulo: "pedidos",
+  parcerias: {
+    titulo: "Parcerias",
+    modulo: "leads",
     manual: true,
     etapas: [
-      { id: "novo", nome: "Novo", cor: "#3b82f6", tipo: "aberta" },
-      { id: "contacto", nome: "Em contacto", cor: "#8b5cf6", tipo: "aberta" },
-      { id: "proposta", nome: "Proposta enviada", cor: "#d97706", tipo: "aberta" },
-      { id: "ganho", nome: "Ganho", cor: "#16a34a", tipo: "ganho" },
+      { id: "lead", nome: "Lead", cor: "#64748b", tipo: "aberta" },
+      { id: "nutricao", nome: "Nutrição", cor: "#3b82f6", tipo: "aberta" },
+      { id: "r1", nome: "Primeira Reunião R1", cor: "#8b5cf6", tipo: "aberta" },
+      { id: "r2", nome: "Segunda Reunião R2", cor: "#8b5cf6", tipo: "aberta" },
+      { id: "r3", nome: "Q&A/R3", cor: "#d97706", tipo: "aberta" },
+      { id: "followup", nome: "Follow up", cor: "#0d9488", tipo: "aberta" },
+      { id: "reativacao", nome: "Reativação", cor: "#b8954f", tipo: "aberta" },
+      { id: "onboarding", nome: "Onboarding", cor: "#16a34a", tipo: "ganho" },
       { id: "perdido", nome: "Perdido", cor: "#dc2626", tipo: "perdido" },
     ],
   },

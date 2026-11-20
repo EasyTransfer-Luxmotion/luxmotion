@@ -10,13 +10,13 @@ import type { TabelaLead } from "./lib/pipedriveMapa";
 import { zona } from "./candidaturas";
 
 /*
- * O quadro (kanban) de cada ecrã da Operação: Reservas, Pedidos e
+ * O quadro (kanban) dos Serviços, das Parcerias (Parceiros → Leads) e das
  * Candidaturas, cada um com o seu funil (lib/funis.ts). É a vista principal
  * desses ecrãs; a lista fica ao lado. Substituem o Pipedrive.
  *
- * Os cartões chegam sozinhos (lib/funilEntrada.ts) ou, nos pedidos, criam-se
- * à mão. Quem vê cada quadro é quem vê o ecrã: o módulo de permissão é o
- * mesmo (reservas, pedidos, candidaturas). Sem responsável: vê-se tudo.
+ * Os cartões chegam sozinhos (lib/funilEntrada.ts) ou, nas parcerias,
+ * criam-se à mão. Quem vê cada quadro é quem vê o ecrã: o módulo de
+ * permissão é o mesmo (reservas, leads, candidaturas). Sem responsável.
  */
 
 /* Ganhos e perdidos ficam no quadro um mês; depois só contam no histórico. */
@@ -24,7 +24,7 @@ const FECHADOS_VISIVEIS_MS = 30 * 86_400_000;
 /* Uma coluna aberta com mais do que isto já não se trabalha a arrastar. */
 const MAX_POR_COLUNA = 300;
 
-const vChave = v.union(v.literal("reservas"), v.literal("pedidos"), v.literal("candidaturas"));
+const vChave = v.union(v.literal("reservas"), v.literal("parcerias"), v.literal("candidaturas"));
 const vEtapa = v.object({
   id: v.string(),
   nome: v.string(),
@@ -88,7 +88,7 @@ function cartao(acesso: Acesso, n: Doc<"negocios">) {
  */
 async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
   const base = { email: n.pessoa.email ?? null, telefone: n.pessoa.telefone ?? null };
-  const vazio = { viagem: null, metodo: null, anuncio: null, referencia: null, motorista: null, parceiro: null as string | null, zonas: [] as string[] };
+  const vazio = { viagem: null, metodo: null, anuncio: null, referencia: null, motorista: null, parceiro: null as string | null, zonas: [] as string[], tipoParceiro: null as string | null };
   if (!n.origemId) return { ...base, ...vazio };
   if (n.origem === "orders") {
     const o = await ctx.db.get(n.origemId as Id<"orders">);
@@ -106,9 +106,9 @@ async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
   /* Pedidos e candidaturas: o parceiro por onde chegou e, nas candidaturas,
      as zonas onde trabalham. */
   const id = ctx.db.normalizeId(n.origem as "contactSubmissions", n.origemId);
-  const d = (id ? await ctx.db.get(id) : null) as { partnershipName?: string; operatingZone?: string; operatingZones?: string[] } | null;
+  const d = (id ? await ctx.db.get(id) : null) as { partnershipName?: string; operatingZone?: string; operatingZones?: string[]; partnerType?: string } | null;
   const zonas = d?.operatingZones ?? (d?.operatingZone ? [d.operatingZone] : []);
-  return { ...base, ...vazio, parceiro: d?.partnershipName ?? null, zonas: zonas.map(zona) };
+  return { ...base, ...vazio, parceiro: d?.partnershipName ?? null, zonas: zonas.map(zona), tipoParceiro: d?.partnerType ?? null };
 }
 
 async function cartoesDaEtapa(ctx: QueryCtx, funil: Doc<"funis">, etapa: Etapa) {
@@ -479,9 +479,9 @@ export const entrarReserva = internalMutation({
 
 /*
  * Os três funis, com as etapas com que começam (lib/funis.ts). Pode correr
- * mais de uma vez: o que já existe fica. Apaga os da primeira versão (sem
- * chave: Pedidos, Parceiros, Reservas à escolha), com os seus cartões, e o
- * módulo «funis» que essa versão deu aos cargos.
+ * mais de uma vez: o que já existe fica. Apaga os que já não existem (os
+ * da primeira versão, sem chave, e o dos pedidos), com os seus cartões, e o
+ * módulo «funis» que a primeira versão deu aos cargos.
  *   npx convex run funis:criarFunisIniciais
  */
 export const criarFunisIniciais = internalMutation({
@@ -490,6 +490,8 @@ export const criarFunisIniciais = internalMutation({
     const agora = Date.now();
     let apagados = 0;
     for (const f of await ctx.db.query("funis").collect()) {
+      /* Os que já não existem (os da primeira versão, sem chave, e o dos
+         pedidos), com os seus cartões. */
       if (eChaveFunil(f.chave)) continue;
       for (const n of await ctx.db.query("negocios").withIndex("by_funil_criado", (q) => q.eq("funilId", f._id)).collect()) {
         for (const a of await ctx.db.query("negocioAtividades").withIndex("by_negocio", (q) => q.eq("negocioId", n._id)).collect()) {
@@ -517,7 +519,7 @@ export const criarFunisIniciais = internalMutation({
 
 /*
  * O que já estava em aberto quando os funis chegaram, para os quadros não
- * arrancarem vazios: os pedidos e as candidaturas por tratar ou em análise
+ * arrancarem vazios: as leads de parceiros e as candidaturas por tratar ou em curso
  * dos últimos `dias`, e as reservas pagas com viagem daqui para a frente. Os
  * por tratar ficam na 1.ª etapa, os em curso na 2.ª. Não repete.
  *   npx convex run funis:preencher '{"dias":30}'
@@ -531,18 +533,9 @@ export const preencher = internalMutation({
       if (id) contagem[k] = (contagem[k] ?? 0) + 1;
     };
     /* Os estados de cada tabela (pedidos.ts e candidaturas.ts). */
-    const EM_CURSO = new Set(["read", "inProgress", "reviewing"]);
-    const FECHADO = new Set(["archived", "resolved", "approved", "rejected"]);
-    const tabelas = [
-      "contactSubmissions",
-      "contactQuotes",
-      "tourInquiries",
-      "weddingQuoteSubmissions",
-      "schoolQuoteSubmissions",
-      "corporateRequests",
-      "driverApplications",
-      "partnerApplications",
-    ] as const;
+    const EM_CURSO = new Set(["contacted", "qualified", "reviewing"]);
+    const FECHADO = new Set(["archived", "approved", "rejected"]);
+    const tabelas = ["partnerLeads", "driverApplications", "partnerApplications"] as const;
     for (const t of tabelas) {
       const docs = await ctx.db.query(t).withIndex("by_creation_time", (q) => q.gt("_creationTime", desde)).collect();
       for (const d of docs) {

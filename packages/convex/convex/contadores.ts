@@ -123,17 +123,17 @@ export const porTratar = query({
       ve("reservas") && dia && /^\d{4}-\d{2}-\d{2}$/.test(dia) ? servicosDoDia(ctx, dia) : Promise.resolve(0),
     ]);
 
-    const [pedidosQuadro, candidaturasQuadro, servicosQuadro] = await Promise.all([
-      ve("pedidos") ? naPrimeiraEtapa(ctx, "pedidos") : Promise.resolve(0),
+    const [leadsQuadro, candidaturasQuadro, servicosQuadro] = await Promise.all([
+      ve("leads") ? naPrimeiraEtapa(ctx, "parcerias") : Promise.resolve(0),
       ve("candidaturas") ? naPrimeiraEtapa(ctx, "candidaturas") : Promise.resolve(0),
       ve("reservas") ? naPrimeiraEtapa(ctx, "reservas") : Promise.resolve(0),
     ]);
 
     return {
-      pedidos: pedidosQuadro ?? pedidos,
+      pedidos,
       candidaturas: candidaturasQuadro ?? candidaturas,
       avaliacoes,
-      leads,
+      leads: leadsQuadro ?? leads,
       /* O nome ficou (o dashboard lê esta chave); conta os serviços por
          atribuir. */
       reservasHoje: servicosQuadro ?? reservasHoje,

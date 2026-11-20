@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
+import { acertarCartaoDaOrigem } from "./lib/funilEstado";
 import { urlDaImagem } from "./lib/imagens";
 import { frotaVisivel } from "./lib/frota";
 
@@ -570,8 +571,8 @@ export const remover = mutation({
 
 /*
  * Os hotéis, agências e afins que pedem para ser parceiros na página Hotéis.
- * Também vão para o Pipedrive (enfileirarLead), onde se trabalha o negócio;
- * aqui é para as ver e marcar o ponto em que estão.
+ * Caem no quadro das Parcerias (funis.ts), que é a vista principal deste
+ * ecrã; aqui é a lista.
  */
 
 const ESTADOS_LEAD = ["new", "contacted", "qualified", "archived"] as const;
@@ -582,6 +583,8 @@ export const leads = query({
   args: {
     grupo: v.union(v.literal("porTratar"), v.literal("emCurso"), v.literal("arquivadas"), v.literal("todas")),
     pesquisa: v.optional(v.string()),
+    /* O tipo de parceiro (hotel, agência…), como o formulário o grava. */
+    tipo: v.optional(v.string()),
     pagina: v.number(),
     porPagina: v.number(),
   },
@@ -596,8 +599,10 @@ export const leads = query({
       todas: todas.length,
     };
     const q = semAcentos(a.pesquisa?.trim() ?? "");
+    const tipos = [...new Set(todas.map((l) => l.partnerType).filter(Boolean))].sort();
     const filtradas = todas
       .filter((l) => a.grupo === "todas" || grupoDaLead(l.status) === a.grupo)
+      .filter((l) => !a.tipo || l.partnerType === a.tipo)
       .filter((l) => !q || [l.fullName, l.companyName, l.email, l.phone, l.city, l.partnerType].some((c) => c && semAcentos(c).includes(q)));
     const porPagina = Math.max(1, Math.min(100, Math.floor(a.porPagina)));
     const paginas = Math.max(1, Math.ceil(filtradas.length / porPagina));
@@ -620,6 +625,7 @@ export const leads = query({
       paginas,
       porPagina,
       porGrupo,
+      tipos,
     };
   },
 });
@@ -661,10 +667,12 @@ export const lead = query({
 export const mudarEstadoLead = mutation({
   args: { id: v.id("partnerLeads"), estado: v.string() },
   handler: async (ctx, { id, estado }) => {
-    await exigirAdmin(ctx, "leads");
+    const quem = await exigirAdmin(ctx, "leads");
     if (!(ESTADOS_LEAD as readonly string[]).includes(estado)) throw new ConvexError({ tipo: "invalido", mensagem: "Estado que uma lead não aceita." });
     if (!(await ctx.db.get(id))) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta lead já não existe." });
     await ctx.db.patch(id, { status: estado as (typeof ESTADOS_LEAD)[number] });
+    /* O cartão no quadro das Parcerias acompanha (lib/funilEstado.ts). */
+    await acertarCartaoDaOrigem(ctx, "partnerLeads", id, estado, quem.email ?? "");
   },
 });
 

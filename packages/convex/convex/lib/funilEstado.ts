@@ -33,6 +33,7 @@ const ESTADO: Record<string, Record<Grupo, string>> = {
   schoolQuoteSubmissions: { primeira: "new", curso: "read", ganho: "archived", perdido: "archived" },
   contactQuotes: { primeira: "new", curso: "inProgress", ganho: "resolved", perdido: "archived" },
   corporateRequests: { primeira: "submitted", curso: "reviewing", ganho: "approved", perdido: "rejected" },
+  partnerLeads: { primeira: "new", curso: "contacted", ganho: "qualified", perdido: "archived" },
   driverApplications: { primeira: "submitted", curso: "reviewing", ganho: "approved", perdido: "rejected" },
   partnerApplications: { primeira: "submitted", curso: "reviewing", ganho: "approved", perdido: "rejected" },
 };
