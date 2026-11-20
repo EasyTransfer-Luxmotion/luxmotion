@@ -1958,8 +1958,14 @@ export default defineSchema({
     /* Tirado do quadro sem se perder nem apagar (funis.arquivar): o registo
        e o histórico ficam, e desarquiva-se na ficha. */
     arquivadoEm: v.optional(v.number()),
+    /* A reunião que está marcada (funis.registarReuniao): o quando da
+       última reunião registada, se ficou «marcada» ou «remarcada»; vazio
+       depois de «realizada» ou «falta». Guardado aqui para o quadro, o
+       Início e a agenda não lerem o histórico de cada cartão. */
+    proximaReuniao: v.optional(v.number()),
   })
     .index("by_funil_etapa", ["funilId", "etapaId", "ordem"])
+    .index("by_reuniao", ["proximaReuniao"])
     .index("by_funil_etapa_fechado", ["funilId", "etapaId", "fechadoEm"])
     .index("by_origem", ["origem", "origemId"])
     .index("by_funil_criado", ["funilId", "criadoEm"])

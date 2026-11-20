@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, temCapacidade, type Acesso } from "./lib/admin";
-import type { Capacidade, Nivel } from "./lib/permissoes";
+import { chega, type Capacidade, type Nivel } from "./lib/permissoes";
 import { CHAVES_FUNIL, FUNIS, SEGMENTOS, eChaveFunil, segmentoDaOrigem, tituloDaOrigem, type ChaveFunil, type Etapa } from "./lib/funis";
 import { colocarNoFunil, entrarNoFunil, entrarReservaNoFunil } from "./lib/funilEntrada";
 import { aplicarEtapaNaOrigem } from "./lib/funilEstado";
@@ -78,6 +78,7 @@ function cartao(acesso: Acesso, n: Doc<"negocios">) {
     criadoEm: n.criadoEm,
     movidoEm: n.movidoEm,
     fechadoEm: n.fechadoEm ?? null,
+    proximaReuniao: n.proximaReuniao ?? null,
   };
 }
 
@@ -483,7 +484,9 @@ export const registarReuniao = mutation({
     if (t && t.length > 4000) throw new ConvexError("A nota tem de caber em 4000 caracteres.");
     const agora = Date.now();
     await ctx.db.insert("negocioAtividades", { negocioId: id, tipo: "reuniao", por: quem(acesso), texto: t || undefined, reuniao: { estado, quando }, em: agora });
-    await ctx.db.patch(id, { atualizadoEm: agora });
+    /* A última reunião registada decide: marcada ou remarcada fica como a
+       próxima; realizada ou falta fecha-a. */
+    await ctx.db.patch(id, { atualizadoEm: agora, proximaReuniao: estado === "marcada" || estado === "remarcada" ? quando : undefined });
     return null;
   },
 });
@@ -639,5 +642,82 @@ export const preencher = internalMutation({
       conta("orders", await entrarReservaNoFunil(ctx, o, { criadoEm: o.updatedAt ?? o._creationTime }));
     }
     return contagem;
+  },
+});
+
+/*
+ * As reuniões marcadas, de todos os funis que o cargo pode ver: as que já
+ * passaram sem se dizer como correram (por fechar) e as que vêm até «ate».
+ * Para a agenda (Operação → Reuniões), o Início e os avisos.
+ */
+export const reunioes = query({
+  args: { ate: v.number() },
+  handler: async (ctx, { ate }) => {
+    await exigirAdmin(ctx);
+    const acesso = await lerAcesso(ctx);
+    const funis = new Map((await ctx.db.query("funis").collect()).map((f) => [f._id as string, f]));
+    const marcadas = await ctx.db
+      .query("negocios")
+      .withIndex("by_reuniao", (q) => q.gte("proximaReuniao", 0).lte("proximaReuniao", ate))
+      .collect();
+    const linhas = [];
+    for (const n of marcadas) {
+      if (n.arquivadoEm || n.proximaReuniao === undefined) continue;
+      const f = funis.get(n.funilId);
+      if (!f || !eChaveFunil(f.chave)) continue;
+      const modulo = FUNIS[f.chave].modulo;
+      if (!acesso.dono && !chega(acesso.permissoes[modulo], "ver")) continue;
+      const etapa = f.etapas.find((e) => e.id === n.etapaId);
+      const ultima = await ctx.db
+        .query("negocioAtividades")
+        .withIndex("by_negocio", (q) => q.eq("negocioId", n._id))
+        .order("desc")
+        .filter((q) => q.eq(q.field("tipo"), "reuniao"))
+        .first();
+      linhas.push({
+        id: n._id as string,
+        quando: n.proximaReuniao,
+        estado: ultima?.reuniao?.estado ?? "marcada",
+        nota: ultima?.texto ?? null,
+        por: ultima?.por ?? null,
+        titulo: n.titulo,
+        pessoa: n.pessoa.nome,
+        organizacao: n.organizacao ?? null,
+        chave: f.chave as ChaveFunil,
+        funil: FUNIS[f.chave].titulo,
+        etapa: etapa?.nome ?? "",
+        cor: etapa?.cor ?? "#64748b",
+        origem: n.origem,
+        origemId: n.origemId ?? null,
+      });
+    }
+    return linhas.sort((a, b) => a.quando - b.quando);
+  },
+});
+
+/* Preenche proximaReuniao nos cartões com reuniões registadas antes do
+   campo existir. Pode correr mais de uma vez.
+     npx convex run funis:preencherReunioes */
+export const preencherReunioes = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let feitos = 0;
+    const vistos = new Set<string>();
+    for (const a of await ctx.db.query("negocioAtividades").collect()) {
+      if (a.tipo !== "reuniao" || vistos.has(a.negocioId)) continue;
+      vistos.add(a.negocioId);
+      const ultima = await ctx.db
+        .query("negocioAtividades")
+        .withIndex("by_negocio", (q) => q.eq("negocioId", a.negocioId))
+        .order("desc")
+        .filter((q) => q.eq(q.field("tipo"), "reuniao"))
+        .first();
+      const r = ultima?.reuniao;
+      const n = await ctx.db.get(a.negocioId);
+      if (!n || !r) continue;
+      await ctx.db.patch(n._id, { proximaReuniao: r.estado === "marcada" || r.estado === "remarcada" ? r.quando : undefined });
+      feitos++;
+    }
+    return { feitos };
   },
 });
