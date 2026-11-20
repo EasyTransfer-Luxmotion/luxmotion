@@ -75,6 +75,26 @@ function cartao(acesso: Acesso, n: Doc<"negocios">) {
   };
 }
 
+/*
+ * O que os filtros do quadro precisam e o cartão não guarda: os mesmos da
+ * lista do ecrã, para os dois dizerem o mesmo. Nas reservas, a data da
+ * viagem (Próximas/Passadas, o dia), o método de pagamento e a origem da
+ * visita (utm_source, como em reservas.ts); em todos, o email e o telefone,
+ * que a pesquisa da lista também procura.
+ */
+async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
+  const base = { email: n.pessoa.email ?? null, telefone: n.pessoa.telefone ?? null };
+  if (n.origem !== "orders" || !n.origemId) return { ...base, viagem: null, metodo: null, anuncio: null, referencia: null };
+  const o = await ctx.db.get(n.origemId as Id<"orders">);
+  return {
+    ...base,
+    viagem: o?.departureDate ? String(o.departureDate) : null,
+    metodo: o?.paymentMethod ?? null,
+    anuncio: o?.adSource?.utmSource?.trim().toLowerCase() || null,
+    referencia: o?.orderNumber ?? null,
+  };
+}
+
 async function cartoesDaEtapa(ctx: QueryCtx, funil: Doc<"funis">, etapa: Etapa) {
   if (etapa.tipo === "aberta") {
     const lidos = await ctx.db
@@ -102,7 +122,9 @@ export const quadro = query({
     const colunas = [];
     for (const etapa of funil.etapas) {
       const { lista, mais } = await cartoesDaEtapa(ctx, funil, etapa);
-      colunas.push({ etapa, mais, cartoes: lista.map((n) => cartao(acesso, n)) });
+      const cartoes = [];
+      for (const n of lista) cartoes.push({ ...cartao(acesso, n), ...(await filtraveis(ctx, n)) });
+      colunas.push({ etapa, mais, cartoes });
     }
     return { funilId: funil._id, chave, colunas, verValores: temCapacidade(acesso, "valores") };
   },
