@@ -54,11 +54,11 @@ export function HotelsResults() {
         <div className="mb-12 flex flex-col items-center gap-4 text-center">
           <div className="flex items-center gap-2">
             <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
-            <span className="font-sans text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]">{t("eyebrow")}</span>
+            <span className="font-sans text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("eyebrow")}</span>
             <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
           </div>
           <h2 className="text-[40px] leading-none text-[var(--lm-text,#f5f5f5)] md:text-[52px]" style={serif}>
-            {t("titlePrefix")} <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleAccent")}</span> {t("titleSuffix")}
+            {t("titlePrefix")} <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleAccent")}</span> {t("titleSuffix")}
           </h2>
         </div>
 
@@ -145,11 +145,11 @@ export function HotelsResults() {
               <div className="flex flex-col gap-5 border-t border-[rgba(var(--lm-accent-rgb,201,169,110),0.12)] bg-[var(--lm-bg,#0f0d0a)] p-6 lg:border-l lg:border-t-0 lg:p-8">
                 {/* stat bar */}
                 <div className="border border-[rgba(var(--lm-accent-rgb,201,169,110),0.18)] px-5 py-6">
-                  <span className="text-[11px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]" style={sans}>{t("statsLabel")}</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>{t("statsLabel")}</span>
                   <div className="mt-5 grid grid-cols-2 gap-y-6 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-[rgba(var(--lm-text-rgb,255,255,255),0.08)]">
                     {caso.stats.map((s) => (
                       <div key={s.label} className="flex flex-col items-center gap-1.5 px-2 text-center lg:px-3">
-                        <span className="text-[30px] leading-none text-[var(--lm-accent,#dcc99e)] md:text-[34px]" style={serif}>{s.value}</span>
+                        <span className="text-[30px] leading-none text-[var(--lm-accent-text,var(--lm-accent,#dcc99e))] md:text-[34px]" style={serif}>{s.value}</span>
                         <span className="text-[11px] leading-[1.3] text-[var(--lm-muted,#9a9a9a)]" style={sans}>{s.label}</span>
                       </div>
                     ))}
@@ -160,11 +160,11 @@ export function HotelsResults() {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {caso.columns.map((col) => (
                     <div key={col.title} className="border border-[rgba(var(--lm-text-rgb,255,255,255),0.08)] p-5">
-                      <h4 className="mb-5 text-[18px] font-semibold text-[var(--lm-accent,#C9A96E)]" style={sans}>{col.title}</h4>
+                      <h4 className="mb-5 text-[18px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>{col.title}</h4>
                       <ul className="flex flex-col gap-3.5">
                         {col.items.map((it, i) => (
                           <li key={i} className="flex items-start gap-2.5 text-[13px] leading-[1.4] text-[var(--lm-muted,#b8b3a9)]" style={sans}>
-                            <Check className="mt-[3px] h-[14px] w-[14px] shrink-0 text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.75} />
+                            <Check className="mt-[3px] h-[14px] w-[14px] shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.75} />
                             {it}
                           </li>
                         ))}
@@ -176,7 +176,7 @@ export function HotelsResults() {
                 {/* activation bar */}
                 <div className="mt-auto border border-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] bg-[rgba(var(--lm-accent-rgb,201,169,110),0.05)] py-3.5 text-center">
                   <span className="text-[12px] uppercase tracking-[1.5px] text-[var(--lm-muted,#8c8680)]" style={sans}>
-                    <span className="font-semibold text-[var(--lm-accent,#C9A96E)]">{caso.activatedBold}</span> {caso.activatedRest}
+                    <span className="font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{caso.activatedBold}</span> {caso.activatedRest}
                   </span>
                 </div>
               </div>
@@ -191,7 +191,7 @@ export function HotelsResults() {
           <button
             type="button"
             onClick={() => go(-1)}
-            className="flex h-11 w-11 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] text-[var(--lm-accent,#C9A96E)] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
+            className="flex h-11 w-11 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
             aria-label="Previous case"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -210,7 +210,7 @@ export function HotelsResults() {
           <button
             type="button"
             onClick={() => go(1)}
-            className="flex h-11 w-11 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] text-[var(--lm-accent,#C9A96E)] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
+            className="flex h-11 w-11 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
             aria-label="Next case"
           >
             <ArrowRight className="h-4 w-4" />

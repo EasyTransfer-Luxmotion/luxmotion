@@ -95,12 +95,12 @@ export function PartnerSelect({
                 }}
                 className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[14px] transition-colors ${
                   active
-                    ? "bg-[rgba(var(--lm-accent-rgb,201,169,110),0.14)] text-[var(--lm-accent,#C9A96E)]"
+                    ? "bg-[rgba(var(--lm-accent-rgb,201,169,110),0.14)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                     : "text-[var(--lm-muted,#d8d3c8)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] hover:text-[var(--lm-text,#fff)]"
                 }`}
               >
                 <Check
-                  className={`h-4 w-4 shrink-0 text-[var(--lm-accent,#C9A96E)] ${active ? "opacity-100" : "opacity-0"}`}
+                  className={`h-4 w-4 shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] ${active ? "opacity-100" : "opacity-0"}`}
                   strokeWidth={2.2}
                 />
                 <span className="truncate">{o.label}</span>

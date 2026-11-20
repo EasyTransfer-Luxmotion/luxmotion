@@ -70,7 +70,7 @@ export function ToursSection() {
             style={{ fontFamily: "var(--font-sans), Inter, sans-serif" }}
           >
             <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
-            <span className="text-[10px] font-semibold tracking-[2px] uppercase text-[var(--lm-accent,#C9A96E)] leading-none">
+            <span className="text-[10px] font-semibold tracking-[2px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] leading-none">
               {t("sectionLabel")}
             </span>
           </div>
@@ -81,7 +81,7 @@ export function ToursSection() {
               whiteSpace: "pre-line",
             }}
           >
-            <span className="italic text-[var(--lm-accent,#C9A96E)] font-medium">{t("titleGold")}</span>{" "}
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-medium">{t("titleGold")}</span>{" "}
             {t("titleRest")}
           </h2>
           <p
@@ -126,7 +126,7 @@ export function ToursSection() {
             onClick={goPrev}
             disabled={offset === 0}
             aria-label={t("previousSlide")}
-            className={`size-8 border border-[rgba(var(--lm-accent-rgb,154,117,53),0.4)] flex items-center justify-center text-[var(--lm-accent,#C9A96E)] transition ${
+            className={`size-8 border border-[rgba(var(--lm-accent-rgb,154,117,53),0.4)] flex items-center justify-center text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition ${
               offset === 0
                 ? "opacity-30 cursor-not-allowed"
                 : "hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
@@ -156,7 +156,7 @@ export function ToursSection() {
             onClick={goNext}
             disabled={offset >= maxOffset}
             aria-label={t("nextSlide")}
-            className={`size-8 border border-[rgba(var(--lm-accent-rgb,154,117,53),0.4)] flex items-center justify-center text-[var(--lm-accent,#C9A96E)] transition ${
+            className={`size-8 border border-[rgba(var(--lm-accent-rgb,154,117,53),0.4)] flex items-center justify-center text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition ${
               offset >= maxOffset
                 ? "opacity-30 cursor-not-allowed"
                 : "hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
@@ -168,7 +168,7 @@ export function ToursSection() {
 
         <Link
           href="/tours"
-          className="group inline-flex items-center justify-center gap-2 border border-[var(--lm-accent,#C9A96E)] h-12 px-6 w-full sm:w-auto mt-2 text-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition-colors"
+          className="group inline-flex items-center justify-center gap-2 border border-[var(--lm-accent,#C9A96E)] h-12 px-6 w-full sm:w-auto mt-2 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition-colors"
           style={{ fontFamily: "var(--font-sans), Inter, sans-serif" }}
         >
           <span className="text-[14px] font-medium tracking-[1.1px] uppercase">
@@ -211,7 +211,7 @@ function TourCard({
         <div className="flex items-end gap-2">
           <div className="flex-1 flex flex-col gap-2 min-w-0">
             <span
-              className="text-[12px] font-semibold tracking-[2px] uppercase text-[var(--lm-accent,#C9A96E)] leading-none"
+              className="text-[12px] font-semibold tracking-[2px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] leading-none"
               style={{ fontFamily: "var(--font-sans), Inter, sans-serif" }}
             >
               {label}
@@ -230,7 +230,7 @@ function TourCard({
             </p>
           </div>
           <div className="size-8 border border-[rgba(var(--lm-text-rgb,255,255,255),0.3)] flex items-center justify-center shrink-0 transition-colors group-hover:border-[var(--lm-accent,#C9A96E)] group-hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.15)]">
-            <ArrowRight className="size-[18px] text-[var(--lm-text,#fff)] transition-colors group-hover:text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />
+            <ArrowRight className="size-[18px] text-[var(--lm-text,#fff)] transition-colors group-hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />
           </div>
         </div>
       </div>

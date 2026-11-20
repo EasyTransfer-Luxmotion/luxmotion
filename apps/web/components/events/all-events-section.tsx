@@ -74,7 +74,7 @@ function EventGridCard({ event, featuredLabel }: { event: EventData; featuredLab
               fingir. Sem partilhado mostra-se a viatura, mas dizendo-o — sem a
               unidade o número engana quem compara. */}
           <span className="flex items-baseline gap-1.5">
-            <span className="text-[18px] md:text-[20px] text-[var(--lm-accent,#C9A96E)]" style={serif}>
+            <span className="text-[18px] md:text-[20px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={serif}>
               {montra.valor > 0 ? `€${montra.valor}` : t("priceOnRequest")}
             </span>
             {montra.valor > 0 && (
@@ -129,13 +129,13 @@ export function AllEventsSection({
             <div className="flex flex-col gap-[10px]">
               <div className="flex items-center gap-[10px]">
                 <div className="w-5 h-px bg-[var(--lm-accent,#C9A96E)]" />
-                <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]" style={sans}>
+                <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>
                   {t("allEventsLabel")}
                 </span>
               </div>
               <h2 className="text-[32px] md:text-[48px] font-light text-[var(--lm-text,#fff)] leading-none" style={serif}>
                 {t("allEventsHeading")}{" "}
-                <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("allEventsHeadingAccent")}</span>
+                <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("allEventsHeadingAccent")}</span>
               </h2>
             </div>
             <span className="text-[12px] text-[var(--lm-muted,rgba(255,255,255,0.32))]" style={sans}>
@@ -170,7 +170,7 @@ export function AllEventsSection({
                   onClick={() => setActiveCategory(cat)}
                   className={`h-8 px-[14.8px] text-[12px] uppercase tracking-[0.7px] whitespace-nowrap transition-colors shrink-0 ${
                     activeCategory === cat
-                      ? "bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.18)] text-[var(--lm-accent,#C9A96E)]"
+                      ? "bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.18)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                       : "border border-[rgba(var(--lm-text-rgb,255,255,255),0.07)] text-[var(--lm-muted,rgba(255,255,255,0.32))] hover:text-[var(--lm-text,rgba(255,255,255,0.5))]"
                   }`}
                   style={sans}

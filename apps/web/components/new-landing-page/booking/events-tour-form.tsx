@@ -149,7 +149,7 @@ export function EventsTourForm({
                 <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-[var(--lm-accent,#C9A96E)]/20 to-[var(--lm-accent,#C9A96E)]/5 flex items-center justify-center">
-                  <MapPinned className="w-5 h-5 text-[var(--lm-accent,#C9A96E)]/50" />
+                  <MapPinned className="w-5 h-5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]/50" />
                 </div>
               )}
             </div>
@@ -291,7 +291,7 @@ export function EventsTourForm({
                     borderColor: "rgba(var(--lm-text-rgb,255,255,255),0.08)",
                   }}
                 >
-                  <div className="flex items-center gap-[8px] text-[var(--lm-accent,#C9A96E)]">
+                  <div className="flex items-center gap-[8px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
                     <Users className="w-5 h-5" style={{ color: "var(--lm-accent,#C9A96E)" }} strokeWidth={1.2} />
                     <span className="text-[14px] font-black leading-none" style={{ color: "var(--lm-accent,#C9A96E)" }}>{totalPassengers}</span>
                   </div>
@@ -320,7 +320,7 @@ export function EventsTourForm({
                     borderColor: "rgba(var(--lm-text-rgb,255,255,255),0.08)",
                   }}
                 >
-                  <div className="flex items-center gap-[8px] text-[var(--lm-accent,#C9A96E)]">
+                  <div className="flex items-center gap-[8px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
                     <Users className="w-5 h-5" style={{ color: "var(--lm-accent,#C9A96E)" }} strokeWidth={1.2} />
                     <span className="text-[14px] font-black leading-none" style={{ color: "var(--lm-accent,#C9A96E)" }}>{totalPassengers}</span>
                   </div>
@@ -372,7 +372,7 @@ export function EventsTourForm({
               <img src={selectedItem.image} alt={selectedItem.title} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-[var(--lm-accent,#C9A96E)]/30 to-[var(--lm-accent,#C9A96E)]/5 flex items-center justify-center">
-                <MapPinned className="w-12 h-12 text-[var(--lm-accent,#C9A96E)]/50" />
+                <MapPinned className="w-12 h-12 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]/50" />
               </div>
             )}
           </div>

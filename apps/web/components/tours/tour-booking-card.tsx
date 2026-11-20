@@ -110,7 +110,7 @@ function CounterButton({ onClick, disabled, children }: { onClick: () => void; d
     <button
       onClick={onClick}
       disabled={disabled}
-      className="size-[32px] border border-[rgba(var(--lm-text-rgb,255,255,255),0.12)] flex items-center justify-center text-[var(--lm-muted,#999)] hover:border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] hover:text-[var(--lm-accent,#C9A96E)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+      className="size-[32px] border border-[rgba(var(--lm-text-rgb,255,255,255),0.12)] flex items-center justify-center text-[var(--lm-muted,#999)] hover:border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
     >
       {children}
     </button>
@@ -375,7 +375,7 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
           )}
         </span>
         <div className="flex items-baseline gap-[10px] mt-1">
-          <span className="text-[48px] font-semibold text-[var(--lm-accent,#C9A96E)] leading-[48px]" style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}>
+          <span className="text-[48px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] leading-[48px]" style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}>
             {format(precoEmCima)}
           </span>
           {/* O "i" e o "por pessoa" na mesma caixa: assim o círculo centra-se
@@ -394,7 +394,7 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
                   <button
                     type="button"
                     aria-label={infoTitulo}
-                    className="flex size-[16px] shrink-0 items-center justify-center rounded-full border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] text-[var(--lm-accent,#C9A96E)] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.15)]"
+                    className="flex size-[16px] shrink-0 items-center justify-center rounded-full border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.15)]"
                   >
                     <Info className="size-[10px]" strokeWidth={2.4} />
                   </button>
@@ -404,7 +404,7 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
                   align="start"
                   className="w-[260px] border-[rgba(var(--lm-accent-rgb,201,169,110),0.25)] bg-[var(--lm-surface,#1A1A1A)] text-[var(--lm-text,#fff)]"
                 >
-                  <p className="text-[12px] font-semibold uppercase tracking-[1px] text-[var(--lm-accent,#C9A96E)]">
+                  <p className="text-[12px] font-semibold uppercase tracking-[1px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
                     {infoTitulo}
                   </p>
                   <p className="mt-2 text-[12px] leading-[1.5] text-[var(--lm-muted,#999)]">
@@ -456,14 +456,14 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
                 >
                   <span className="flex items-center gap-1.5">
                     <Icone
-                      className={`size-[14px] ${activo ? "text-[var(--lm-accent,#C9A96E)]" : "text-[var(--lm-muted,#999)]"}`}
+                      className={`size-[14px] ${activo ? "text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" : "text-[var(--lm-muted,#999)]"}`}
                       strokeWidth={1.6}
                     />
                     <span className={`text-[12px] font-semibold ${activo ? "text-[var(--lm-text,#fff)]" : "text-[var(--lm-muted,#999)]"}`}>
                       {rotulo}
                     </span>
                   </span>
-                  <span className="text-[13px] text-[var(--lm-accent,#C9A96E)]">
+                  <span className="text-[13px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
                     {format(preco)}{" "}
                     <span className="text-[10px] text-[var(--lm-muted,#8c8680)]">{unidade}</span>
                   </span>
@@ -475,7 +475,7 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
         )}
         {!hideReviews && (
           <div className="flex items-center gap-[6px] mt-1">
-            <span className="text-[12px] text-[var(--lm-accent,#C9A96E)] tracking-[0.5px]">★★★★★</span>
+            <span className="text-[12px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.5px]">★★★★★</span>
             <span className="text-[12px] font-semibold text-[var(--lm-text,#fff)]">{rating.toFixed(1)}</span>
             <span className="text-[12px] text-[var(--lm-muted,#999)]">· {reviewCount} {t("reviews")}</span>
           </div>
@@ -630,7 +630,7 @@ export function TourBookingCard({ price, sharedPrice, currency = "€", rating, 
             <span className="absolute inset-0 rounded-full bg-[#4ADE80] opacity-75 animate-ping" />
             <span className="relative inline-flex size-2 rounded-full bg-[#4ADE80]" />
           </span>
-          <span className="text-[10px] font-semibold text-[var(--lm-accent,#C9A96E)]">141 {t("travelers")}</span>
+          <span className="text-[10px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">141 {t("travelers")}</span>
           <span className="text-[10px] text-[var(--lm-muted,#999)]">{t("bookedToday")}</span>
         </div>
       </div>

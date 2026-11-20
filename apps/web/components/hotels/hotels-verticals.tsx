@@ -17,13 +17,13 @@ export function HotelsVerticals() {
         <div className="mb-12 flex flex-col items-center gap-4 text-center">
           <div className="flex items-center gap-2">
             <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
-            <span className="font-sans text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]">
+            <span className="font-sans text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
               {t("eyebrow")}
             </span>
             <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
           </div>
           <h2 className="text-[40px] leading-none text-[var(--lm-text,#f5f5f5)] md:text-[52px]" style={serif}>
-            {t("titlePrefix")} <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleAccent")}</span>
+            {t("titlePrefix")} <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleAccent")}</span>
           </h2>
           <p className="max-w-[760px] text-[16px] leading-[1.4] text-[var(--lm-text,#fff)]/55 md:text-[18px]">
             {t("subtitle")}
@@ -38,7 +38,7 @@ export function HotelsVerticals() {
                 className="group relative flex cursor-default flex-col gap-[18px] bg-[var(--lm-surface,#1a1a1a)] px-6 py-8 transition-all duration-300 ease-out hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.06)] hover:-translate-y-1 hover:shadow-[0_18px_40px_-18px_rgba(0,0,0,0.7)] hover:ring-1 hover:ring-inset hover:ring-[rgba(var(--lm-accent-rgb,201,169,110),0.22)] md:px-9 md:py-10"
               >
                 <div className="flex items-start justify-between">
-                  <span className="flex h-12 w-12 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.4)] text-[var(--lm-accent,#C9A96E)]">
+                  <span className="flex h-12 w-12 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.4)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
                     <Gem className="size-6 transition-transform duration-300 ease-out group-hover:scale-110" strokeWidth={1.5} />
                   </span>
                   <span className="text-[26px] leading-none text-[rgba(var(--lm-accent-rgb,201,169,110),0.45)]" style={serif}>
@@ -50,7 +50,7 @@ export function HotelsVerticals() {
                     {v.eyebrow}
                   </span>
                   <h3 className="text-[20px] font-medium leading-[1.2] text-[var(--lm-text,#fff)] md:text-[24px]" style={serif}>
-                    {v.title} <span className="italic text-[var(--lm-accent,#C9A96E)]">{v.accent}</span>
+                    {v.title} <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{v.accent}</span>
                   </h3>
                   <p className="text-[13px] leading-[1.35] text-[var(--lm-muted,#999)] md:text-[14px]">{v.body}</p>
                 </div>

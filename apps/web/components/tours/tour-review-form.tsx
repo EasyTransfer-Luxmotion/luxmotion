@@ -40,7 +40,7 @@ function StarRating({
             <Star
               className={`size-[20px] transition-colors ${
                 isFilled
-                  ? "text-[var(--lm-accent,#c9a96e)] fill-[var(--lm-accent,#c9a96e)]"
+                  ? "text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] fill-[var(--lm-accent,#c9a96e)]"
                   : "text-[rgba(var(--lm-text-rgb,255,255,255),0.15)] fill-[rgba(var(--lm-text-rgb,255,255,255),0.15)] hover:text-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] hover:fill-[rgba(var(--lm-accent-rgb,201,169,110),0.5)]"
               }`}
             />
@@ -113,7 +113,7 @@ export function TourReviewForm({ tourId }: TourReviewFormProps) {
       >
         {titleLead}
         {titleLead ? " " : ""}
-        <span className="italic text-[var(--lm-accent,#c9a96e)]">{titleAccent}</span>
+        <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]">{titleAccent}</span>
       </h3>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-[14px]">

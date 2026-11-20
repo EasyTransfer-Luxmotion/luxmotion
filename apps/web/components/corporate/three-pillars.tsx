@@ -68,7 +68,7 @@ export function ThreePillars() {
         <div className="flex items-center gap-2">
           <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
           <span
-            className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]"
+            className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
             style={sans}
           >
             {t("eyebrow")}
@@ -76,7 +76,7 @@ export function ThreePillars() {
         </div>
 
         <h2 className="text-[28px] leading-tight md:text-[48px] md:leading-none" style={serif}>
-          <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("headingItalic")}</span>
+          <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("headingItalic")}</span>
           <br />
           <span className="text-[var(--lm-text,#F5F5F5)]">{t("headingRest")}</span>
         </h2>
@@ -99,7 +99,7 @@ export function ThreePillars() {
               <div className="flex items-center gap-2">
                 <div className="h-px w-6 bg-[var(--lm-accent,#C9A96E)]" />
                 <span
-                  className="text-[18px] font-semibold uppercase leading-none tracking-[2px] text-[var(--lm-accent,#C9A96E)] md:text-[24px]"
+                  className="text-[18px] font-semibold uppercase leading-none tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] md:text-[24px]"
                   style={serif}
                 >
                   {String(i + 1).padStart(2, "0")}
@@ -107,7 +107,7 @@ export function ThreePillars() {
               </div>
               <p
                 className={`text-center text-[10px] font-semibold uppercase leading-tight tracking-[2px] md:text-[12px] ${
-                  isActive ? "text-[var(--lm-accent,#C9A96E)]" : "text-[var(--lm-muted,#696969)]"
+                  isActive ? "text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" : "text-[var(--lm-muted,#696969)]"
                 }`}
               >
                 {t(`tabs.${p.id}`)}
@@ -175,7 +175,7 @@ export function ThreePillars() {
         <div className="flex min-w-0 flex-1 flex-col items-start justify-center gap-6 self-stretch">
           <h3 className="text-[32px] leading-none md:text-[48px]" style={serif}>
             <span className="text-[var(--lm-text,#F5F5F5)]">{t(`bodies.${pillarKey}.titlePart1`)} </span>
-            <span className="italic text-[var(--lm-accent,#C9A96E)]">{t(`bodies.${pillarKey}.titlePart2`)}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t(`bodies.${pillarKey}.titlePart2`)}</span>
             <span className="text-[var(--lm-text,#F5F5F5)]">.</span>
           </h3>
 
@@ -190,7 +190,7 @@ export function ThreePillars() {
                 className="flex items-center gap-2 bg-[var(--lm-bg,#0D0D0D)] px-5 py-5 md:px-9 md:py-6"
               >
                 <ArrowRight
-                  className="size-[18px] shrink-0 text-[var(--lm-accent,#C9A96E)]"
+                  className="size-[18px] shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                   strokeWidth={2}
                 />
                 <p
@@ -205,7 +205,7 @@ export function ThreePillars() {
 
           <Link
             href="/corporate/experiences"
-            className="inline-flex h-12 w-full items-center justify-center border border-[var(--lm-accent,#C9A96E)] px-[22px] py-[9px] text-[var(--lm-accent,#C9A96E)] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] md:w-[240px]"
+            className="inline-flex h-12 w-full items-center justify-center border border-[var(--lm-accent,#C9A96E)] px-[22px] py-[9px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] md:w-[240px]"
             style={sans}
           >
             <span className="px-2 text-[14px] font-medium uppercase tracking-[1.1px]">

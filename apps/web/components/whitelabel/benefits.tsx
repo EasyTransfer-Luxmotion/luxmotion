@@ -38,7 +38,7 @@ function BenefitCard({ benefit }: { benefit: Benefit }) {
   return (
     <div className="bg-[var(--lm-surface,#141414)] border border-[rgba(var(--lm-text-rgb,255,255,255),0.07)] hover:border-[rgba(var(--lm-accent-rgb,201,169,110),0.4)] transition-colors duration-200 flex flex-col gap-[5px] p-6">
       <div className="size-10 flex items-center justify-center bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.22)]">
-        <Icon className="size-[18px] text-[var(--lm-accent,#c9a96e)]" strokeWidth={1.5} />
+        <Icon className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" strokeWidth={1.5} />
       </div>
       <h3
         className="text-[22px] lg:text-[24px] font-medium text-[var(--lm-text,#fff)] leading-normal pt-2"
@@ -67,7 +67,7 @@ export function Benefits() {
           <div className="flex items-center gap-2">
             <div className="h-px w-8 bg-[var(--lm-accent,#c9a96e)]" />
             <span
-              className="text-[12px] font-medium uppercase tracking-[2px] text-[var(--lm-accent,#c9a96e)] leading-none"
+              className="text-[12px] font-medium uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] leading-none"
               style={SANS_FONT}
             >
               {t("eyebrow")}
@@ -79,7 +79,7 @@ export function Benefits() {
             style={SERIF_FONT}
           >
             {t("titlePre")}{" "}
-            <span className="italic text-[var(--lm-accent,#c9a96e)]">{t("titleAccent")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]">{t("titleAccent")}</span>
           </h2>
         </div>
 

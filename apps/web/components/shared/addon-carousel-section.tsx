@@ -78,7 +78,7 @@ export function AddonCarouselSection({ addons }: AddonCarouselSectionProps) {
             em corpo maior, direita e na cor do texto — duas secções seguidas da
             mesma página a anunciarem-se de maneiras diferentes. */}
         <h2
-          className="text-[24px] font-medium italic leading-none text-[var(--lm-accent,#c9a96e)]"
+          className="text-[24px] font-medium italic leading-none text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]"
           style={{ fontFamily: SERIF_FONT }}
         >
           {t("addOns")}
@@ -93,7 +93,7 @@ export function AddonCarouselSection({ addons }: AddonCarouselSectionProps) {
                 "size-[36px] flex items-center justify-center border transition-colors",
                 currentSlide === 0
                   ? "border-[rgba(201,169,110,0.16)] text-[rgba(201,169,110,0.35)] cursor-not-allowed"
-                  : "border-[rgba(var(--lm-accent-rgb,201,169,110),0.36)] text-[var(--lm-accent,#C9A96E)] hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
+                  : "border-[rgba(var(--lm-accent-rgb,201,169,110),0.36)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
               )}
             >
               <ChevronLeft className="size-[16px]" strokeWidth={1.6} />
@@ -106,7 +106,7 @@ export function AddonCarouselSection({ addons }: AddonCarouselSectionProps) {
                 "size-[36px] flex items-center justify-center border transition-colors",
                 currentSlide >= maxSlide
                   ? "border-[rgba(201,169,110,0.16)] text-[rgba(201,169,110,0.35)] cursor-not-allowed"
-                  : "border-[rgba(var(--lm-accent-rgb,201,169,110),0.36)] text-[var(--lm-accent,#C9A96E)] hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
+                  : "border-[rgba(var(--lm-accent-rgb,201,169,110),0.36)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
               )}
             >
               <ChevronRight className="size-[16px]" strokeWidth={1.6} />
@@ -148,7 +148,7 @@ export function AddonCarouselSection({ addons }: AddonCarouselSectionProps) {
                   </h3>
                   <div className="flex items-center">
                     <span
-                      className="text-[20px] font-semibold leading-none text-[var(--lm-accent,#C9A96E)]"
+                      className="text-[20px] font-semibold leading-none text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                       style={{ fontFamily: SERIF_FONT }}
                     >
                       {/* A barra só se escreve quando há unidade a seguir: num

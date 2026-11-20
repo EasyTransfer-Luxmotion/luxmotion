@@ -42,7 +42,7 @@ export function CTABanner() {
         >
           {t("line1")}
           <br />
-          <span className="italic font-medium text-[var(--lm-accent,#C9A96E)]">{t("line2")}</span>
+          <span className="italic font-medium text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("line2")}</span>
         </h2>
         <p
           className="text-[16px] md:text-[18px] leading-[1.3] text-[var(--lm-muted,#999)] text-center"
@@ -56,7 +56,7 @@ export function CTABanner() {
 
       <Link
         href="/tours"
-        className="group relative z-10 inline-flex items-center gap-2 border border-[var(--lm-accent,#C9A96E)] h-12 px-6 text-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition-colors"
+        className="group relative z-10 inline-flex items-center gap-2 border border-[var(--lm-accent,#C9A96E)] h-12 px-6 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition-colors"
         style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
       >
         <span className="text-[14px] font-medium tracking-[1.1px] uppercase">

@@ -144,11 +144,11 @@ export function TransferForm({
                 type="button"
                 className="w-full flex flex-col gap-3 pl-2 pr-4 py-[10px] text-left cursor-pointer"
               >
-                <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>
+                <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>
                   {t.labelFrom}
                 </span>
                 <div className="flex items-center gap-2 min-w-0 w-full">
-                  <MapPin className="w-6 h-6 shrink-0 text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.2} />
+                  <MapPin className="w-6 h-6 shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.2} />
                   <span className={fromLocation.text ? "text-[14px] font-medium text-[var(--lm-text,#fff)] truncate" : "text-[14px] text-[var(--lm-muted,#696969)] truncate"}>
                     {fromLocation.text || t.placeholderFrom}
                   </span>
@@ -178,9 +178,9 @@ export function TransferForm({
           </MobileLocationPanel>
         ) : (
           <div className="flex flex-col justify-center w-full pl-2 py-[10px]">
-            <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>{t.labelFrom}</span>
+            <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>{t.labelFrom}</span>
             <div className="relative flex items-center mt-3 h-[24px]">
-              <div className="absolute left-0 z-10 pointer-events-none text-[var(--lm-accent,#C9A96E)]">
+              <div className="absolute left-0 z-10 pointer-events-none text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
                 <MapPin className="w-6 h-6" strokeWidth={1.2} />
               </div>
               <GooglePlacesInput
@@ -239,11 +239,11 @@ export function TransferForm({
                     }}
                     className="w-full flex flex-col gap-3 pl-2 pr-4 py-[10px] text-left cursor-pointer"
                   >
-                    <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>
+                    <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>
                       {t.labelTo}
                     </span>
                     <div className="flex items-center gap-2 min-w-0 w-full">
-                      <MapPin className="w-6 h-6 shrink-0 text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.2} />
+                      <MapPin className="w-6 h-6 shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.2} />
                       <span className={dest.text ? "text-[14px] font-medium text-[var(--lm-text,#fff)] truncate" : "text-[14px] text-[var(--lm-muted,#696969)] truncate"}>
                         {dest.text || t.placeholderTo}
                       </span>
@@ -273,9 +273,9 @@ export function TransferForm({
               </MobileLocationPanel>
             ) : (
               <div className="flex flex-col justify-center w-full pl-2 py-[10px]">
-                <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>{t.labelTo}</span>
+                <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>{t.labelTo}</span>
                 <div className="relative flex items-center mt-3 h-[24px]">
-                  <div className="absolute left-0 z-10 pointer-events-none text-[var(--lm-accent,#C9A96E)]">
+                  <div className="absolute left-0 z-10 pointer-events-none text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
                     <MapPin className="w-6 h-6" strokeWidth={1.2} />
                   </div>
                   <GooglePlacesInput
@@ -306,7 +306,7 @@ export function TransferForm({
       </AnimatePresence>
 
       <motion.div layout className="lg:w-[199px] lg:shrink-0 border-b lg:border-b-0 lg:border-r border-[rgba(var(--lm-text-rgb,255,255,255),0.08)] booking-section hidden lg:flex flex-col justify-center pl-2 py-[10px]" style={{ backgroundColor: "transparent", borderColor: "rgba(var(--lm-text-rgb,255,255,255),0.08)" }}>
-        <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>{t.labelDeparture}</span>
+        <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>{t.labelDeparture}</span>
         <div className="mt-3">
           <DateTimePicker
             value={departureDate}
@@ -319,7 +319,7 @@ export function TransferForm({
         </div>
       </motion.div>
       <motion.div layout className="lg:hidden border-b border-[rgba(var(--lm-text-rgb,255,255,255),0.08)] flex flex-col gap-3 pl-2 pr-4 py-[10px] booking-section" style={{ backgroundColor: "transparent", borderColor: "rgba(var(--lm-text-rgb,255,255,255),0.08)" }}>
-        <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>
+        <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[1.08px] uppercase leading-none" style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}>
           {t.labelDeparture}
         </span>
         <DateTimePicker
@@ -388,7 +388,7 @@ export function TransferForm({
                   borderColor: "rgba(var(--lm-text-rgb,255,255,255),0.08)"
                 }}
               >
-                <div className="flex items-center gap-5 text-[var(--lm-accent,#C9A96E)]">
+                <div className="flex items-center gap-5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
                   <div className="flex items-center gap-2">
                     <Users className="w-[22px] h-[22px]" style={{ color: "var(--lm-accent,#C9A96E)" }} strokeWidth={1.2} />
                     <span className="text-[14px] font-medium leading-[21px] text-[var(--lm-text,#fff)]">

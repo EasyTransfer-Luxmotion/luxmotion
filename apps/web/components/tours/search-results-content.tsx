@@ -108,7 +108,7 @@ export function SearchResultsContent({ searchQuery }: SearchResultsContentProps)
           {searchQuery ? (
             <>
               <span>{t("resultsFor")} </span>
-              <span className="italic text-[var(--lm-accent,#c9a96e)]">&ldquo;{searchQuery}&rdquo;</span>
+              <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]">&ldquo;{searchQuery}&rdquo;</span>
             </>
           ) : (
             <span>{t("allTours")}</span>

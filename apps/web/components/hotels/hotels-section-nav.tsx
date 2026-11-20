@@ -52,7 +52,7 @@ export function HotelsSectionNav() {
               onClick={() => go(tab.id)}
               className={`relative shrink-0 whitespace-nowrap px-4 py-4 text-[11.5px] font-semibold uppercase tracking-[1.4px] transition-colors lg:px-5 ${
                 on
-                  ? "text-[var(--lm-accent,#C9A96E)]"
+                  ? "text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                   : "text-[var(--lm-muted,#8c8680)] hover:text-[var(--lm-text,#fff)]"
               }`}
               style={sans}

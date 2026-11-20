@@ -200,7 +200,7 @@ export function ContactSection() {
               style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
             >
               <span className="italic">{t("redesign.heroLine1")} </span>
-              <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("redesign.heroLine2")}</span>
+              <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("redesign.heroLine2")}</span>
             </h2>
           </div>
         </div>
@@ -210,7 +210,7 @@ export function ContactSection() {
             <div className="flex items-center gap-2">
               <div className="w-[82px] h-px bg-[var(--lm-accent,#C9A96E)]" />
               <span
-                className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]"
+                className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                 style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
               >
                 {t("redesign.label")}
@@ -330,7 +330,7 @@ export function ContactSection() {
                   form.flexibleDates && "bg-[rgba(var(--lm-accent-rgb,154,117,53),0.22)]"
                 )}
               >
-                {form.flexibleDates && <Check className="size-[12px] text-[var(--lm-accent,#C9A96E)]" />}
+                {form.flexibleDates && <Check className="size-[12px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />}
               </div>
               <span className="text-[14px] text-[var(--lm-text,#fff)]">{t("redesign.form.flexibleDates")}</span>
               <input
@@ -406,7 +406,7 @@ export function ContactSection() {
                   form.newsletter && "bg-[rgba(var(--lm-accent-rgb,154,117,53),0.22)]"
                 )}
               >
-                {form.newsletter && <Check className="size-[12px] text-[var(--lm-accent,#C9A96E)]" />}
+                {form.newsletter && <Check className="size-[12px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />}
               </div>
               <span className="text-[14px] text-[var(--lm-text,#fff)] leading-normal">
                 {t("redesign.form.newsletter")}
@@ -450,8 +450,8 @@ export function ContactSection() {
                     href={`tel:${t("redesign.support.phone").replace(/\s/g, "")}`}
                     className="group/row flex items-center gap-2 w-fit hover:translate-x-1 transition-transform duration-300 ease-out"
                   >
-                    <Phone className="size-4 text-[var(--lm-accent,#C9A96E)] shrink-0 transition-transform duration-300 group-hover/row:scale-110" />
-                    <span className="text-[12px] text-[var(--lm-muted,#999)] leading-[14px] group-hover/row:text-[var(--lm-accent,#C9A96E)] transition-colors duration-300">
+                    <Phone className="size-4 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] shrink-0 transition-transform duration-300 group-hover/row:scale-110" />
+                    <span className="text-[12px] text-[var(--lm-muted,#999)] leading-[14px] group-hover/row:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors duration-300">
                       {t("redesign.support.phone")}
                     </span>
                   </a>
@@ -459,8 +459,8 @@ export function ContactSection() {
                     href={`mailto:${t("redesign.support.email")}`}
                     className="group/row flex items-center gap-2 w-fit hover:translate-x-1 transition-transform duration-300 ease-out"
                   >
-                    <Mail className="size-4 text-[var(--lm-accent,#C9A96E)] shrink-0 transition-transform duration-300 group-hover/row:scale-110" />
-                    <span className="text-[12px] text-[var(--lm-muted,#999)] leading-[1.2] group-hover/row:text-[var(--lm-accent,#C9A96E)] transition-colors duration-300">
+                    <Mail className="size-4 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] shrink-0 transition-transform duration-300 group-hover/row:scale-110" />
+                    <span className="text-[12px] text-[var(--lm-muted,#999)] leading-[1.2] group-hover/row:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors duration-300">
                       {t("redesign.support.email")}
                     </span>
                   </a>
@@ -470,8 +470,8 @@ export function ContactSection() {
           </form>
 
           <div className="flex items-center gap-2 justify-center mt-4">
-            <ShieldCheck className="size-6 text-[var(--lm-accent,#C9A96E)] shrink-0" />
-            <span className="text-[14px] text-[var(--lm-accent,#C9A96E)] leading-[20px]">
+            <ShieldCheck className="size-6 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] shrink-0" />
+            <span className="text-[14px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] leading-[20px]">
               {t("redesign.responseTime")}
             </span>
           </div>

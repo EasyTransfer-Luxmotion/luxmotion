@@ -96,7 +96,7 @@ export function Fleet({ showControls = true }: { showControls?: boolean } = {}) 
         >
           <div className="flex items-center gap-2">
             <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
-            <span className="text-[12px] font-semibold tracking-[2px] uppercase text-[var(--lm-accent,#C9A96E)] leading-none">
+            <span className="text-[12px] font-semibold tracking-[2px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] leading-none">
               {t("sectionLabel")}
             </span>
           </div>
@@ -150,7 +150,7 @@ export function Fleet({ showControls = true }: { showControls?: boolean } = {}) 
                 type="button"
                 onClick={() => scrollByCards(-1)}
                 aria-label={t("previousSlide")}
-                className="size-12 border-[1.714px] border-[rgba(var(--lm-accent-rgb,154,117,53),0.22)] flex items-center justify-center text-[var(--lm-accent,#C9A96E)] hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition cursor-pointer"
+                className="size-12 border-[1.714px] border-[rgba(var(--lm-accent-rgb,154,117,53),0.22)] flex items-center justify-center text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition cursor-pointer"
               >
                 <ArrowRight className="size-[18px] rotate-180" strokeWidth={1.7} />
               </button>
@@ -170,7 +170,7 @@ export function Fleet({ showControls = true }: { showControls?: boolean } = {}) 
                 type="button"
                 onClick={() => scrollByCards(1)}
                 aria-label={t("nextSlide")}
-                className="size-12 border-[1.714px] border-[rgba(var(--lm-accent-rgb,154,117,53),0.22)] flex items-center justify-center text-[var(--lm-accent,#C9A96E)] hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition cursor-pointer"
+                className="size-12 border-[1.714px] border-[rgba(var(--lm-accent-rgb,154,117,53),0.22)] flex items-center justify-center text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition cursor-pointer"
               >
                 <ArrowRight className="size-[18px]" strokeWidth={1.7} />
               </button>
@@ -178,7 +178,7 @@ export function Fleet({ showControls = true }: { showControls?: boolean } = {}) 
 
             <Link
               href="/fleet"
-              className="group inline-flex items-center justify-center gap-2 border border-[var(--lm-accent,#C9A96E)] h-12 px-6 mt-2 text-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition-colors"
+              className="group inline-flex items-center justify-center gap-2 border border-[var(--lm-accent,#C9A96E)] h-12 px-6 mt-2 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition-colors"
               style={{ fontFamily: "var(--font-sans), Inter, sans-serif" }}
             >
               <span className="text-[14px] font-medium tracking-[1.1px] uppercase">
@@ -230,7 +230,7 @@ function CategoryCard({
       <div className="flex flex-col items-center justify-center gap-2 px-6 py-4 w-full">
         <span
           className={`text-[12px] font-semibold tracking-[2px] uppercase leading-none transition-colors duration-200 ${
-            active ? "text-[var(--lm-accent,#C9A96E)]" : "text-[var(--lm-muted,#999)]"
+            active ? "text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" : "text-[var(--lm-muted,#999)]"
           }`}
           style={{ fontFamily: "var(--font-sans), Inter, sans-serif" }}
         >
@@ -275,7 +275,7 @@ function FeaturedCard({
       </div>
       <div className="relative h-[120px] flex flex-col justify-center gap-2 px-6 py-5 bg-gradient-to-t from-[var(--lm-bg,#000)] to-[rgba(var(--lm-bg-rgb,13,13,13),0.9)]">
         <span
-          className="text-[12px] font-semibold tracking-[2px] uppercase text-[var(--lm-accent,#C9A96E)] leading-none"
+          className="text-[12px] font-semibold tracking-[2px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] leading-none"
           style={{ fontFamily: "var(--font-sans), Inter, sans-serif" }}
         >
           {label}

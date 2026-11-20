@@ -17,7 +17,7 @@ export function WhatsAppFloat() {
       href={WHATSAPP_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-[calc(1rem_+_var(--cart-bar-h,0px))] right-4 z-50 flex size-11 items-center justify-center rounded-full bg-[var(--lm-inverse-bg,#0D0D0D)] border border-[var(--lm-accent,#C9A96E)] text-[var(--lm-accent,#C9A96E)] shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all hover:scale-105 hover:bg-[var(--lm-accent,#C9A96E)] hover:text-[#0D0D0D] focus:outline-none focus:ring-2 focus:ring-[var(--lm-accent,#C9A96E)] focus:ring-offset-2 focus:ring-offset-[var(--lm-bg,#0D0D0D)] md:bottom-[calc(1.5rem_+_var(--cart-bar-h,0px))] md:right-6 md:size-14"
+      className="fixed bottom-[calc(1rem_+_var(--cart-bar-h,0px))] right-4 z-50 flex size-11 items-center justify-center rounded-full bg-[var(--lm-inverse-bg,#0D0D0D)] border border-[var(--lm-accent,#C9A96E)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all hover:scale-105 hover:bg-[var(--lm-accent,#C9A96E)] hover:text-[#0D0D0D] focus:outline-none focus:ring-2 focus:ring-[var(--lm-accent,#C9A96E)] focus:ring-offset-2 focus:ring-offset-[var(--lm-bg,#0D0D0D)] md:bottom-[calc(1.5rem_+_var(--cart-bar-h,0px))] md:right-6 md:size-14"
       aria-label="Abrir conversa no WhatsApp"
     >
       <WhatsAppIcon className="size-6 md:size-8" />

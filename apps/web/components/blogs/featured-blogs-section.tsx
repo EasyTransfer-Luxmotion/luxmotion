@@ -110,7 +110,7 @@ function AuthorBadge({ author }: { author: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className="size-6 rounded-full bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border-[0.92px] border-[rgba(var(--lm-accent-rgb,201,169,110),0.2)] flex items-center justify-center">
-        <span className="text-[9px] font-semibold text-[var(--lm-accent,#C9A96E)]" style={sans}>{initial}</span>
+        <span className="text-[9px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>{initial}</span>
       </div>
       <span className="text-[12px] text-[var(--lm-muted,#999)]" style={sans}>
         {author.split(" ")[0]} {author.split(" ")[1]?.[0]}.
@@ -181,7 +181,7 @@ function SideBlogCard({ blog }: { blog: BlogData }) {
       </div>
       <div className="flex flex-col gap-2 px-5 md:px-6 py-3 md:py-4">
         <div className="backdrop-blur-[3px] bg-[rgba(var(--lm-accent-rgb,154,117,53),0.22)] border border-[rgba(var(--lm-accent-rgb,154,117,53),0.22)] self-start px-[9.8px] py-[3.8px]">
-          <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] uppercase tracking-[1px]" style={sans}>
+          <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] uppercase tracking-[1px]" style={sans}>
             {blog.category}
           </span>
         </div>
@@ -215,7 +215,7 @@ function GridBlogCard({ blog, readArticleLabel }: { blog: BlogData; readArticleL
         </div>
       </div>
       <div className="flex flex-col gap-2 px-5 md:px-6 py-3 md:py-4">
-        <h3 className="text-[20px] md:text-[24px] font-semibold text-[var(--lm-text,#fff)] group-hover:text-[var(--lm-accent,#C9A96E)] transition-colors duration-200 leading-[1.2] pb-[6px]" style={serif}>
+        <h3 className="text-[20px] md:text-[24px] font-semibold text-[var(--lm-text,#fff)] group-hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors duration-200 leading-[1.2] pb-[6px]" style={serif}>
           {blog.title}
         </h3>
         <p className="text-[14px] text-[var(--lm-muted,#999)] leading-[17.6px] line-clamp-2" style={sans}>
@@ -277,13 +277,13 @@ export function FeaturedBlogsSection({
         <div className="flex flex-col gap-2 items-start w-full">
           <div className="flex items-center gap-2">
             <div className="w-8 md:w-[82px] h-px bg-[var(--lm-accent,#C9A96E)]" />
-            <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]" style={sans}>
+            <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>
               {t("eyebrow")}
             </span>
           </div>
           <h2 className="text-[32px] md:text-[48px] font-light text-[var(--lm-text,#fff)] leading-none" style={serif}>
             {t("heading")}{" "}
-            <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("headingAccent")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("headingAccent")}</span>
           </h2>
         </div>
 
@@ -310,8 +310,8 @@ export function FeaturedBlogsSection({
                     onClick={() => setActiveCategory(cat)}
                     className={`h-8 px-[14.8px] text-[12px] uppercase tracking-[0.7px] whitespace-nowrap transition-colors duration-200 shrink-0 ${
                       activeCategory === cat
-                        ? "bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.18)] text-[var(--lm-accent,#C9A96E)]"
-                        : "border border-[rgba(var(--lm-text-rgb,255,255,255),0.12)] text-[var(--lm-muted,#999)] hover:text-[var(--lm-accent,#C9A96E)] hover:border-[rgba(var(--lm-accent-rgb,201,169,110),0.55)]"
+                        ? "bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.18)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
+                        : "border border-[rgba(var(--lm-text-rgb,255,255,255),0.12)] text-[var(--lm-muted,#999)] hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:border-[rgba(var(--lm-accent-rgb,201,169,110),0.55)]"
                     }`}
                     style={sans}
                   >
@@ -355,10 +355,10 @@ export function FeaturedBlogsSection({
                 href="/blogs/results"
                 className="mt-4 h-[48px] px-8 border border-[rgba(var(--lm-accent-rgb,201,169,110),0.3)] flex items-center gap-2 hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition-colors"
               >
-                <span className="text-[12px] font-medium text-[var(--lm-accent,#C9A96E)] uppercase tracking-[1.1px]" style={sans}>
+                <span className="text-[12px] font-medium text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] uppercase tracking-[1.1px]" style={sans}>
                   {t("seeMore")}
                 </span>
-                <ArrowRight className="size-4 text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />
+                <ArrowRight className="size-4 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />
               </Link>
             )}
           </>

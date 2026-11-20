@@ -36,7 +36,7 @@ export function TrustedBy() {
     <section id="companies" className="scroll-mt-24 bg-[var(--lm-bg,#0D0D0D)] border-y border-[rgba(var(--lm-text-rgb,255,255,255),0.12)]">
       <div className="pt-6 pb-[50px] flex flex-col items-center gap-6">
         <p
-          className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)] text-center px-4"
+          className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] text-center px-4"
           style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
         >
           {t("eyebrow")}

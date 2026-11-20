@@ -16,7 +16,7 @@ export function StandardWithoutCompromise() {
         <div className="flex items-center gap-2">
           <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
           <span
-            className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]"
+            className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
             style={sans}
           >
             {t("eyebrow")}
@@ -28,7 +28,7 @@ export function StandardWithoutCompromise() {
           style={serif}
         >
           {t("headingPart1")}{" "}
-          <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("headingPart2")}</span>.
+          <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("headingPart2")}</span>.
         </h2>
 
         <p
@@ -49,7 +49,7 @@ export function StandardWithoutCompromise() {
               <div className="flex items-center gap-2">
                 <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
                 <span
-                  className="text-[24px] font-semibold uppercase leading-none tracking-[2px] text-[var(--lm-accent,#C9A96E)]"
+                  className="text-[24px] font-semibold uppercase leading-none tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                   style={serif}
                 >
                   {String(i + 1).padStart(2, "0")}

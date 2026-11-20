@@ -61,7 +61,7 @@ function CardFooter({ event, isHero }: { event: Partial<EventData>; isHero?: boo
     <div className="border-t-[0.8px] border-[rgba(var(--lm-text-rgb,255,255,255),0.12)] flex items-center justify-between pt-[13px]">
       <div className="flex items-baseline gap-2">
         <span
-          className={`${isHero ? "text-[24px]" : "text-[18px]"} font-bold text-[var(--lm-accent,#C9A96E)] leading-none`}
+          className={`${isHero ? "text-[24px]" : "text-[18px]"} font-bold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] leading-none`}
           style={serif}
         >
           {montra.valor > 0 && !isHero ? `${t("from")} ${price}` : price}
@@ -73,7 +73,7 @@ function CardFooter({ event, isHero }: { event: Partial<EventData>; isHero?: boo
         )}
       </div>
       <div className="size-8 border-[1.143px] border-[rgba(var(--lm-accent-rgb,154,117,53),0.22)] flex items-center justify-center">
-        <ArrowRight className="size-[18px] text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />
+        <ArrowRight className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />
       </div>
     </div>
   )
@@ -202,14 +202,14 @@ export function FeaturedEventsSection({
         <div className="flex flex-col items-center gap-[10px]">
           <div className="flex items-center gap-[10px]">
             <div className="w-5 h-px bg-[var(--lm-accent,#C9A96E)]" />
-            <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]" style={sans}>
+            <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>
               {t("featured")}
             </span>
             <div className="w-5 h-px bg-[var(--lm-accent,#C9A96E)]" />
           </div>
           <h2 className="text-[32px] md:text-[48px] font-light text-[var(--lm-text,#fff)] text-center" style={serif}>
             {t("featuredHeading")}{" "}
-            <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("featuredHeadingAccent")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("featuredHeadingAccent")}</span>
           </h2>
         </div>
 

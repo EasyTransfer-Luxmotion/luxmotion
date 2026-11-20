@@ -34,7 +34,7 @@ export function DestinationNav({ currentSlug }: DestinationNavProps) {
                   href={`/tours/${d.slug}`}
                   className={cn(
                     "group relative block px-[20px] md:px-[28px] pt-[16px] pb-[17.6px] text-[12px] font-semibold uppercase tracking-[1.2px] whitespace-nowrap transition-colors duration-300 ease-out",
-                    isActive ? "text-[var(--lm-accent,#c9a96e)]" : "text-[var(--lm-muted,#8c8680)] hover:text-[var(--lm-accent,#c9a96e)]"
+                    isActive ? "text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" : "text-[var(--lm-muted,#8c8680)] hover:text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]"
                   )}
                   style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
                 >

@@ -18,7 +18,7 @@ export function WeddingPlannersSection() {
           <div className="flex items-center gap-[10px]">
             <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
             <span
-              className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent,#C9A96E)] font-semibold"
+              className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-semibold"
               style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
             >
               {t("sectionLabel")}
@@ -31,7 +31,7 @@ export function WeddingPlannersSection() {
           >
             {t("titleLine1")}
             <br />
-            <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleLine2")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleLine2")}</span>
           </h2>
 
           <p
@@ -43,7 +43,7 @@ export function WeddingPlannersSection() {
 
           <Link
             href="/wedding"
-            className="group inline-flex items-center gap-2 text-[14px] tracking-[0.12em] uppercase text-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-text,#fff)] transition-colors w-fit pt-4"
+            className="group inline-flex items-center gap-2 text-[14px] tracking-[0.12em] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:text-[var(--lm-text,#fff)] transition-colors w-fit pt-4"
             style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
           >
             <span>{t("cta")}</span>
@@ -92,7 +92,7 @@ function RideStatusCard() {
           {t("arrival")}
         </span>
         <span
-          className="bg-[rgba(var(--lm-accent-rgb,201,169,110),0.1)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.3)] px-[11px] py-1 text-[9px] tracking-[0.72px] uppercase font-semibold text-[var(--lm-accent,#C9A96E)]"
+          className="bg-[rgba(var(--lm-accent-rgb,201,169,110),0.1)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.3)] px-[11px] py-1 text-[9px] tracking-[0.72px] uppercase font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
           style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
         >
           {t("status")}

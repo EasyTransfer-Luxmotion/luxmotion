@@ -27,7 +27,7 @@ function SplitTitle({ title }: { title: string }) {
   return (
     <>
       <span className="text-[var(--lm-text,#fff)]">{trimmed.slice(0, cut)} </span>
-      <span className="italic text-[var(--lm-accent,#C9A96E)]">{trimmed.slice(cut + 1)}</span>
+      <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{trimmed.slice(cut + 1)}</span>
     </>
   )
 }
@@ -125,7 +125,7 @@ export function ToursCartBar() {
         {t("heldLine2")}
       </span>
       <span
-        className="text-[17px] leading-none tracking-[1px] text-[var(--lm-accent,#C9A96E)] tabular-nums md:text-[21px] md:tracking-[2px]"
+        className="text-[17px] leading-none tracking-[1px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tabular-nums md:text-[21px] md:tracking-[2px]"
         style={SERIF_FONT}
       >
         {formatCountdown(secondsLeft)}
@@ -148,7 +148,7 @@ export function ToursCartBar() {
           <span className="h-[34px] w-px bg-[var(--lm-accent,#C9A96E)]" />
           <span className="flex flex-col gap-1">
             <span
-              className="text-[9px] uppercase leading-none tracking-[2px] text-[var(--lm-accent,#C9A96E)]"
+              className="text-[9px] uppercase leading-none tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
               style={SANS_FONT}
             >
               {t("label")}
@@ -212,7 +212,7 @@ export function ToursCartBar() {
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <span
-                className="text-[8px] uppercase leading-none tracking-[1.8px] text-[var(--lm-accent,#C9A96E)]"
+                className="text-[8px] uppercase leading-none tracking-[1.8px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                 style={SANS_FONT}
               >
                 {t("label")}
@@ -266,7 +266,7 @@ export function ToursCartBar() {
         <button
           onClick={clearTourCart}
           aria-label={t("dismiss")}
-          className="shrink-0 self-start p-1 text-[var(--lm-muted,#6E675C)] transition-colors hover:text-[var(--lm-accent,#C9A96E)] md:self-center"
+          className="shrink-0 self-start p-1 text-[var(--lm-muted,#6E675C)] transition-colors hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] md:self-center"
         >
           <X className="size-4" strokeWidth={1.6} />
         </button>

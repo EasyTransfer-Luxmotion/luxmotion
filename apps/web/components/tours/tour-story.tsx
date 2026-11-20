@@ -41,7 +41,7 @@ function PhotoComposition({ t }: { t: (key: string) => string }) {
               )
             )}
             <p
-              className="italic font-semibold text-[22px] text-[var(--lm-accent,#C9A96E)] tracking-[-0.35px] -rotate-[0.58deg] leading-[1.2]"
+              className="italic font-semibold text-[22px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[-0.35px] -rotate-[0.58deg] leading-[1.2]"
               style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
             >
               {t("redesign.photoCardText")}
@@ -87,7 +87,7 @@ export function TourStory() {
           <div className="flex items-center gap-2">
             <div className="w-[82px] h-px bg-[var(--lm-accent,#C9A96E)]" />
             <span
-              className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)] whitespace-nowrap"
+              className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] whitespace-nowrap"
               style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
             >
               {t("redesign.label")}
@@ -99,7 +99,7 @@ export function TourStory() {
             style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
           >
             {t("redesign.headingPart1")}{" "}
-            <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("redesign.headingPart2")}</span>.
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("redesign.headingPart2")}</span>.
           </h2>
 
           <div

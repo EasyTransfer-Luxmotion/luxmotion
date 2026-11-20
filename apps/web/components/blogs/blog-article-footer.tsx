@@ -10,7 +10,7 @@ interface BlogArticleFooterProps {
 }
 
 const ICON_BTN =
-  "size-10 flex items-center justify-center bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.22)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.16)] hover:border-[var(--lm-accent,#C9A96E)] text-[var(--lm-accent,#C9A96E)] transition-colors"
+  "size-10 flex items-center justify-center bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.22)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.16)] hover:border-[var(--lm-accent,#C9A96E)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors"
 
 export function BlogArticleFooter({ tags, shareTitle }: BlogArticleFooterProps) {
   const t = useTranslations("blogArticle")
@@ -70,7 +70,7 @@ export function BlogArticleFooter({ tags, shareTitle }: BlogArticleFooterProps) 
       <ul className="flex flex-wrap gap-2 md:gap-x-[6px] md:gap-y-2 list-none m-0 p-0">
         {tags.map((tag) => (
           <li key={tag}>
-            <span className="group/tag inline-flex items-center bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] hover:bg-[var(--lm-accent,#C9A96E)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.18)] hover:border-[var(--lm-accent,#C9A96E)] px-[13.8px] py-[5.8px] text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--lm-accent,#C9A96E)] hover:!text-[#0D0D0D] transition-colors duration-200 cursor-pointer">
+            <span className="group/tag inline-flex items-center bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] hover:bg-[var(--lm-accent,#C9A96E)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.18)] hover:border-[var(--lm-accent,#C9A96E)] px-[13.8px] py-[5.8px] text-[10px] font-semibold uppercase tracking-[0.8px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:!text-[#0D0D0D] transition-colors duration-200 cursor-pointer">
               {tag}
             </span>
           </li>

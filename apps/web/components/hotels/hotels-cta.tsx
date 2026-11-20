@@ -25,7 +25,7 @@ export function HotelsCta({ messageKey = "ctaFinal" }: { messageKey?: string }) 
       <div className="relative z-10 mx-auto flex max-w-[1280px] flex-col items-start justify-between gap-7 lg:flex-row lg:items-center">
         <div className="flex flex-col gap-2.5">
           <h2 className="text-[32px] leading-[1.1] text-[var(--lm-text,#F5F5F5)] md:text-[44px]" style={serif}>
-            {t("titlePrefix")} <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleAccent")}</span>
+            {t("titlePrefix")} <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleAccent")}</span>
             {t("titleSuffix")}
           </h2>
           <p className="max-w-[620px] text-[15px] leading-[1.4] text-[var(--lm-muted,#999)] md:text-[16px]" style={sans}>

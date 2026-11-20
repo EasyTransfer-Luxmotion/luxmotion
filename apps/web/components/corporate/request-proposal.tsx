@@ -134,7 +134,7 @@ export function RequestProposal() {
         <div className="flex items-center gap-2">
           <div className="h-px w-8 bg-[var(--lm-accent,#A08248)]" />
           <span
-            className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#A08248)]"
+            className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#A08248))]"
             style={sans}
           >
             {t("eyebrow")}
@@ -146,8 +146,8 @@ export function RequestProposal() {
           style={serif}
         >
           {t("titlePart1")}{" "}
-          <span className="italic text-[var(--lm-accent,#A08248)]">{t("titleItalic1")}</span>{" "}
-          <span className="italic text-[var(--lm-accent,#A08248)]">{t("titleItalic2")}</span>.
+          <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#A08248))]">{t("titleItalic1")}</span>{" "}
+          <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#A08248))]">{t("titleItalic2")}</span>.
         </h2>
         <p
           className="text-[16px] leading-[1.3] text-[var(--lm-muted,#696969)] md:text-[18px]"

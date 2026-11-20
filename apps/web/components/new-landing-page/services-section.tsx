@@ -80,7 +80,7 @@ export function ServicesSection() {
       <div className="max-w-[1280px] mx-auto flex flex-col gap-6 items-center px-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
-          <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)] font-sans">
+          <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-sans">
             {t("sectionLabel")}
           </span>
           <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
@@ -128,7 +128,7 @@ export function ServicesSection() {
             )}
             aria-label="Previous"
           >
-            <ChevronLeft className="size-[18px] text-[var(--lm-accent,#C9A96E)]" />
+            <ChevronLeft className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
           </button>
           <button
             onClick={nextSlide}
@@ -138,7 +138,7 @@ export function ServicesSection() {
             )}
             aria-label="Next"
           >
-            <ChevronRight className="size-[18px] text-[var(--lm-accent,#C9A96E)]" />
+            <ChevronRight className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
           </button>
         </div>
       </div>

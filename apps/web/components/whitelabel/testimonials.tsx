@@ -84,7 +84,7 @@ function ReviewCard({ review, color }: { review: Review; color: string }) {
           </p>
         </div>
       </div>
-      <span className="text-[14px] text-[var(--lm-accent,#c9a96e)] tracking-[1px] leading-none">
+      <span className="text-[14px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] tracking-[1px] leading-none">
         ★★★★★
       </span>
       <p
@@ -156,7 +156,7 @@ function RatingBlock({ reviewsCount }: { reviewsCount: string }) {
   return (
     <div className="flex items-center gap-4">
       <span
-        className="text-[64px] leading-none text-[var(--lm-accent,#c9a96e)] font-light"
+        className="text-[64px] leading-none text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] font-light"
         style={SERIF_FONT}
       >
         4.9
@@ -166,7 +166,7 @@ function RatingBlock({ reviewsCount }: { reviewsCount: string }) {
           {Array.from({ length: 5 }).map((_, i) => (
             <Star
               key={i}
-              className="size-[14px] text-[var(--lm-accent,#c9a96e)] fill-[var(--lm-accent,#c9a96e)]"
+              className="size-[14px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] fill-[var(--lm-accent,#c9a96e)]"
               strokeWidth={0}
             />
           ))}
@@ -225,7 +225,7 @@ export function Testimonials() {
           <div className="flex items-center gap-2">
             <div className="h-px w-8 bg-[var(--lm-accent,#c9a96e)]" />
             <span
-              className="text-[12px] font-medium uppercase tracking-[2px] text-[var(--lm-accent,#c9a96e)] leading-none"
+              className="text-[12px] font-medium uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] leading-none"
               style={SANS_FONT}
             >
               {t("eyebrow")}
@@ -237,7 +237,7 @@ export function Testimonials() {
             style={SERIF_FONT}
           >
             {t("titlePre")}{" "}
-            <span className="italic text-[var(--lm-accent,#c9a96e)]">{t("titleAccent")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]">{t("titleAccent")}</span>
           </h2>
         </div>
 

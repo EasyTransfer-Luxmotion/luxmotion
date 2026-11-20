@@ -57,7 +57,7 @@ export function Payment() {
           <div className="flex items-center gap-2">
             <div className="h-px w-8 bg-[var(--lm-accent,#c9a96e)]" />
             <span
-              className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#c9a96e)] leading-none"
+              className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] leading-none"
               style={SANS_FONT}
             >
               {t("eyebrow")}
@@ -68,7 +68,7 @@ export function Payment() {
             style={SERIF_FONT}
           >
             {t("titlePre")}{" "}
-            <span className="italic text-[var(--lm-accent,#c9a96e)]">{t("titleAccent")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]">{t("titleAccent")}</span>
           </h2>
           <p
             className="text-[16px] lg:text-[18px] leading-[1.3] text-[rgba(var(--lm-text-rgb,255,255,255),0.55)]"
@@ -85,7 +85,7 @@ export function Payment() {
 
           <div className="flex flex-wrap gap-4 items-center pt-1">
             <div className="flex items-center gap-1.5">
-              <ShieldCheck className="size-[14px] text-[var(--lm-accent,#c9a96e)]" strokeWidth={1.75} />
+              <ShieldCheck className="size-[14px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" strokeWidth={1.75} />
               <span
                 className="text-[12px] text-[var(--lm-muted,#999)] leading-none"
                 style={SANS_FONT}
@@ -94,7 +94,7 @@ export function Payment() {
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Lock className="size-[14px] text-[var(--lm-accent,#c9a96e)]" strokeWidth={1.75} />
+              <Lock className="size-[14px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" strokeWidth={1.75} />
               <span
                 className="text-[12px] text-[var(--lm-muted,#999)] leading-none"
                 style={SANS_FONT}

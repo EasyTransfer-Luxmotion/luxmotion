@@ -42,7 +42,7 @@ export function TourDetailsHeader({
         <div className="flex items-center gap-[10px] pt-[16px] w-full">
           <div className="w-[20px] h-px bg-[var(--lm-accent,#C9A96E)]" />
           <span
-            className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[2.25px] uppercase"
+            className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[2.25px] uppercase"
             style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
           >
             {tags.join(" · ")}
@@ -57,12 +57,12 @@ export function TourDetailsHeader({
         >
           {restWords}
           {restWords ? " " : ""}
-          <span className="italic text-[var(--lm-accent,#C9A96E)] font-light">{lastWord}</span>
+          <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-light">{lastWord}</span>
         </h1>
 
         {reviewCount ? (
           <div className="flex items-center gap-[10px] pt-[2.8px] w-full">
-            <span className="text-[14px] text-[var(--lm-accent,#C9A96E)] tracking-[1px] leading-none">★★★★★</span>
+            <span className="text-[14px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[1px] leading-none">★★★★★</span>
             <span
               className="text-[32px] md:text-[16px] text-[var(--lm-text,#fff)] leading-none font-normal"
               style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}

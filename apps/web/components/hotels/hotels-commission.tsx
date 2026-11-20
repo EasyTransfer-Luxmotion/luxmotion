@@ -36,13 +36,13 @@ export function HotelsCommission() {
         <div className="mb-10 flex flex-col items-center gap-3 text-center">
           <div className="flex items-center gap-2">
             <span className="h-px w-7 bg-[var(--lm-accent,#C9A96E)]" />
-            <span className="text-[11px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]" style={sans}>
+            <span className="text-[11px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>
               {t("eyebrow")}
             </span>
             <span className="h-px w-7 bg-[var(--lm-accent,#C9A96E)]" />
           </div>
           <h2 className="text-[40px] leading-none text-[var(--lm-text,#f5f5f5)] md:text-[48px]" style={serif}>
-            {t("titlePrefix")} <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleAccent")}</span>
+            {t("titlePrefix")} <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleAccent")}</span>
           </h2>
         </div>
 
@@ -69,7 +69,7 @@ export function HotelsCommission() {
           </div>
 
           <div className="mt-7 text-center">
-            <h3 className="text-[30px] leading-none text-[var(--lm-accent,#C9A96E)]" style={serif}>{data.name}</h3>
+            <h3 className="text-[30px] leading-none text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={serif}>{data.name}</h3>
             <p className="mt-2 text-[13px] text-[var(--lm-muted,#9a9a9a)]" style={sans}>{data.subtitle}</p>
           </div>
 
@@ -120,7 +120,7 @@ export function HotelsCommission() {
                 />
               </div>
               <span
-                className="flex h-10 w-14 shrink-0 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.4)] text-[14px] font-semibold text-[var(--lm-accent,#C9A96E)]"
+                className="flex h-10 w-14 shrink-0 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.4)] text-[14px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                 style={sans}
               >
                 {commission}%
@@ -134,11 +134,11 @@ export function HotelsCommission() {
               <span className="flex items-center gap-1.5 text-[14px] text-[var(--lm-muted,#bdb7ad)]" style={sans}>
                 {t("basePrice")} <Info className="h-3.5 w-3.5 text-[var(--lm-muted,#8c8680)]" />
               </span>
-              <span className="text-[15px] text-[var(--lm-accent,#C9A96E)]" style={sans}>{euro(base)}</span>
+              <span className="text-[15px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>{euro(base)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[14px] text-[var(--lm-muted,#bdb7ad)]" style={sans}>{t("clientPrice")}</span>
-              <span className="text-[15px] text-[var(--lm-accent,#C9A96E)]" style={sans}>{euro(client)}</span>
+              <span className="text-[15px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>{euro(client)}</span>
             </div>
           </div>
 
@@ -150,7 +150,7 @@ export function HotelsCommission() {
                 "linear-gradient(180deg, rgba(var(--lm-accent-rgb,201,169,110),0.14) 0%, rgba(var(--lm-accent-rgb,201,169,110),0.06) 100%)",
             }}
           >
-            <span className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[var(--lm-accent,#C9A96E)]" style={sans}>
+            <span className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>
               {t("earnings")}
             </span>
             <span className="text-[34px] font-semibold leading-none text-[var(--lm-text,#fff)]" style={serif}>{euro(earnings)}</span>
@@ -160,7 +160,7 @@ export function HotelsCommission() {
           <ul className="mt-6 flex flex-col gap-3 border-t border-[rgba(var(--lm-text-rgb,255,255,255),0.1)] pt-5">
             {data.features.map((f) => (
               <li key={f} className="flex items-start gap-2.5 text-[13.5px] text-[var(--lm-muted,#bdb7ad)]" style={sans}>
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--lm-accent,#C9A96E)]" strokeWidth={2} />
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={2} />
                 {f}
               </li>
             ))}

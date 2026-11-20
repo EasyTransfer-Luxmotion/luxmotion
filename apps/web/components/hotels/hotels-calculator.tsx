@@ -25,7 +25,7 @@ export function HotelsCalculator() {
     <section id="calcular" className="scroll-mt-24 bg-[var(--lm-bg,#0D0D0D)] px-4 py-16 lg:px-12 lg:py-24">
       <div className="mx-auto max-w-[1180px]">
         <div className="mb-10 flex flex-col gap-3">
-          <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]" style={sans}>
+          <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>
             <span className="h-px w-7 bg-[var(--lm-accent,#C9A96E)]" />
             {t("eyebrow")}
           </span>
@@ -94,7 +94,7 @@ export function HotelsCalculator() {
             <div className="mt-5 flex flex-col gap-3">
               <div className="flex flex-col gap-1 border border-[rgba(var(--lm-text-rgb,255,255,255),0.1)] bg-[rgba(var(--lm-text-rgb,255,255,255),0.02)] px-5 py-4">
                 <span className="text-[12px] text-[var(--lm-muted,#9a9a9a)]" style={sans}>{t("monthlyLabel")}</span>
-                <span className="text-[26px] font-semibold leading-none text-[var(--lm-accent,#C9A96E)]" style={serif}>{money(monthly)}</span>
+                <span className="text-[26px] font-semibold leading-none text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={serif}>{money(monthly)}</span>
               </div>
               <div
                 className="flex flex-col gap-1 border border-[rgba(var(--lm-accent-rgb,201,169,110),0.4)] px-5 py-4"
@@ -104,7 +104,7 @@ export function HotelsCalculator() {
                 }}
               >
                 <span className="text-[12px] text-[var(--lm-muted,#9a9a9a)]" style={sans}>{t("yearlyLabel")}</span>
-                <span className="text-[28px] font-semibold leading-none text-[var(--lm-accent,#C9A96E)]" style={serif}>{money(yearly)}</span>
+                <span className="text-[28px] font-semibold leading-none text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={serif}>{money(yearly)}</span>
               </div>
             </div>
 

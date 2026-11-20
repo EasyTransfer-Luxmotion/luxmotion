@@ -406,7 +406,7 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
               {destinations.length === 1 ? (
                 <button
                   onClick={addDestination}
-                  className="flex items-center gap-2 text-[14px] font-medium text-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-accent,#C9A96E)]/80 transition-colors cursor-pointer shrink-0"
+                  className="flex items-center gap-2 text-[14px] font-medium text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]/80 transition-colors cursor-pointer shrink-0"
                 >
                   <Image src="/shared/icons/stop-toggle.svg" alt="" width={16} height={16} />
                   {t("addStop")}
@@ -414,7 +414,7 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
               ) : (
                 <button
                   onClick={removeDestination}
-                  className="flex items-center gap-2 text-[14px] font-medium text-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-accent,#C9A96E)]/80 transition-colors cursor-pointer shrink-0"
+                  className="flex items-center gap-2 text-[14px] font-medium text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]/80 transition-colors cursor-pointer shrink-0"
                 >
                   <CircleMinus className="w-4 h-4" strokeWidth={1.2} />
                   {t("removeStop")}
@@ -423,10 +423,10 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
 
               <div className="hidden lg:flex items-center gap-2">
                 <div className="h-3 w-px bg-[rgba(var(--lm-text-rgb,255,255,255),0.1)]" />
-                <BadgeCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
+                <BadgeCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
                 <span className="text-[12px] font-semibold text-[rgba(var(--lm-text-rgb,255,255,255),0.7)] tracking-[0.33px]">{trustTranslations.exclusive}</span>
                 <div className="h-3 w-px bg-[rgba(var(--lm-text-rgb,255,255,255),0.1)]" />
-                <ShieldCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
+                <ShieldCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
                 <span className="text-[12px] font-semibold text-[rgba(var(--lm-text-rgb,255,255,255),0.7)] tracking-[0.33px]">{trustTranslations.flexibleCancellation}</span>
               </div>
             </div>
@@ -436,7 +436,7 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
                 <span className="absolute inset-0 rounded-full bg-[#4ADE80] animate-ping-strong" />
                 <span className="relative inline-flex size-2 rounded-full bg-[#4ADE80]" />
               </span>
-              <span className="text-[11px] lg:text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)]">
+              <span className="text-[11px] lg:text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
                 {t("reservations", { count: reservationCount ?? 12 })}
               </span>
               <span className="text-[10px] lg:text-[12px] text-[rgba(var(--lm-text-rgb,255,255,255),0.55)]">
@@ -447,11 +447,11 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
 
           <div className="flex lg:hidden flex-col gap-2">
             <div className="flex items-center gap-2">
-              <BadgeCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
-              <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[0.33px]">{trustTranslations.exclusive}</span>
+              <BadgeCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+              <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.33px]">{trustTranslations.exclusive}</span>
               <div className="h-3 w-px bg-[rgba(var(--lm-accent-rgb,201,169,110),0.25)]" />
-              <ShieldCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
-              <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[0.33px]">{trustTranslations.flexibleCancellation}</span>
+              <ShieldCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+              <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.33px]">{trustTranslations.flexibleCancellation}</span>
             </div>
           </div>
         </div>
@@ -460,11 +460,11 @@ export function BookingWidget({ className, checkoutBasePath = "" }: BookingWidge
       {mounted && !isTransferMode && (
         <div className="mt-2 flex flex-col gap-2 items-start px-0.5">
           <div className="flex items-center gap-2">
-            <BadgeCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
-            <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[0.33px]">{trustTranslations.exclusive}</span>
+            <BadgeCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+            <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.33px]">{trustTranslations.exclusive}</span>
             <div className="h-3 w-px bg-[rgba(var(--lm-accent-rgb,201,169,110),0.25)]" />
-            <ShieldCheck className="size-3.5 text-[var(--lm-accent,#C9A96E)]" />
-            <span className="text-[12px] font-semibold text-[var(--lm-accent,#C9A96E)] tracking-[0.33px]">{trustTranslations.flexibleCancellation}</span>
+            <ShieldCheck className="size-3.5 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
+            <span className="text-[12px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.33px]">{trustTranslations.flexibleCancellation}</span>
           </div>
         </div>
       )}

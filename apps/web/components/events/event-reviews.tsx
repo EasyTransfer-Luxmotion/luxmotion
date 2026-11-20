@@ -31,7 +31,7 @@ function CarouselButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="size-[44px] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] text-[var(--lm-accent,#c9a96e)] flex items-center justify-center transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] disabled:opacity-30 disabled:cursor-not-allowed"
+      className="size-[44px] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] flex items-center justify-center transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] disabled:opacity-30 disabled:cursor-not-allowed"
     >
       {children}
     </button>
@@ -70,7 +70,7 @@ export function EventReviews({
   return (
     <div className="w-full flex flex-col gap-[20px]">
       <h2
-        className="text-[24px] italic font-light text-[var(--lm-accent,#c9a96e)] leading-none"
+        className="text-[24px] italic font-light text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] leading-none"
         style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
       >
         {t("reviewsTitle")}
@@ -80,7 +80,7 @@ export function EventReviews({
         <div className="flex flex-col gap-[4px]">
           <div className="flex items-baseline gap-[8px]">
             <span
-              className="text-[56px] font-light text-[var(--lm-accent,#c9a96e)] leading-[56px]"
+              className="text-[56px] font-light text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] leading-[56px]"
               style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
             >
               {rating.toFixed(1)}
@@ -93,7 +93,7 @@ export function EventReviews({
             </span>
           </div>
           <div className="flex items-center gap-[8px]">
-            <span className="text-[16px] text-[var(--lm-accent,#c9a96e)] tracking-[1px] leading-none pt-[2.4px]">
+            <span className="text-[16px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] tracking-[1px] leading-none pt-[2.4px]">
               ★★★★★
             </span>
             <span

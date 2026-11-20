@@ -61,7 +61,7 @@ export function SocialSection() {
         <div className="flex items-end justify-between">
           <div className="flex items-center gap-3">
             <div className="size-8 border border-[rgba(var(--lm-accent-rgb,201,169,110),0.4)] flex items-center justify-center shrink-0">
-              <Instagram className="w-4 h-4 text-[var(--lm-accent,#C9A96E)]" />
+              <Instagram className="w-4 h-4 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
             </div>
             <div className="flex flex-col gap-0.5">
               <span
@@ -83,7 +83,7 @@ export function SocialSection() {
             href="https://www.instagram.com/luxmotion.tours/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[12px] tracking-[1.1px] uppercase text-[var(--lm-accent,#C9A96E)] font-semibold hover:text-[var(--lm-text,#fff)] transition-colors hidden md:block"
+            className="text-[12px] tracking-[1.1px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-semibold hover:text-[var(--lm-text,#fff)] transition-colors hidden md:block"
             style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
           >
             {t("followJourney")} →
@@ -109,7 +109,7 @@ export function SocialSection() {
               />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="size-[44px] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.6)] flex items-center justify-center opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 ease-out">
-                  <Instagram className="size-[20px] text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.6} />
+                  <Instagram className="size-[20px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.6} />
                 </div>
               </div>
             </a>

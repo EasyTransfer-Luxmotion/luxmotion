@@ -51,7 +51,7 @@ export function ToursTopBar() {
               >
                 {item.pre}
                 {item.accent && (
-                  <span className="text-[var(--lm-accent,#C9A96E)]">{item.accent}</span>
+                  <span className="text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{item.accent}</span>
                 )}
                 {item.post}
               </span>

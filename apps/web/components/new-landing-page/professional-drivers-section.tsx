@@ -31,7 +31,7 @@ export function ProfessionalDriversSection() {
           <div className="flex items-center gap-[10px]">
             <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
             <span
-              className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent,#C9A96E)] font-semibold"
+              className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-semibold"
               style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
             >
               {t("sectionLabel")}
@@ -44,7 +44,7 @@ export function ProfessionalDriversSection() {
           >
             {t("titleLine1")}
             <br />
-            <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleLine2")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleLine2")}</span>
           </h2>
 
           <p
@@ -56,7 +56,7 @@ export function ProfessionalDriversSection() {
 
           <Link
             href="/drivers/apply"
-            className="group inline-flex items-center gap-2 text-[14px] tracking-[0.12em] uppercase text-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-text,#fff)] transition-colors w-fit pt-4"
+            className="group inline-flex items-center gap-2 text-[14px] tracking-[0.12em] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:text-[var(--lm-text,#fff)] transition-colors w-fit pt-4"
             style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
           >
             <span>{t("cta")}</span>
@@ -87,7 +87,7 @@ function DriverScheduleCard() {
           {t("dateLabel")}
         </span>
         <span
-          className="text-[11px] text-[var(--lm-accent,#C9A96E)]"
+          className="text-[11px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
           style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
         >
           {t("ridesCount")}
@@ -109,7 +109,7 @@ function DriverScheduleCard() {
             className={`text-[7px] font-bold tracking-[0.64px] uppercase text-center min-w-[50px] px-[9px] py-[2px] border ${
               ride.status === "ontime"
                 ? "bg-[rgba(76,175,80,0.15)] border-[rgba(76,175,80,0.25)] text-[#4CAF50]"
-                : "bg-[rgba(var(--lm-accent-rgb,201,169,110),0.1)] border-[rgba(var(--lm-accent-rgb,201,169,110),0.2)] text-[var(--lm-accent,#C9A96E)]"
+                : "bg-[rgba(var(--lm-accent-rgb,201,169,110),0.1)] border-[rgba(var(--lm-accent-rgb,201,169,110),0.2)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
             }`}
             style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
           >

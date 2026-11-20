@@ -9,12 +9,12 @@ type Row = { eyebrow: string; title: string; accent: string; body: string[] }
 function TextCell({ row }: { row: Row }) {
   return (
     <div className="flex flex-col justify-center gap-5 bg-[var(--lm-bg,#0D0D0D)] px-7 py-10 md:px-12 md:py-14">
-      <span className="flex items-center gap-2 font-sans text-[11px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]">
+      <span className="flex items-center gap-2 font-sans text-[11px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
         <span className="h-px w-6 bg-[var(--lm-accent,#C9A96E)]" />
         {row.eyebrow}
       </span>
       <h3 className="text-[30px] leading-[1.12] text-[var(--lm-text,#fff)] md:text-[36px]" style={serif}>
-        {row.title} <span className="italic text-[var(--lm-accent,#C9A96E)]">{row.accent}</span>
+        {row.title} <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{row.accent}</span>
       </h3>
       <div className="flex flex-col gap-3.5">
         {row.body.map((p, i) => (

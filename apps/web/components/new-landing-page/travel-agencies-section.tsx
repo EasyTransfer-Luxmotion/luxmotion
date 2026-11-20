@@ -31,7 +31,7 @@ export function TravelAgenciesSection() {
           <div className="flex items-center gap-[10px]">
             <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
             <span
-              className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent,#C9A96E)] font-semibold"
+              className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-semibold"
               style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
             >
               {t("sectionLabel")}
@@ -43,7 +43,7 @@ export function TravelAgenciesSection() {
             style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
           >
             {t("titleMain")}{" "}
-            <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleItalic")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleItalic")}</span>
           </h2>
 
           <p
@@ -55,7 +55,7 @@ export function TravelAgenciesSection() {
 
           <Link
             href="/partner-guide?tab=partners"
-            className="group inline-flex items-center gap-2 text-[14px] tracking-[0.12em] uppercase text-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-text,#fff)] transition-colors w-fit pt-4"
+            className="group inline-flex items-center gap-2 text-[14px] tracking-[0.12em] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:text-[var(--lm-text,#fff)] transition-colors w-fit pt-4"
             style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
           >
             <span>{t("cta")}</span>
@@ -73,7 +73,7 @@ function WhiteLabelBookingCard() {
   return (
     <div className="absolute bottom-[-16px] right-[-8px] md:right-[-16px] w-[184px] xl:w-[216px] backdrop-blur-[6px] bg-[rgba(var(--lm-surface-rgb,20,20,20),0.95)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.15)] px-3.5 pt-3.5 pb-2.5 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.6)]">
       <span
-        className="text-[9px] tracking-[1.08px] uppercase text-[var(--lm-accent,#C9A96E)] font-semibold"
+        className="text-[9px] tracking-[1.08px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-semibold"
         style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
       >
         {t("label")}

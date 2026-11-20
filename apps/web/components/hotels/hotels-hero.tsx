@@ -18,7 +18,7 @@ export function HotelsHero() {
       <div className="flex flex-col justify-center px-4 py-14 sm:px-6 lg:py-24 lg:pl-12 lg:pr-10 xl:pl-[6vw]">
         <div className="w-full max-w-[700px]">
           <div className="mb-7 inline-flex w-fit items-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] px-3.5 py-2">
-            <span className="text-[10px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]" style={sans}>
+            <span className="text-[10px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>
               {t("badge")}
             </span>
           </div>
@@ -26,7 +26,7 @@ export function HotelsHero() {
           <h1 className="text-[42px] leading-[1.04] text-[var(--lm-text,#fff)] sm:text-[54px] lg:text-[62px]" style={serif}>
             {t("titleLine1")}
             <br />
-            <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleAccent")}</span> {t("titleSuffix")}
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleAccent")}</span> {t("titleSuffix")}
           </h1>
 
           <p className="mt-6 max-w-[560px] text-[15px] leading-[1.6] text-[var(--lm-muted,#9a9a9a)]" style={sans}>
@@ -49,7 +49,7 @@ export function HotelsHero() {
             </Link>
             <Link
               href="#calcular"
-              className="inline-flex h-[44px] items-center justify-center gap-[7px] border border-[rgba(var(--lm-text-rgb,255,255,255),0.25)] px-[22px] text-[11px] font-semibold uppercase tracking-[1px] text-[var(--lm-text,#fff)] transition-colors hover:border-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-accent,#C9A96E)]"
+              className="inline-flex h-[44px] items-center justify-center gap-[7px] border border-[rgba(var(--lm-text-rgb,255,255,255),0.25)] px-[22px] text-[11px] font-semibold uppercase tracking-[1px] text-[var(--lm-text,#fff)] transition-colors hover:border-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
               style={sans}
             >
               {t("cta2")} <Calculator className="h-[13px] w-[13px]" />

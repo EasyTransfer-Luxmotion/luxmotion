@@ -21,7 +21,7 @@ function Eyebrow({ label, overMedia = false }: { label: string; overMedia?: bool
         className={
           overMedia
             ? "text-[12px] font-semibold uppercase tracking-[2px] text-[#C9A96E]"
-            : "text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]"
+            : "text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
         }
         style={sans}
       >
@@ -52,7 +52,7 @@ function MetricsGrid({ metrics, overMedia = false }: { metrics: Metric[]; overMe
             className={
               overMedia
                 ? "text-[32px] italic leading-[30px] text-[#C9A96E]"
-                : "text-[32px] italic leading-[30px] text-[var(--lm-accent,#C9A96E)]"
+                : "text-[32px] italic leading-[30px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
             }
             style={serif}
           >
@@ -178,7 +178,7 @@ export function CorporateHero() {
             <span className="text-[48px] font-normal leading-none text-[var(--lm-text,#fff)]">
               {t("headingLine1")}{" "}
             </span>
-            <span className="text-[48px] font-normal italic leading-none text-[var(--lm-accent,#C9A96E)]">
+            <span className="text-[48px] font-normal italic leading-none text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
               {t("headingLine2")}
             </span>
           </h1>

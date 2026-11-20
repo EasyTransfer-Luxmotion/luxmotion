@@ -67,7 +67,7 @@ export function ExploreWithConfidence() {
             style={serif}
           >
             {t("titleRest")}{" "}
-            <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleGold")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleGold")}</span>
           </h2>
           <p
             className="text-[16px] leading-[1.3] text-[var(--lm-muted,#999)] md:text-[18px]"
@@ -120,7 +120,7 @@ export function ExploreWithConfidence() {
             onClick={goPrev}
             disabled={offset === 0}
             aria-label={t("previous")}
-            className={`absolute left-2 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] bg-[var(--lm-bg,#0D0D0D)] text-[var(--lm-accent,#C9A96E)] transition md:-left-[42px] ${
+            className={`absolute left-2 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] bg-[var(--lm-bg,#0D0D0D)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition md:-left-[42px] ${
               offset === 0
                 ? "cursor-not-allowed opacity-30"
                 : "hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
@@ -134,7 +134,7 @@ export function ExploreWithConfidence() {
             onClick={goNext}
             disabled={offset >= maxOffset}
             aria-label={t("next")}
-            className={`absolute right-2 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] bg-[var(--lm-bg,#0D0D0D)] text-[var(--lm-accent,#C9A96E)] transition md:-right-[42px] ${
+            className={`absolute right-2 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] bg-[var(--lm-bg,#0D0D0D)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition md:-right-[42px] ${
               offset >= maxOffset
                 ? "cursor-not-allowed opacity-30"
                 : "hover:border-[var(--lm-accent,#C9A96E)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"

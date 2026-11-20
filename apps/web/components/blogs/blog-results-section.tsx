@@ -51,11 +51,11 @@ function FilterDropdown({ icon, label, value, options, onChange, onClear }: Filt
             }}
             className="size-[18px] rounded-full bg-[rgba(var(--lm-accent-rgb,201,169,110),0.2)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] flex items-center justify-center transition-colors duration-200"
           >
-            <X className="size-[11px] text-[var(--lm-accent,#C9A96E)]" />
+            <X className="size-[11px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
           </button>
         ) : (
           <ChevronDown
-            className={cn("size-[18px] text-[var(--lm-accent,#C9A96E)] transition-transform duration-200", isOpen && "rotate-180")}
+            className={cn("size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-transform duration-200", isOpen && "rotate-180")}
           />
         )}
       </button>
@@ -87,7 +87,7 @@ function FilterDropdown({ icon, label, value, options, onChange, onClear }: Filt
             className={cn(
               "w-full text-left px-4 py-3 text-[13px] transition-colors duration-150",
               value === option
-                ? "bg-[rgba(var(--lm-accent-rgb,201,169,110),0.1)] text-[var(--lm-accent,#C9A96E)]"
+                ? "bg-[rgba(var(--lm-accent-rgb,201,169,110),0.1)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                 : "text-[var(--lm-text,#ccc)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.06)] hover:text-[var(--lm-text,#fff)]"
             )}
             style={sans}
@@ -264,12 +264,12 @@ export function BlogResultsSection({ searchQuery: initialQuery }: BlogResultsSec
                   onClick={handleClearSearch}
                   className="size-[18px] rounded-full bg-[rgba(var(--lm-accent-rgb,201,169,110),0.2)] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] flex items-center justify-center transition-colors duration-200"
                 >
-                  <X className="size-[11px] text-[var(--lm-accent,#C9A96E)]" />
+                  <X className="size-[11px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />
                 </button>
               </div>
             )}
             <FilterDropdown
-              icon={<MapPin className="size-[18px] text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />}
+              icon={<MapPin className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />}
               label={t("searchByLocation")}
               value={locationFilter}
               options={locations}
@@ -277,7 +277,7 @@ export function BlogResultsSection({ searchQuery: initialQuery }: BlogResultsSec
               onClear={locationFilter ? handleClearLocation : undefined}
             />
             <FilterDropdown
-              icon={<ArrowDownUp className="size-[18px] text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />}
+              icon={<ArrowDownUp className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />}
               label={t("sortByDate")}
               value={sortBy === "newest" ? t("newest") : sortBy === "oldest" ? t("oldest") : ""}
               options={[t("newest"), t("oldest")]}
@@ -305,7 +305,7 @@ export function BlogResultsSection({ searchQuery: initialQuery }: BlogResultsSec
               {searchQuery && (
                 <button
                   onClick={handleClearSearch}
-                  className="mt-4 text-[12px] font-medium uppercase tracking-[1.1px] text-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-text,#fff)] transition-colors"
+                  className="mt-4 text-[12px] font-medium uppercase tracking-[1.1px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:text-[var(--lm-text,#fff)] transition-colors"
                   style={sans}
                 >
                   {t("clearSearch") || "Clear search"}
@@ -340,7 +340,7 @@ export function BlogResultsSection({ searchQuery: initialQuery }: BlogResultsSec
               onClick={handleLoadMore}
               disabled={isLoadingMore}
               className={cn(
-                "h-[52px] px-8 flex items-center gap-3 border border-[var(--lm-accent,#C9A96E)] text-[var(--lm-accent,#C9A96E)] transition-colors duration-500 ease-out",
+                "h-[52px] px-8 flex items-center gap-3 border border-[var(--lm-accent,#C9A96E)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors duration-500 ease-out",
                 isLoadingMore ? "opacity-60 cursor-wait" : "hover:bg-[var(--lm-accent,#C9A96E)] hover:text-[#0D0D0D]"
               )}
             >

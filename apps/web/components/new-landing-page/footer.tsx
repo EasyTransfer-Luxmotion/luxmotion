@@ -246,7 +246,7 @@ function NavColumn({
   return (
     <div className="flex flex-col gap-4">
       <span
-        className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent,#C9A96E)] font-semibold"
+        className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-semibold"
         style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
       >
         {title}
@@ -284,7 +284,7 @@ function SupportColumn({ followLabel }: { followLabel: string }) {
     <div className="flex flex-col gap-[18px]">
       <div className="flex flex-col gap-4">
         <span
-          className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent,#C9A96E)] font-semibold"
+          className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-semibold"
           style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
         >
           Support
@@ -314,7 +314,7 @@ function SupportColumn({ followLabel }: { followLabel: string }) {
 
       <div className="flex flex-col gap-4 pt-[10px]">
         <span
-          className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent,#C9A96E)] font-semibold"
+          className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-semibold"
           style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
         >
           {followLabel}
@@ -326,7 +326,7 @@ function SupportColumn({ followLabel }: { followLabel: string }) {
               href={s.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[var(--lm-muted,#999)] hover:text-[var(--lm-accent,#C9A96E)] transition-colors"
+              className="text-[var(--lm-muted,#999)] hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors"
               aria-label={s.label}
             >
               <s.icon className="w-7 h-7" />

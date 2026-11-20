@@ -76,7 +76,7 @@ export function TourInfoBoxes({ duration, tourType, groupSize, languages }: Tour
         {items.map(({ key, icon: Icon, label, value }) => (
           <InfoBox
             key={key}
-            icon={<Icon className="size-[16px] text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />}
+            icon={<Icon className="size-[16px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />}
             label={label}
             value={value}
           />
@@ -86,7 +86,7 @@ export function TourInfoBoxes({ duration, tourType, groupSize, languages }: Tour
         {items.map(({ key, icon: Icon, label, value }) => (
           <InfoBoxMobile
             key={key}
-            icon={<Icon className="size-[20px] text-[var(--lm-accent,#C9A96E)]" strokeWidth={1.5} />}
+            icon={<Icon className="size-[20px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" strokeWidth={1.5} />}
             label={label}
             value={value}
           />

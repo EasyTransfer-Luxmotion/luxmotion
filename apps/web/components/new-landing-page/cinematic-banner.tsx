@@ -99,7 +99,7 @@ export function CinematicBanner() {
             <p className="font-light text-[32px] md:text-[40px] leading-none text-[#E4D5B7]">
               {t("line1")}
             </p>
-            <p className="font-light italic text-[32px] md:text-[40px] leading-none text-[var(--lm-accent,#C9A96E)]">
+            <p className="font-light italic text-[32px] md:text-[40px] leading-none text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
               {t("line2")}
             </p>
           </div>
@@ -109,13 +109,13 @@ export function CinematicBanner() {
             className="group inline-flex items-center justify-center h-12 border border-[var(--lm-accent,#C9A96E)] px-[22px] py-[9px] hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] transition-colors w-full lg:w-fit shrink-0 self-stretch lg:self-auto"
           >
             <span
-              className="px-2 text-[14px] tracking-[1.1px] uppercase text-[var(--lm-accent,#C9A96E)] font-medium whitespace-nowrap"
+              className="px-2 text-[14px] tracking-[1.1px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-medium whitespace-nowrap"
               style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
             >
               {t("cta")}
             </span>
             <ArrowRight
-              className="size-[18px] text-[var(--lm-accent,#C9A96E)] transition-transform group-hover:translate-x-1"
+              className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-transform group-hover:translate-x-1"
               strokeWidth={1.5}
             />
           </Link>

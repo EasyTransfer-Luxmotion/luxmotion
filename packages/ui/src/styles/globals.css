@@ -287,6 +287,10 @@ html.lm-checkout-light::-webkit-scrollbar-corner {
   --lm-muted: #5a5249;
   --lm-accent: #a08248;
   --lm-accent-rgb: 160, 130, 72;
+  /* O dourado para texto pequeno: o #a08248 sobre o creme dava 3:1 (as
+     etiquetas em maiúsculas de 10–12 px pedem 4,5). Linhas, fundos e botões
+     continuam no --lm-accent. */
+  --lm-accent-text: #7a6230;
   /* Inverse: for elements that flip with the theme (solid CTA buttons, FABs,
      decorative lines) — dark on light, light on dark. */
   --lm-inverse-bg: #1a1612;
@@ -302,6 +306,7 @@ html.lm-checkout-light::-webkit-scrollbar-corner {
   --lm-muted: rgba(255, 255, 255, 0.55);
   --lm-accent: #c9a96e;
   --lm-accent-rgb: 201, 169, 110;
+  --lm-accent-text: #c9a96e;
   --lm-inverse-bg: #f5f1ea;
   --lm-inverse-text: #1a1612;
 }

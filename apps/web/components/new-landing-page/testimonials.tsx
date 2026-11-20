@@ -112,7 +112,7 @@ function CarouselArrow({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={`absolute ${topClass} -translate-y-1/2 z-10 grid size-11 place-items-center border border-[rgba(var(--lm-text-rgb,255,255,255),0.2)] bg-[var(--lm-bg,#0D0D0D)]/80 text-[var(--lm-text,#fff)] backdrop-blur-sm transition-colors hover:border-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-accent,#C9A96E)] ${
+      className={`absolute ${topClass} -translate-y-1/2 z-10 grid size-11 place-items-center border border-[rgba(var(--lm-text-rgb,255,255,255),0.2)] bg-[var(--lm-bg,#0D0D0D)]/80 text-[var(--lm-text,#fff)] backdrop-blur-sm transition-colors hover:border-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] ${
         isPrev ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2"
       }`}
     >
@@ -138,7 +138,7 @@ function MobileArrow({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className={`absolute top-1/2 -translate-y-1/2 z-10 grid size-9 place-items-center border border-[rgba(var(--lm-text-rgb,255,255,255),0.2)] bg-[var(--lm-bg,#0D0D0D)]/70 text-[var(--lm-text,#fff)] backdrop-blur-sm transition-colors hover:border-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-accent,#C9A96E)] ${
+      className={`absolute top-1/2 -translate-y-1/2 z-10 grid size-9 place-items-center border border-[rgba(var(--lm-text-rgb,255,255,255),0.2)] bg-[var(--lm-bg,#0D0D0D)]/70 text-[var(--lm-text,#fff)] backdrop-blur-sm transition-colors hover:border-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] ${
         isPrev ? "left-2" : "right-2"
       }`}
     >
@@ -239,7 +239,7 @@ function ReviewCard({ review }: { review: Review }) {
         />
       </div>
       <div className="flex items-center gap-1">
-        <span className="text-[12px] text-[var(--lm-accent,#C9A96E)] tracking-[1px]">{"★".repeat(Math.max(1, Math.min(5, Math.round(review.rating))))}</span>
+        <span className="text-[12px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[1px]">{"★".repeat(Math.max(1, Math.min(5, Math.round(review.rating))))}</span>
         <div className="size-[14px] rounded-full bg-[#1a73e8] flex items-center justify-center">
           <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
             <path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -400,8 +400,8 @@ export function Testimonials({
       <div className="max-w-[1280px] mx-auto px-4 flex flex-col items-center">
         <div className="group relative overflow-hidden cursor-default backdrop-blur-sm bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[var(--lm-accent,#C9A96E)] flex items-center gap-2 px-4 py-2">
           <div className="pointer-events-none absolute inset-0 w-0 bg-[var(--lm-accent,#C9A96E)] transition-all duration-500 ease-out group-hover:w-full" />
-          <BadgeCheck className="relative size-6 text-[var(--lm-accent,#C9A96E)] transition-colors duration-300 group-hover:text-[#0D0D0D]" strokeWidth={1.5} />
-          <span className="relative text-[14px] text-[var(--lm-accent,#C9A96E)] tracking-[0.28px] transition-colors duration-300 group-hover:text-[#0D0D0D]">
+          <BadgeCheck className="relative size-6 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors duration-300 group-hover:text-[#0D0D0D]" strokeWidth={1.5} />
+          <span className="relative text-[14px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.28px] transition-colors duration-300 group-hover:text-[#0D0D0D]">
             {t("exclusive")}
           </span>
         </div>
@@ -410,7 +410,7 @@ export function Testimonials({
           <div className="flex flex-col items-center gap-2">
             <div className="flex items-center gap-2">
               <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
-              <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]" style={{ fontFamily: "var(--font-sans), Inter, sans-serif" }}>
+              <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={{ fontFamily: "var(--font-sans), Inter, sans-serif" }}>
                 {sectionLabel ?? t("sectionLabel")}
               </span>
               <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
@@ -422,17 +422,17 @@ export function Testimonials({
 
           <div className="flex items-center gap-3 md:gap-4">
             <div className="relative">
-              <span className="font-semibold text-[64px] md:text-[96px] text-[var(--lm-accent,#ab9c6b)] leading-[0.95] tracking-[0.48px]">{ratingDisplay}</span>
-              <Star className="size-6 md:size-[43px] text-[var(--lm-accent,#ab9c6b)] fill-[var(--lm-accent,#ab9c6b)] absolute right-[-28px] md:right-[-44px] top-[12px] md:top-[14px]" />
+              <span className="font-semibold text-[64px] md:text-[96px] text-[var(--lm-accent-text,var(--lm-accent,#ab9c6b))] leading-[0.95] tracking-[0.48px]">{ratingDisplay}</span>
+              <Star className="size-6 md:size-[43px] text-[var(--lm-accent-text,var(--lm-accent,#ab9c6b))] fill-[var(--lm-accent,#ab9c6b)] absolute right-[-28px] md:right-[-44px] top-[12px] md:top-[14px]" />
             </div>
             <div className="w-[2px] h-[40px] md:h-[60px] bg-[var(--lm-text,#fff)] rotate-[12deg] ml-6 md:ml-10" />
-            <span className="font-semibold text-[64px] md:text-[96px] text-[var(--lm-accent,#ab9c6b)] leading-[0.95] tracking-[0.48px]">{totalDisplay}</span>
-            <span className="font-medium text-[18px] md:text-[24px] text-[var(--lm-accent,#C9A96E)] tracking-[0.24px]">
+            <span className="font-semibold text-[64px] md:text-[96px] text-[var(--lm-accent-text,var(--lm-accent,#ab9c6b))] leading-[0.95] tracking-[0.48px]">{totalDisplay}</span>
+            <span className="font-medium text-[18px] md:text-[24px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[0.24px]">
               {t("reviews")}
             </span>
           </div>
 
-          <div className="text-[28px] md:text-[32px] text-[var(--lm-accent,#C9A96E)] tracking-[2px]">★★★★★</div>
+          <div className="text-[28px] md:text-[32px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] tracking-[2px]">★★★★★</div>
 
           <div className="flex items-center justify-center gap-6">
             <a href={GOOGLE_REVIEWS_URL} {...REVIEW_LINK_PROPS} aria-label="Google" className="transition-opacity hover:opacity-70">

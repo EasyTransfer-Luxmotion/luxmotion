@@ -75,7 +75,7 @@ export function BookingAddonsSelector({
             <span
               className={cn(
                 "text-[17px] font-semibold shrink-0 leading-none",
-                isFree ? "text-[#81c784]" : "text-[var(--lm-accent,#C9A96E)]"
+                isFree ? "text-[#81c784]" : "text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
               )}
               style={{ fontFamily: SERIF_FONT }}
             >

@@ -40,7 +40,7 @@ function StepCard({ step }: { step: Step }) {
         {step.num}
       </p>
       <div className="size-11 flex items-center justify-center bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.18)]">
-        <Icon className="size-[18px] text-[var(--lm-accent,#c9a96e)]" strokeWidth={1.75} />
+        <Icon className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" strokeWidth={1.75} />
       </div>
       <h3
         className="text-[14px] font-bold text-[var(--lm-text,#fff)] leading-normal"
@@ -64,7 +64,7 @@ function ArrowConnector({ leftPercent }: { leftPercent: number }) {
       className="hidden lg:flex absolute size-8 bg-[var(--lm-surface,#1c1b18)] items-center justify-center pointer-events-none -translate-x-1/2 -translate-y-1/2"
       style={{ left: `${leftPercent}%`, top: "50%" }}
     >
-      <ArrowRight className="size-[18px] text-[var(--lm-accent,#c9a96e)]" strokeWidth={2} />
+      <ArrowRight className="size-[18px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]" strokeWidth={2} />
     </div>
   )
 }
@@ -131,7 +131,7 @@ export function QualityProcess() {
           <div className="flex items-center gap-2">
             <div className="h-px w-8 bg-[var(--lm-accent,#c9a96e)]" />
             <span
-              className="text-[12px] font-medium uppercase tracking-[2px] text-[var(--lm-accent,#c9a96e)] leading-none"
+              className="text-[12px] font-medium uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] leading-none"
               style={SANS_FONT}
             >
               {t("eyebrow")}
@@ -143,7 +143,7 @@ export function QualityProcess() {
             style={SERIF_FONT}
           >
             {t("titlePre")}{" "}
-            <span className="italic text-[var(--lm-accent,#c9a96e)]">{t("titleAccent")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]">{t("titleAccent")}</span>
           </h2>
           <p
             className="text-[16px] lg:text-[18px] leading-[1.3] text-[rgba(var(--lm-text-rgb,255,255,255),0.55)] max-w-[926px]"

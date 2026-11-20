@@ -78,13 +78,13 @@ export function SocialProofBar({ escala = 0.8 }: { escala?: number }) {
         4.9
       </span>
       <span
-        className="leading-none text-[var(--lm-accent,#a08248)]"
+        className="leading-none text-[var(--lm-accent-text,var(--lm-accent,#a08248))]"
         style={{ fontSize: `${18 * s}px`, letterSpacing: `${2.5 * s}px`, marginTop: `${8 * s}px` }}
       >
         ★★★★★
       </span>
       <span
-        className="font-semibold uppercase leading-none text-[var(--lm-accent,#a08248)]"
+        className="font-semibold uppercase leading-none text-[var(--lm-accent-text,var(--lm-accent,#a08248))]"
         style={{ fontSize: `${12 * s}px`, letterSpacing: `${2.4 * s}px`, marginTop: `${9 * s}px` }}
       >
         {t("excellentRating")}
@@ -381,7 +381,7 @@ export function Hero({
         <div className="max-w-[680px] flex flex-col gap-6 lg:gap-9">
           <div className={cn("flex items-center gap-2", enter("delay-0"))}>
             <div className="h-px bg-[var(--lm-accent,#C9A96E)] w-[32px] lg:w-[40px]" />
-            <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)] whitespace-nowrap">
+            <span className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] whitespace-nowrap">
               {t("label")}
             </span>
           </div>
@@ -394,7 +394,7 @@ export function Hero({
               Portugal,
             </span>
             <span
-              className="italic text-[var(--lm-accent,#C9A96E)] text-[48px] lg:text-[96px] min-[1440px]:text-[82px] min-[1920px]:text-[96px] leading-[1.2] lg:leading-none block"
+              className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] text-[48px] lg:text-[96px] min-[1440px]:text-[82px] min-[1920px]:text-[96px] leading-[1.2] lg:leading-none block"
               style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
             >
               {t("titleHighlight")}
@@ -427,17 +427,17 @@ export function Hero({
 
         <div className={cn("flex flex-col lg:flex-row border border-[rgba(var(--lm-text-rgb,255,255,255),0.12)] divide-y lg:divide-y-0 lg:divide-x divide-[rgba(var(--lm-text-rgb,255,255,255),0.12)]", enter("delay-[500ms]"))}>
           <FeatureCard
-            icon={<Plane className="size-6 text-[var(--lm-accent,#C9A96E)]" />}
+            icon={<Plane className="size-6 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />}
             title={t("flightMonitoring")}
             description={t("flightMonitoringDesc")}
           />
           <FeatureCard
-            icon={<Phone className="size-6 text-[var(--lm-accent,#C9A96E)]" />}
+            icon={<Phone className="size-6 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />}
             title={t("conciergeSupport")}
             description={t("conciergeSupportDesc")}
           />
           <FeatureCard
-            icon={<ShieldCheck className="size-6 text-[var(--lm-accent,#C9A96E)]" />}
+            icon={<ShieldCheck className="size-6 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" />}
             title={t("privateTransfers")}
             description={t("privateTransfersDesc")}
           />

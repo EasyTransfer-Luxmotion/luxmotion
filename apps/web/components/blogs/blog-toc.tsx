@@ -56,7 +56,7 @@ export function BlogToc({ blocks }: BlogTocProps) {
               className="group flex items-center gap-2 w-full text-left transition-colors"
             >
               <span className="h-px shrink-0 transition-all bg-[rgba(var(--lm-text-rgb,255,255,255),0.07)] w-[14px] group-hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.6)] group-hover:w-[20px]" />
-              <span className="text-[12px] md:text-[14px] leading-[1.45] transition-colors text-[var(--lm-muted,#999)] group-hover:text-[var(--lm-accent,#C9A96E)]">
+              <span className="text-[12px] md:text-[14px] leading-[1.45] transition-colors text-[var(--lm-muted,#999)] group-hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
                 {item.title}
               </span>
             </button>

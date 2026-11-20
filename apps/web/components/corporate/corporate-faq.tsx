@@ -20,7 +20,7 @@ export function CorporateFAQ() {
           <div className="flex items-center gap-2">
             <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
             <span
-              className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]"
+              className="text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
               style={sans}
             >
               {t("eyebrow")}
@@ -32,7 +32,7 @@ export function CorporateFAQ() {
             style={serif}
           >
             {t("titleRest")}{" "}
-            <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleGold")}</span>.
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleGold")}</span>.
           </h2>
         </div>
 

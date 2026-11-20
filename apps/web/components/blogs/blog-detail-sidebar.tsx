@@ -65,7 +65,7 @@ function AuthorCard({ author }: { author: SidebarAuthor }) {
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-[var(--lm-accent,#C9A96E)] text-[18px] font-semibold leading-none">
+            <span className="text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] text-[18px] font-semibold leading-none">
               {getInitials(author.name) || "•"}
             </span>
           </div>
@@ -77,7 +77,7 @@ function AuthorCard({ author }: { author: SidebarAuthor }) {
       >
         {author.name}
       </p>
-      <p className="text-[var(--lm-accent,#C9A96E)] text-[12px] font-semibold tracking-[0.8px] text-center mb-[10px]">
+      <p className="text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] text-[12px] font-semibold tracking-[0.8px] text-center mb-[10px]">
         {role}
       </p>
       <p className="text-[var(--lm-muted,#999)] text-[12px] leading-[1.2] text-center px-1">
@@ -157,10 +157,10 @@ function RelatedCard({ items }: { items: SidebarRelatedItem[] }) {
                   />
                 </div>
                 <div className="flex flex-1 min-w-0 flex-col gap-[2.2px]">
-                  <span className="text-[var(--lm-accent,#C9A96E)] text-[10px] font-bold uppercase tracking-[0.96px] leading-none">
+                  <span className="text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] text-[10px] font-bold uppercase tracking-[0.96px] leading-none">
                     {item.category}
                   </span>
-                  <p className="text-[var(--lm-text,#fff)] text-[14px] font-medium leading-[1.2] m-0 group-hover:text-[var(--lm-accent,#C9A96E)] transition-colors">
+                  <p className="text-[var(--lm-text,#fff)] text-[14px] font-medium leading-[1.2] m-0 group-hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors">
                     {item.title}
                   </p>
                   <span className="text-[var(--lm-muted,#696969)] text-[12px] leading-none pt-[0.8px]">

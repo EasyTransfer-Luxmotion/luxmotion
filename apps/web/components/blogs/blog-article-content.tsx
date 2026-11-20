@@ -78,7 +78,7 @@ function HeadingText({ text }: { text: string }) {
   return (
     <>
       <span>{head}</span>{" "}
-      <span className="italic text-[var(--lm-accent,#C9A96E)]" style={SERIF_FONT}>
+      <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={SERIF_FONT}>
         {accent}
       </span>
     </>
@@ -121,7 +121,7 @@ function renderInlineContent(nodes: TipTapNode[] | undefined): React.ReactNode {
               element = (
                 <code
                   key={`c-${index}`}
-                  className="bg-[var(--lm-surface,#1c1c1c)] border border-[rgba(var(--lm-text-rgb,255,255,255),0.07)] px-1.5 py-0.5 text-[13px] font-mono text-[var(--lm-accent,#C9A96E)]"
+                  className="bg-[var(--lm-surface,#1c1c1c)] border border-[rgba(var(--lm-text-rgb,255,255,255),0.07)] px-1.5 py-0.5 text-[13px] font-mono text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]"
                 >
                   {element}
                 </code>
@@ -135,7 +135,7 @@ function renderInlineContent(nodes: TipTapNode[] | undefined): React.ReactNode {
                     href={mark.attrs.href}
                     target={mark.attrs.target || "_blank"}
                     rel="noopener noreferrer"
-                    className="text-[var(--lm-accent,#C9A96E)] underline underline-offset-2 hover:text-[var(--lm-text,#fff)] transition-colors"
+                    className="text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] underline underline-offset-2 hover:text-[var(--lm-text,#fff)] transition-colors"
                   >
                     {element}
                   </Link>
@@ -239,7 +239,7 @@ function BulletListNode({ node }: { node: TipTapNode }) {
 
 function OrderedListNode({ node }: { node: TipTapNode }) {
   return (
-    <ol className="flex flex-col gap-[7px] w-full pt-[6px] list-decimal pl-[20px] marker:text-[var(--lm-accent,#C9A96E)]">
+    <ol className="flex flex-col gap-[7px] w-full pt-[6px] list-decimal pl-[20px] marker:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
       {node.content?.map((listItem, index) => (
         <li key={index} className="text-[14px] md:text-[15px] text-[var(--lm-muted,#999)] leading-[28.5px] pl-1">
           {listItem.content?.map((child, childIndex) => {
@@ -278,7 +278,7 @@ function BlockquoteNode({ node }: { node: TipTapNode }) {
 function CodeBlockNode({ node }: { node: TipTapNode }) {
   const code = node.content?.map((c) => c.text || "").join("") || ""
   return (
-    <pre className="bg-[var(--lm-surface,#141414)] border border-[rgba(var(--lm-text-rgb,255,255,255),0.07)] text-[var(--lm-accent,#C9A96E)] p-4 overflow-x-auto w-full">
+    <pre className="bg-[var(--lm-surface,#141414)] border border-[rgba(var(--lm-text-rgb,255,255,255),0.07)] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] p-4 overflow-x-auto w-full">
       <code className="text-[13px] font-mono leading-relaxed">{code}</code>
     </pre>
   )
@@ -354,7 +354,7 @@ function TableNode({ node }: { node: TipTapNode }) {
                       style={width ? { width } : undefined}
                       className={
                         isHeader
-                          ? "flex flex-col items-start bg-[var(--lm-surface,#1c1c1c)] border border-[rgba(var(--lm-text-rgb,255,255,255),0.07)] px-[14.8px] pt-[9.4px] pb-[10.5px] text-[var(--lm-accent,#C9A96E)] text-[9px] md:text-[10px] tracking-[1.26px] uppercase font-bold leading-[17.1px] flex-1 min-w-[110px]"
+                          ? "flex flex-col items-start bg-[var(--lm-surface,#1c1c1c)] border border-[rgba(var(--lm-text-rgb,255,255,255),0.07)] px-[14.8px] pt-[9.4px] pb-[10.5px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] text-[9px] md:text-[10px] tracking-[1.26px] uppercase font-bold leading-[17.1px] flex-1 min-w-[110px]"
                           : "flex flex-col items-start border border-[rgba(var(--lm-text-rgb,255,255,255),0.07)] px-[14.8px] pt-[9.8px] pb-[11px] text-[12px] text-[var(--lm-muted,#999)] leading-[18px] flex-1 min-w-[110px]"
                       }
                     >

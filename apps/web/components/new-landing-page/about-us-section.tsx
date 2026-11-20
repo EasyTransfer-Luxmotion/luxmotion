@@ -63,7 +63,7 @@ export function AboutUsSection() {
                 style={{ fontFamily: "var(--font-sans), Inter, sans-serif" }}
               >
                 <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
-                <span className="text-[12px] font-semibold tracking-[2px] uppercase text-[var(--lm-accent,#C9A96E)] leading-none">
+                <span className="text-[12px] font-semibold tracking-[2px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] leading-none">
                   {t("sectionLabel")}
                 </span>
               </div>

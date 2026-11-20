@@ -84,7 +84,7 @@ export function BlogResultCard({ blog }: BlogResultCardProps) {
             </Link>
             <button
               onClick={handleShare}
-              className="shrink-0 text-[var(--lm-muted,#666)] hover:text-[var(--lm-accent,#C9A96E)] transition-colors mt-1"
+              className="shrink-0 text-[var(--lm-muted,#666)] hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors mt-1"
               aria-label={t("share")}
             >
               <Share2 className="size-[18px]" strokeWidth={1.5} />
@@ -92,7 +92,7 @@ export function BlogResultCard({ blog }: BlogResultCardProps) {
           </div>
 
           {blog.date && (
-            <p className="text-[11px] font-medium uppercase tracking-[1.5px] text-[var(--lm-accent,#C9A96E)] mt-3" style={sans}>
+            <p className="text-[11px] font-medium uppercase tracking-[1.5px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] mt-3" style={sans}>
               {blog.date}
             </p>
           )}
@@ -103,7 +103,7 @@ export function BlogResultCard({ blog }: BlogResultCardProps) {
 
           <Link
             href={`/blogs/${blog.slug}`}
-            className="group/link inline-flex items-center gap-2 mt-auto pt-5 text-[12px] font-medium uppercase tracking-[1.1px] text-[var(--lm-accent,#C9A96E)] hover:text-[var(--lm-text,#fff)] transition-colors w-fit"
+            className="group/link inline-flex items-center gap-2 mt-auto pt-5 text-[12px] font-medium uppercase tracking-[1.1px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] hover:text-[var(--lm-text,#fff)] transition-colors w-fit"
             style={sans}
           >
             {t("readMore")}

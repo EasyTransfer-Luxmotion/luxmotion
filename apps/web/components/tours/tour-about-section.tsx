@@ -17,7 +17,7 @@ export function TourAboutSection({ description }: TourAboutSectionProps) {
         style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
       >
         {t("aboutPrefix")}{" "}
-        <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("aboutAccent")}</span>
+        <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("aboutAccent")}</span>
       </h2>
       <TipTapRenderer
         content={description}

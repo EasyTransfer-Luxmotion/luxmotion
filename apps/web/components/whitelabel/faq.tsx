@@ -85,7 +85,7 @@ export function FAQ() {
           <div className="flex items-center gap-2">
             <div className="h-px w-8 bg-[var(--lm-accent,#c9a96e)]" />
             <span
-              className="text-[12px] font-medium uppercase tracking-[2px] text-[var(--lm-accent,#c9a96e)] leading-none"
+              className="text-[12px] font-medium uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] leading-none"
               style={SANS_FONT}
             >
               {t("eyebrow")}
@@ -97,7 +97,7 @@ export function FAQ() {
             style={SERIF_FONT}
           >
             {t("titlePre")}{" "}
-            <span className="italic text-[var(--lm-accent,#c9a96e)]">{t("titleAccent")}</span>
+            <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]">{t("titleAccent")}</span>
           </h2>
         </div>
 

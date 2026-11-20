@@ -50,7 +50,7 @@ function ItineraryCard({
     >
       <div className="w-[56px] md:w-[70px] shrink-0 border-r-[0.8px] border-[rgba(var(--lm-accent-rgb,201,169,110),0.08)] py-[16px] flex justify-center items-start">
         <span
-          className="text-[10px] font-semibold text-[var(--lm-accent,#c9a96e)] tracking-[0.6px]"
+          className="text-[10px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] tracking-[0.6px]"
           style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
         >
           {item.time}
@@ -97,7 +97,7 @@ function ItineraryCard({
             <ChevronDown
               className={cn(
                 "size-[16px] transition-all duration-300",
-                isOpen ? "text-[#0D0D0D] rotate-180" : "text-[var(--lm-accent,#c9a96e)]"
+                isOpen ? "text-[#0D0D0D] rotate-180" : "text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]"
               )}
             />
           </button>
@@ -127,7 +127,7 @@ export function TourItinerary({ items, mapCenter, pickup, dropoff }: TourItinera
   return (
     <div className="w-full">
       <h2
-        className="text-[24px] font-light italic text-[var(--lm-accent,#c9a96e)] leading-none mb-5"
+        className="text-[24px] font-light italic text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] leading-none mb-5"
         style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
       >
         {t("itinerary")}

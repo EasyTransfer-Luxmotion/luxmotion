@@ -52,13 +52,13 @@ export function HotelsHow() {
         <div className="mb-12 flex flex-col items-center gap-4 text-center">
           <div className="flex items-center gap-2">
             <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
-            <span className="font-sans text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]">
+            <span className="font-sans text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">
               {t("eyebrow")}
             </span>
             <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
           </div>
           <h2 className="text-[40px] leading-none text-[var(--lm-text,#f5f5f5)] md:text-[52px]" style={serif}>
-            {t("titlePrefix")} <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleAccent")}</span>
+            {t("titlePrefix")} <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleAccent")}</span>
           </h2>
           <p className="max-w-[720px] text-[16px] leading-[1.4] text-[var(--lm-text,#fff)]/55 md:text-[18px]">
             {t("subtitle")}
@@ -73,7 +73,7 @@ export function HotelsHow() {
                 className="group flex cursor-default flex-col bg-[var(--lm-surface,#1a1a1a)] transition-all duration-300 ease-out hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.06)] hover:-translate-y-1 hover:shadow-[0_18px_40px_-18px_rgba(0,0,0,0.7)] hover:ring-1 hover:ring-inset hover:ring-[rgba(var(--lm-accent-rgb,201,169,110),0.22)]"
               >
                 <div className="flex flex-col gap-6 px-7 pb-9 pt-7 md:px-8">
-                  <span className="flex h-10 w-10 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] text-[17px] text-[var(--lm-accent,#C9A96E)]" style={serif}>
+                  <span className="flex h-10 w-10 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] text-[17px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={serif}>
                     0{i + 1}
                   </span>
                   <StepIllustration index={i} alt={s.title} />
@@ -96,18 +96,18 @@ export function HotelsHow() {
           }}
         >
           <span aria-hidden className="absolute left-1/2 top-0 h-[3px] w-20 -translate-x-1/2 bg-[var(--lm-accent,#C9A96E)]" />
-          <span aria-hidden className="absolute left-8 top-7 text-[60px] leading-none text-[var(--lm-accent,#C9A96E)] lg:left-12" style={serif}>
+          <span aria-hidden className="absolute left-8 top-7 text-[60px] leading-none text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] lg:left-12" style={serif}>
             &ldquo;
           </span>
           <p className="mx-auto max-w-[760px] text-center text-[22px] italic leading-[1.5] text-[var(--lm-text,#fff)]/90 md:text-[26px]" style={serif}>
             {t("quote")}
           </p>
-          <span aria-hidden className="absolute bottom-12 right-8 text-[60px] leading-none text-[var(--lm-accent,#C9A96E)] lg:right-12" style={serif}>
+          <span aria-hidden className="absolute bottom-12 right-8 text-[60px] leading-none text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] lg:right-12" style={serif}>
             &rdquo;
           </span>
           <div className="mt-8 text-center">
             <p className="font-sans text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-text,#fff)]">{t("quoteRole")}</p>
-            <p className="mt-1 font-sans text-[11px] uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]">{t("quoteCompany")}</p>
+            <p className="mt-1 font-sans text-[11px] uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("quoteCompany")}</p>
           </div>
         </div>
       </div>

@@ -125,7 +125,7 @@ function FleetGallerySlider() {
               onClick={() => scrollByCard(dir)}
               disabled={dir === -1 ? atStart : atEnd}
               aria-label={dir === -1 ? "Anterior" : "Seguinte"}
-              className="flex size-11 shrink-0 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] text-[var(--lm-accent,#c9a96e)] transition-colors hover:border-[var(--lm-accent,#c9a96e)] disabled:cursor-not-allowed disabled:opacity-30"
+              className="flex size-11 shrink-0 items-center justify-center border border-[rgba(var(--lm-accent-rgb,201,169,110),0.35)] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] transition-colors hover:border-[var(--lm-accent,#c9a96e)] disabled:cursor-not-allowed disabled:opacity-30"
             >
               <Icon className="size-[18px]" strokeWidth={1.5} />
             </button>
@@ -174,7 +174,7 @@ function VehicleCard({ v }: { v: Veh }) {
         />
       </div>
       <div className="flex flex-col gap-2.5 px-5 pb-6 pt-4">
-        <h3 className="text-[20px] leading-tight text-[var(--lm-text,#fff)] transition-colors duration-500 group-hover:text-[var(--lm-accent,#C9A96E)] md:text-[22px]" style={serif}>
+        <h3 className="text-[20px] leading-tight text-[var(--lm-text,#fff)] transition-colors duration-500 group-hover:text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] md:text-[22px]" style={serif}>
           {v.name}
         </h3>
         <div className="flex items-center gap-[7px] text-[13px] text-[var(--lm-muted,#9a9a9a)]" style={sans}>
@@ -200,7 +200,7 @@ function TierRow({ label, vehicles }: { label: string; vehicles: Veh[] }) {
           className="pointer-events-none absolute bottom-0 left-1/2 h-[88px] w-[500px] -translate-x-1/2"
           style={{ background: "radial-gradient(50% 72% at 50% 100%, rgba(var(--lm-accent-rgb,201,169,110),0.13), transparent 72%)" }}
         />
-        <span className="relative z-[1] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.45)] bg-[var(--lm-bg,#0D0D0D)] px-7 py-2.5 text-[11px] font-semibold uppercase tracking-[2.5px] text-[var(--lm-accent,#C9A96E)]" style={sans}>
+        <span className="relative z-[1] border border-[rgba(var(--lm-accent-rgb,201,169,110),0.45)] bg-[var(--lm-bg,#0D0D0D)] px-7 py-2.5 text-[11px] font-semibold uppercase tracking-[2.5px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]" style={sans}>
           {label}
         </span>
       </div>
@@ -223,11 +223,11 @@ export function HotelsFleet() {
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="flex items-center gap-2">
             <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
-            <span className="font-sans text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent,#C9A96E)]">{t("eyebrow")}</span>
+            <span className="font-sans text-[12px] font-semibold uppercase tracking-[2px] text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("eyebrow")}</span>
             <div className="h-px w-8 bg-[var(--lm-accent,#C9A96E)]" />
           </div>
           <h2 className="text-[40px] leading-none text-[var(--lm-text,#f5f5f5)] md:text-[52px]" style={serif}>
-            {t("titlePrefix")} <span className="italic text-[var(--lm-accent,#C9A96E)]">{t("titleAccent")}</span> {t("titleSuffix")}
+            {t("titlePrefix")} <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))]">{t("titleAccent")}</span> {t("titleSuffix")}
           </h2>
         </div>
 
@@ -239,7 +239,7 @@ export function HotelsFleet() {
         <div className="flex justify-center">
           <Link
             href="/fleet"
-            className="group inline-flex h-[52px] items-center gap-2 border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] px-7 text-[var(--lm-accent,#C9A96E)] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
+            className="group inline-flex h-[52px] items-center gap-2 border border-[rgba(var(--lm-accent-rgb,201,169,110),0.5)] px-7 text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] transition-colors hover:bg-[rgba(var(--lm-accent-rgb,201,169,110),0.08)]"
             style={sans}
           >
             <span className="text-[13px] font-semibold uppercase tracking-[1.5px]">{t("cta")}</span>

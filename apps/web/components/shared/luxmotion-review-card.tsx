@@ -80,7 +80,7 @@ export function LuxmotionReviewCard({
         </div>
       </div>
       <div
-        className="text-[12px] text-[var(--lm-accent,#c9a96e)] tracking-[1px] leading-none pt-[0.8px]"
+        className="text-[12px] text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] tracking-[1px] leading-none pt-[0.8px]"
         style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
       >
         {"★★★★★".slice(0, review.rating).padEnd(5, "☆")}

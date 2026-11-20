@@ -42,7 +42,7 @@ export function CategorySection({
         style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
       >
         <span>{title} </span>
-        <span className="italic text-[var(--lm-accent,#c9a96e)]">{destination}</span>
+        <span className="italic text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]">{destination}</span>
       </h2>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-[2px]">

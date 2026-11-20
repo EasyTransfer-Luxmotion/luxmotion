@@ -27,7 +27,7 @@ export function FAQ() {
           <div className="flex items-center gap-3">
             <div className="w-8 h-px bg-[var(--lm-accent,#C9A96E)]" />
             <span
-              className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent,#C9A96E)] font-semibold"
+              className="text-[12px] tracking-[1.8px] uppercase text-[var(--lm-accent-text,var(--lm-accent,#C9A96E))] font-semibold"
               style={{ fontFamily: "var(--font-sans), system-ui, sans-serif" }}
             >
               {t("sectionLabel")}

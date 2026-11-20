@@ -26,7 +26,7 @@ function Stars({ rating }: { rating: number }) {
   const full = Math.floor(clamped)
   const hasHalf = clamped - full >= 0.5
   return (
-    <span className="text-[var(--lm-accent,#c9a96e)] text-[12px] tracking-[1px] leading-none whitespace-nowrap">
+    <span className="text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] text-[12px] tracking-[1px] leading-none whitespace-nowrap">
       {Array.from({ length: 5 }).map((_, i) => {
         if (i < full) return "★"
         if (i === full && hasHalf) return "★"
@@ -98,7 +98,7 @@ export function TourCard({ tour, className }: TourCardProps) {
         </div>
 
         <h3
-          className="text-[20px] md:text-[24px] font-semibold text-[var(--lm-text,#fff)] leading-[1.3] transition-colors duration-300 group-hover:text-[var(--lm-accent,#c9a96e)]"
+          className="text-[20px] md:text-[24px] font-semibold text-[var(--lm-text,#fff)] leading-[1.3] transition-colors duration-300 group-hover:text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))]"
           style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
         >
           {tour.title}
@@ -145,7 +145,7 @@ export function TourCard({ tour, className }: TourCardProps) {
               {t("fromShort")}
             </span>
             <span
-              className="text-[32px] font-semibold text-[var(--lm-accent,#c9a96e)] leading-[1.2]"
+              className="text-[32px] font-semibold text-[var(--lm-accent-text,var(--lm-accent,#c9a96e))] leading-[1.2]"
               style={{ fontFamily: "var(--font-title), 'Cormorant Garamond', serif" }}
             >
               {formattedPrice}

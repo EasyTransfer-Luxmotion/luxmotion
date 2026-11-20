@@ -67,7 +67,7 @@ function LuxMotionLogo({ className, variant = "dark" }: { className?: string; va
             priority
           />
         </div>
-        <span className="text-[10px] tracking-[1.4px] text-[#999] mt-[4px] whitespace-nowrap">
+        <span className={cn("text-[10px] tracking-[1.4px] mt-[4px] whitespace-nowrap", isLight ? "text-[#6e6862]" : "text-[#999]")}>
           BY EASYTRANSFER
         </span>
       </div>
@@ -107,13 +107,13 @@ function LangSwitcher({ variant = "dark" }: { variant?: HeaderVariant }) {
         <FlagImage iso2={localeCountryIso[locale]} size={20} className="rounded-[2px]" />
         <span className={cn(
           "text-[14px] font-medium tracking-[0.15px]",
-          isLight ? "text-[#A08248]" : "text-[#C9A96E]"
+          isLight ? "text-[#7a6230]" : "text-[#C9A96E]"
         )}>
           {locale.toUpperCase()}
         </span>
         <ChevronDown className={cn(
           "w-[13px] h-[13px] transition-transform",
-          isLight ? "text-[#A08248]" : "text-[#C9A96E]",
+          isLight ? "text-[#7a6230]" : "text-[#C9A96E]",
           isOpen && "rotate-180"
         )} />
       </button>
@@ -131,14 +131,14 @@ function LangSwitcher({ variant = "dark" }: { variant?: HeaderVariant }) {
               className={cn(
                 "w-full flex items-center gap-3 px-4 py-2.5 transition-colors",
                 isLight
-                  ? "text-[#8C8680] hover:text-[#A08248] hover:bg-black/[0.03]"
+                  ? "text-[#68625c] hover:text-[#7a6230] hover:bg-black/[0.03]"
                   : "text-[#8C8680] hover:text-[#C9A96E] hover:bg-white/5",
                 loc === locale && (isLight ? "text-[#A08248] bg-black/[0.03]" : "text-[#C9A96E] bg-white/5")
               )}
             >
               <FlagImage iso2={localeCountryIso[loc]} size={20} />
               <span className="flex-1 text-left text-sm font-medium">{localeNames[loc]}</span>
-              {loc === locale && <Check className={cn("w-4 h-4", isLight ? "text-[#A08248]" : "text-[#C9A96E]")} />}
+              {loc === locale && <Check className={cn("w-4 h-4", isLight ? "text-[#7a6230]" : "text-[#C9A96E]")} />}
             </button>
           ))}
         </div>
@@ -249,8 +249,8 @@ export function Header({
     cn(
       "text-[12px] font-medium uppercase tracking-[1.28px] transition-colors whitespace-nowrap",
       isActive(href || "", hasDropdown, items)
-        ? isLight ? "text-[#A08248]" : "text-[#C9A96E]"
-        : isLight ? "text-[#8C8680] hover:text-[#A08248]" : "text-[#8C8680] hover:text-[#C9A96E]"
+        ? isLight ? "text-[#7a6230]" : "text-[#C9A96E]"
+        : isLight ? "text-[#68625c] hover:text-[#7a6230]" : "text-[#8C8680] hover:text-[#C9A96E]"
     )
 
   return (
@@ -293,7 +293,7 @@ export function Header({
                         className={cn(
                           "rounded-none text-[12px] uppercase tracking-[1px]",
                           isLight
-                            ? "text-[#8C8680] focus:text-[#A08248] focus:bg-black/[0.03]"
+                            ? "text-[#68625c] focus:text-[#7a6230] focus:bg-black/[0.03]"
                             : "text-[#8C8680] focus:text-[#C9A96E] focus:bg-white/5"
                         )}
                       >
@@ -388,7 +388,7 @@ export function Header({
                 onClick={() => { setMobileMenuOpen(false); setMobileExpandedDropdown(null) }}
                 className={cn(
                   "p-2 -m-2 transition-colors cursor-pointer",
-                  isLight ? "text-[#8C8680] hover:text-[#A08248]" : "text-[#8C8680] hover:text-[#C9A96E]"
+                  isLight ? "text-[#68625c] hover:text-[#7a6230]" : "text-[#8C8680] hover:text-[#C9A96E]"
                 )}
                 aria-label="Close menu"
               >
@@ -411,7 +411,7 @@ export function Header({
                           className={cn(
                             "flex items-center justify-between w-full py-3 text-[13px] font-medium uppercase tracking-[1.28px] transition-colors text-left cursor-pointer",
                             mobileExpandedDropdown === link.label
-                              ? (isLight ? "text-[#A08248]" : "text-[#C9A96E]")
+                              ? (isLight ? "text-[#7a6230]" : "text-[#C9A96E]")
                               : "text-[#8C8680]"
                           )}
                           aria-expanded={mobileExpandedDropdown === link.label}
@@ -444,7 +444,7 @@ export function Header({
                                     className={cn(
                                       "block py-2 text-[12px] uppercase tracking-[1px]",
                                       isLight
-                                        ? "text-[#8C8680] hover:text-[#A08248] active:text-[#A08248]"
+                                        ? "text-[#68625c] hover:text-[#7a6230] active:text-[#A08248]"
                                         : "text-[#666] hover:text-[#C9A96E] active:text-[#C9A96E]"
                                     )}
                                     onClick={() => setMobileMenuOpen(false)}
@@ -458,7 +458,7 @@ export function Header({
                                       "block py-2 text-[12px] uppercase tracking-[1px] transition-colors",
                                       isActive(item.href)
                                         ? (isLight ? "text-[#A08248] font-medium" : "text-[#C9A96E] font-medium")
-                                        : (isLight ? "text-[#8C8680] hover:text-[#A08248]" : "text-[#666] hover:text-[#C9A96E]")
+                                        : (isLight ? "text-[#68625c] hover:text-[#7a6230]" : "text-[#666] hover:text-[#C9A96E]")
                                     )}
                                     onClick={() => setMobileMenuOpen(false)}
                                   >
@@ -477,8 +477,8 @@ export function Header({
                           "block py-3 text-[13px] font-medium uppercase tracking-[1.28px] border-b transition-colors last:border-b-0",
                           isLight ? "border-[rgba(28,27,24,0.08)]" : "border-[#2A2A2A]",
                           isActive(link.href || "")
-                            ? (isLight ? "text-[#A08248]" : "text-[#C9A96E]")
-                            : (isLight ? "text-[#8C8680] active:text-[#A08248]" : "text-[#8C8680] active:text-[#C9A96E]")
+                            ? (isLight ? "text-[#7a6230]" : "text-[#C9A96E]")
+                            : (isLight ? "text-[#68625c] active:text-[#7a6230]" : "text-[#8C8680] active:text-[#C9A96E]")
                         )}
                         onClick={() => setMobileMenuOpen(false)}
                       >
