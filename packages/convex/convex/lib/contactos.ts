@@ -108,3 +108,29 @@ export async function ligarContacto(ctx: MutationCtx, n: Novo): Promise<{ contac
   });
   return { contactoId, organizacaoId };
 }
+
+/*
+ * Os segmentos dos Contactos (as sub-abas Clientes · Parceiros ·
+ * Motoristas). Não se guardam: saem do que está ligado a cada um — a
+ * origem do primeiro registo, os cartões dos funis e a Carteira — para
+ * nunca ficarem desencontrados do que aconteceu. Quem é criado à mão numa
+ * sub-aba fica com primeiraOrigem «manual:<segmento>».
+ */
+export const RELACOES = ["clientes", "parceiros", "motoristas"] as const;
+export type Relacao = (typeof RELACOES)[number];
+
+export function eRelacao(x: string): x is Relacao {
+  return (RELACOES as readonly string[]).includes(x);
+}
+
+export function relacaoDaOrigem(origem: string | undefined): Relacao | null {
+  if (!origem || origem === "manual") return null;
+  if (origem.startsWith("manual:")) {
+    const r = origem.slice("manual:".length);
+    return eRelacao(r) ? r : null;
+  }
+  if (origem === "driverApplications") return "motoristas";
+  if (origem === "partnerLeads" || origem === "partnerApplications") return "parceiros";
+  /* As reservas e os seis formulários de pedido. */
+  return "clientes";
+}

@@ -3,11 +3,11 @@ import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } fr
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { exigirAdmin, lerAcesso } from "./lib/admin";
-import { ligarContacto, ligarOrganizacao, normalizarEmail, normalizarNome, normalizarTelefone } from "./lib/contactos";
+import { RELACOES, ligarContacto, ligarOrganizacao, normalizarEmail, normalizarNome, normalizarTelefone, relacaoDaOrigem, type Relacao } from "./lib/contactos";
 import { FUNIS, segmentoDaOrigem, type ChaveFunil } from "./lib/funis";
 
 /*
- * Operação → Contactos (organizações e pessoas) e Parceiros → Carteira (as
+ * Contactos (organizações e pessoas, em Clientes · Parceiros · Motoristas) e Parceiros → Carteira (as
  * organizações com uma parceria ganha). A base do CRM: cada cartão do
  * quadro e cada reserva ligam-se a um contacto e, havendo, a uma
  * organização (lib/contactos.ts).
@@ -18,6 +18,7 @@ import { FUNIS, segmentoDaOrigem, type ChaveFunil } from "./lib/funis";
  */
 
 const vTipo = v.union(v.literal("organizacoes"), v.literal("contactos"));
+const vRelacao = v.union(...RELACOES.map((r) => v.literal(r)));
 const vEstadoCarteira = v.union(v.literal("ativacao"), v.literal("ativa"), v.literal("semAtividade"), v.literal("suspensa"), v.literal("terminada"));
 
 function semAcentos(s: string) {
@@ -65,16 +66,66 @@ async function reservasDe(ctx: QueryCtx, filtro: { contactoId?: Id<"contactos">;
 
 /* ─── Listas ──────────────────────────────────────────────────────────── */
 
+/*
+ * Os segmentos de cada contacto e de cada organização (lib/contactos.ts,
+ * RELACOES): a origem do primeiro registo, os cartões dos funis
+ * (Transfers e Pedidos Parceiros fazem cliente; Parcerias faz parceiro ou,
+ * vindo de uma candidatura de motorista, motorista) e a Carteira. Uma
+ * pessoa de uma organização parceira é parceira; uma organização é tudo o
+ * que as suas pessoas são. Sem nada ligado, é cliente.
+ */
+async function segmentos(ctx: QueryCtx, contactos: Doc<"contactos">[], orgs: Doc<"organizacoes">[]) {
+  const proprios = new Map<string, Set<Relacao>>();
+  const juntar = (id: string | undefined, r: Relacao | null) => {
+    if (!id || !r) return;
+    const s = proprios.get(id) ?? new Set<Relacao>();
+    s.add(r);
+    proprios.set(id, s);
+  };
+  const chaves = new Map((await ctx.db.query("funis").collect()).map((f) => [f._id as string, f.chave]));
+  for (const n of await ctx.db.query("negocios").collect()) {
+    const chave = chaves.get(n.funilId);
+    const r: Relacao | null = chave === "parcerias" ? (relacaoDaOrigem(n.origem) === "motoristas" ? "motoristas" : "parceiros") : chave ? "clientes" : null;
+    juntar(n.contactoId, r);
+    juntar(n.organizacaoId, r);
+  }
+  for (const c of contactos) juntar(c._id, relacaoDaOrigem(c.primeiraOrigem));
+  for (const o of orgs) {
+    juntar(o._id, relacaoDaOrigem(o.primeiraOrigem));
+    if (o.carteira) juntar(o._id, "parceiros");
+  }
+  const deOrg = new Map<string, Set<Relacao>>();
+  for (const o of orgs) deOrg.set(o._id, new Set(proprios.get(o._id) ?? []));
+  for (const c of contactos) {
+    if (c.organizacaoId) for (const r of proprios.get(c._id) ?? []) deOrg.get(c.organizacaoId)?.add(r);
+  }
+  const final = new Map<string, Relacao[]>();
+  for (const c of contactos) {
+    const s = new Set(proprios.get(c._id) ?? []);
+    if (c.organizacaoId && deOrg.get(c.organizacaoId)?.has("parceiros")) s.add("parceiros");
+    final.set(c._id, s.size ? [...s] : ["clientes"]);
+  }
+  for (const o of orgs) {
+    const s = deOrg.get(o._id)!;
+    final.set(o._id, s.size ? [...s] : ["clientes"]);
+  }
+  return final;
+}
+
 export const lista = query({
-  args: { tipo: vTipo, pesquisa: v.optional(v.string()) },
-  handler: async (ctx, { tipo, pesquisa }) => {
+  args: { tipo: vTipo, pesquisa: v.optional(v.string()), relacao: v.optional(vRelacao) },
+  handler: async (ctx, { tipo, pesquisa, relacao }) => {
     await exigirAdmin(ctx, "contactos", "ver");
     const q = semAcentos(pesquisa?.trim() ?? "");
+    const todosOrgs = await ctx.db.query("organizacoes").collect();
+    const todosContactos = await ctx.db.query("contactos").collect();
+    const rel = await segmentos(ctx, todosContactos, todosOrgs);
+    const doSegmento = (id: string) => !relacao || (rel.get(id) ?? ["clientes"]).includes(relacao);
     if (tipo === "organizacoes") {
-      const orgs = await ctx.db.query("organizacoes").collect();
+      const orgs = todosOrgs;
       const nomes = new Map(orgs.map((o) => [o._id as string, o.nome]));
       const pessoas = new Map<string, number>();
-      for (const c of await ctx.db.query("contactos").collect()) {
+      for (const c of todosContactos) {
         if (c.organizacaoId) pessoas.set(c.organizacaoId, (pessoas.get(c.organizacaoId) ?? 0) + 1);
       }
       const estabelecimentos = new Map<string, number>();
@@ -82,6 +133,7 @@ export const lista = query({
       return {
         tipo,
         linhas: orgs
+          .filter((o) => doSegmento(o._id))
           .filter((o) => !q || semAcentos([o.nome, o.email, o.telefone, o.localidade, o.nif, ...o.etiquetas].filter(Boolean).join(" ")).includes(q))
           .sort((a, b) => a.nome.localeCompare(b.nome, "pt"))
           .map((o) => ({
@@ -98,15 +150,17 @@ export const lista = query({
             pessoas: pessoas.get(o._id) ?? 0,
             estabelecimentos: estabelecimentos.get(o._id) ?? 0,
             carteira: o.carteira?.estado ?? null,
+            relacoes: rel.get(o._id) ?? ["clientes"],
             atualizadoEm: o.atualizadoEm,
           })),
       };
     }
-    const contactos = await ctx.db.query("contactos").collect();
-    const orgs = new Map((await ctx.db.query("organizacoes").collect()).map((o) => [o._id as string, o]));
+    const contactos = todosContactos;
+    const orgs = new Map(todosOrgs.map((o) => [o._id as string, o]));
     return {
       tipo,
       linhas: contactos
+        .filter((c) => doSegmento(c._id))
         .filter((c) => !q || semAcentos([c.nome, c.email, c.telefone, c.funcao, orgs.get(c.organizacaoId ?? "")?.nome, ...c.etiquetas].filter(Boolean).join(" ")).includes(q))
         .sort((a, b) => b.atualizadoEm - a.atualizadoEm)
         .map((c) => {
@@ -125,6 +179,7 @@ export const lista = query({
             pessoas: 0,
             estabelecimentos: 0,
             carteira: o?.carteira?.estado ?? null,
+            relacoes: rel.get(c._id) ?? ["clientes"],
             atualizadoEm: c.atualizadoEm,
           };
         }),
@@ -223,7 +278,7 @@ function limpo(s: string | undefined) {
 }
 
 export const guardarOrganizacao = mutation({
-  args: { id: v.optional(v.id("organizacoes")), ...vOrg },
+  args: { id: v.optional(v.id("organizacoes")), ...vOrg, relacao: v.optional(vRelacao) },
   handler: async (ctx, a) => {
     await exigirAdmin(ctx, "contactos", "editar");
     const nome = a.nome.trim().replace(/\s+/g, " ");
@@ -258,7 +313,8 @@ export const guardarOrganizacao = mutation({
       await ctx.db.patch(a.id, dados);
       return a.id;
     }
-    return await ctx.db.insert("organizacoes", { ...dados, primeiraOrigem: "manual", criadoEm: Date.now() });
+    /* Criada numa sub-aba (Clientes, Parceiros, Motoristas): fica lá. */
+    return await ctx.db.insert("organizacoes", { ...dados, primeiraOrigem: a.relacao ? `manual:${a.relacao}` : "manual", criadoEm: Date.now() });
   },
 });
 
@@ -274,6 +330,7 @@ export const guardarContacto = mutation({
     responsavel: v.optional(v.string()),
     organizacaoId: v.optional(v.string()),
     notas: v.optional(v.string()),
+    relacao: v.optional(vRelacao),
   },
   handler: async (ctx, a) => {
     await exigirAdmin(ctx, "contactos", "editar");
@@ -306,7 +363,7 @@ export const guardarContacto = mutation({
       await ctx.db.patch(a.id, dados);
       return a.id;
     }
-    return await ctx.db.insert("contactos", { ...dados, primeiraOrigem: "manual", criadoEm: Date.now() });
+    return await ctx.db.insert("contactos", { ...dados, primeiraOrigem: a.relacao ? `manual:${a.relacao}` : "manual", criadoEm: Date.now() });
   },
 });
 
