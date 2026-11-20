@@ -131,10 +131,12 @@ async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
 
 async function cartoesDaEtapa(ctx: QueryCtx, funil: Doc<"funis">, etapa: Etapa) {
   if (etapa.tipo === "aberta") {
-    const lidos = await ctx.db
-      .query("negocios")
-      .withIndex("by_funil_etapa", (q) => q.eq("funilId", funil._id).eq("etapaId", etapa.id))
-      .take(MAX_POR_COLUNA + 1);
+    const lidos = (
+      await ctx.db
+        .query("negocios")
+        .withIndex("by_funil_etapa", (q) => q.eq("funilId", funil._id).eq("etapaId", etapa.id))
+        .take(MAX_POR_COLUNA * 2)
+    ).filter((n) => !n.arquivadoEm);
     return { lista: lidos.slice(0, MAX_POR_COLUNA), mais: lidos.length > MAX_POR_COLUNA };
   }
   const desde = Date.now() - FECHADOS_VISIVEIS_MS;
@@ -143,7 +145,7 @@ async function cartoesDaEtapa(ctx: QueryCtx, funil: Doc<"funis">, etapa: Etapa) 
     .withIndex("by_funil_etapa_fechado", (q) => q.eq("funilId", funil._id).eq("etapaId", etapa.id).gte("fechadoEm", desde))
     .order("desc")
     .take(MAX_POR_COLUNA);
-  return { lista, mais: false };
+  return { lista: lista.filter((n) => !n.arquivadoEm), mais: false };
 }
 
 export const quadro = query({
@@ -181,8 +183,9 @@ async function lerNegocio(ctx: QueryCtx, id: Id<"negocios">) {
     nota: n.nota ?? null,
     origemTitulo: tituloDaOrigem(n.origem),
     motivoPerda: n.motivoPerda ?? null,
+    arquivadoEm: n.arquivadoEm ?? null,
     atualizadoEm: n.atualizadoEm,
-    atividades: atividades.map((a) => ({ id: a._id, tipo: a.tipo, por: a.por, texto: a.texto ?? null, em: a.em })),
+    atividades: atividades.map((a) => ({ id: a._id, tipo: a.tipo, por: a.por, texto: a.texto ?? null, em: a.em, reuniao: a.reuniao ?? null })),
   };
 }
 
@@ -430,6 +433,47 @@ export const notar = mutation({
     if (t.length > 4000) throw new ConvexError("A nota tem de caber em 4000 caracteres.");
     await ctx.db.insert("negocioAtividades", { negocioId: id, tipo: "nota", por: quem(acesso), texto: t, em: Date.now() });
     await ctx.db.patch(id, { atualizadoEm: Date.now() });
+    return null;
+  },
+});
+
+/*
+ * Arquivar tira o cartão do quadro sem o perder nem apagar: o registo e o
+ * histórico ficam, e na ficha desarquiva-se. Para o que não avança mas
+ * também não se perdeu (adiado sem data, duplicado de outro).
+ */
+export const arquivar = mutation({
+  args: { id: v.id("negocios"), arquivar: v.boolean() },
+  handler: async (ctx, { id, arquivar: sim }) => {
+    const { n, acesso } = await exigirNegocio(ctx, id, "editar");
+    if (Boolean(n.arquivadoEm) === sim) return null;
+    const agora = Date.now();
+    await ctx.db.patch(id, { arquivadoEm: sim ? agora : undefined, atualizadoEm: agora });
+    await ctx.db.insert("negocioAtividades", { negocioId: id, tipo: sim ? "arquivado" : "desarquivado", por: quem(acesso), em: agora });
+    return null;
+  },
+});
+
+/*
+ * Uma reunião no histórico: marcada (para quando), realizada, remarcada
+ * (para outra data) ou falta. Fica como atividade do cartão, com a nota do
+ * que se falou.
+ */
+export const registarReuniao = mutation({
+  args: {
+    id: v.id("negocios"),
+    estado: v.union(v.literal("marcada"), v.literal("realizada"), v.literal("remarcada"), v.literal("falta")),
+    quando: v.number(),
+    nota: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, estado, quando, nota }) => {
+    const { acesso } = await exigirNegocio(ctx, id, "editar");
+    if (!Number.isFinite(quando)) throw new ConvexError("Escolha a data da reunião.");
+    const t = nota?.trim();
+    if (t && t.length > 4000) throw new ConvexError("A nota tem de caber em 4000 caracteres.");
+    const agora = Date.now();
+    await ctx.db.insert("negocioAtividades", { negocioId: id, tipo: "reuniao", por: quem(acesso), texto: t || undefined, reuniao: { estado, quando }, em: agora });
+    await ctx.db.patch(id, { atualizadoEm: agora });
     return null;
   },
 });

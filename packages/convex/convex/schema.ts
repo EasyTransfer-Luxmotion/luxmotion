@@ -1945,6 +1945,9 @@ export default defineSchema({
     movidoEm: v.number(),
     fechadoEm: v.optional(v.number()),
     motivoPerda: v.optional(v.string()),
+    /* Tirado do quadro sem se perder nem apagar (funis.arquivar): o registo
+       e o histórico ficam, e desarquiva-se na ficha. */
+    arquivadoEm: v.optional(v.number()),
   })
     .index("by_funil_etapa", ["funilId", "etapaId", "ordem"])
     .index("by_funil_etapa_fechado", ["funilId", "etapaId", "fechadoEm"])
@@ -1961,6 +1964,16 @@ export default defineSchema({
       v.literal("editado"),
       v.literal("ganho"),
       v.literal("perdido"),
+      v.literal("reuniao"),
+      v.literal("arquivado"),
+      v.literal("desarquivado"),
+    ),
+    /* Uma reunião: marcada, realizada, remarcada ou falta, e para quando. */
+    reuniao: v.optional(
+      v.object({
+        estado: v.union(v.literal("marcada"), v.literal("realizada"), v.literal("remarcada"), v.literal("falta")),
+        quando: v.number(),
+      }),
     ),
     /* Email de quem fez, ou "sistema" quando a lead chegou do site. */
     por: v.string(),
