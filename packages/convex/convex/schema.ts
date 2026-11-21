@@ -1821,6 +1821,13 @@ export default defineSchema({
     actualizadoEm: v.number(),
   }).index("by_nome", ["nome"]),
 
+  // Owners (ADMIN_EMAILS) have no member row; this holds what they set for themselves, like their photo.
+  ownerProfiles: defineTable({
+    email: v.string(),
+    photo: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_email", ["email"]),
+
   colaboradores: defineTable({
     /* Em minúsculas: é o que se compara com o email verificado do Clerk. */
     email: v.string(),

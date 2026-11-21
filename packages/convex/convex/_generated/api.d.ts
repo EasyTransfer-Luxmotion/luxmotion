@@ -67,6 +67,7 @@ import type * as lib_list from "../lib/list.js";
 import type * as lib_markdownToTiptap from "../lib/markdownToTiptap.js";
 import type * as lib_notificar from "../lib/notificar.js";
 import type * as lib_openai from "../lib/openai.js";
+import type * as lib_ownerProfiles from "../lib/ownerProfiles.js";
 import type * as lib_pagination from "../lib/pagination.js";
 import type * as lib_parceriaPorSlug from "../lib/parceriaPorSlug.js";
 import type * as lib_permissoes from "../lib/permissoes.js";
@@ -190,6 +191,7 @@ declare const fullApi: ApiFromModules<{
   "lib/markdownToTiptap": typeof lib_markdownToTiptap;
   "lib/notificar": typeof lib_notificar;
   "lib/openai": typeof lib_openai;
+  "lib/ownerProfiles": typeof lib_ownerProfiles;
   "lib/pagination": typeof lib_pagination;
   "lib/parceriaPorSlug": typeof lib_parceriaPorSlug;
   "lib/permissoes": typeof lib_permissoes;

@@ -138,37 +138,53 @@ export const viBoasVindas = mutation({
   },
 });
 
-/* The signed-in member's own row: name and photo for the account menu. Owners
-   (ADMIN_EMAILS) without a member row get null, and the menu offers no photo. */
-async function myMember(ctx: QueryCtx | MutationCtx) {
+/* Whose photo the signed-in person sets: their member row if they have one,
+   otherwise, for an owner (ADMIN_EMAILS) with no row, their owner profile.
+   Never while "ver como" is on: that session is someone else's view. */
+async function myPhotoTarget(ctx: QueryCtx | MutationCtx) {
   const acesso = await lerAcesso(ctx);
   if (acesso.estado !== "admin" || !acesso.email || acesso.simulacao) return null;
-  return await ctx.db
+  const email = acesso.email;
+  const member = await ctx.db
     .query("colaboradores")
-    .withIndex("by_email", (q) => q.eq("email", acesso.email!))
+    .withIndex("by_email", (q) => q.eq("email", email))
     .first();
+  if (member) return { kind: "member" as const, member, email };
+  if (!acesso.dono) return null;
+  const owner = await ctx.db
+    .query("ownerProfiles")
+    .withIndex("by_email", (q) => q.eq("email", email))
+    .first();
+  return { kind: "owner" as const, owner, email };
 }
 
 export const myProfile = query({
   args: {},
   handler: async (ctx) => {
-    const c = await myMember(ctx);
-    if (!c) return null;
-    return { name: c.nome, photoUrl: c.photo ? await urlDaImagem(ctx, c.photo) : null, canSetPhoto: true };
+    const t = await myPhotoTarget(ctx);
+    if (!t) return null;
+    const photo = t.kind === "member" ? t.member.photo : t.owner?.photo;
+    return { name: t.kind === "member" ? t.member.nome : null, photoUrl: await urlDaImagem(ctx, photo), canSetPhoto: true };
   },
 });
 
-/* Each member sets their own photo, never someone else's: the row is found by
+/* Each person sets their own photo, never someone else's: the row is found by
    the session's verified email, not by an id the browser sends. */
 export const setMyPhoto = mutation({
   args: { photo: v.union(v.string(), v.null()) },
   handler: async (ctx, { photo }) => {
-    const c = await myMember(ctx);
-    if (!c) throw new ConvexError("Só os membros da equipa podem pôr fotografia. Peça a quem gere a equipa.");
+    const t = await myPhotoTarget(ctx);
+    if (!t) throw new ConvexError("Só a equipa pode pôr fotografia. Peça a quem gere a equipa.");
     // Only paths that came from the upload (imagensBunny.publicar): a URL from elsewhere would show any image.
     if (photo !== null && !/^uploads\/[\w./-]+$/.test(photo)) throw new ConvexError("Esta fotografia não chegou bem. Carregue-a outra vez.");
-    // Not actualizadoEm: that is the version an admin editing this member checks, and a new photo is no conflict.
-    await ctx.db.patch(c._id, { photo: photo ?? undefined });
+    if (t.kind === "member") {
+      // Not actualizadoEm: that is the version an admin editing this member checks, and a new photo is no conflict.
+      await ctx.db.patch(t.member._id, { photo: photo ?? undefined });
+    } else if (t.owner) {
+      await ctx.db.patch(t.owner._id, { photo: photo ?? undefined, updatedAt: Date.now() });
+    } else {
+      await ctx.db.insert("ownerProfiles", { email: t.email, photo: photo ?? undefined, updatedAt: Date.now() });
+    }
     return null;
   },
 });

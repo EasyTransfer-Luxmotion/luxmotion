@@ -7,6 +7,7 @@ import { exigirAdmin, lerAcesso, permite, verificar } from "./lib/admin";
 import { VALIDADE_CONVITE, convitesDe, estadoDoConvite, novoToken, ultimoConvite } from "./lib/convites";
 import { notificar } from "./lib/notificar";
 import { urlDaImagem } from "./lib/imagens";
+import { ownerPhotoUrls } from "./lib/ownerProfiles";
 import {
   CHAVES_CAPACIDADE,
   eCapacidade,
@@ -280,8 +281,10 @@ export const members = query({
         return ix ? (y.convite?.criadoEm ?? 0) - (x.convite?.criadoEm ?? 0) : 0;
       });
     const pg = pageOf(matching, a);
-    const owners =
+    const ownerEmails =
       pg.page === 0 && (!a.status || a.status === "active") && !a.roleId ? looseOwners.filter((e) => matchesSearch(a.search, [e, "dono"])) : [];
+    const ownerPhotos = await ownerPhotoUrls(ctx, ownerEmails);
+    const owners = ownerEmails.map((email) => ({ email, photoUrl: ownerPhotos.get(email) ?? null }));
     const count = (st: MemberStatus) => all.filter((m) => memberStatus(m) === st).length + (st === "active" ? looseOwners.length : 0);
     return {
       ...pg,
@@ -424,6 +427,7 @@ export const dono = query({
       email: e,
       nome: colaborador?.nome ?? null,
       colaboradorId: colaborador?._id ?? null,
+      photoUrl: colaborador ? await urlDaImagem(ctx, colaborador.photo) : ((await ownerPhotoUrls(ctx, [e])).get(e) ?? null),
       historico: recentes.filter((l) => l.ator === e).slice(0, 30).map(linhaRegisto),
     };
   },
