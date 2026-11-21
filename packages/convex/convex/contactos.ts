@@ -378,27 +378,37 @@ export const lista = query({
    a organização de uma pessoa): a pesquisa faz-se aqui e vêm só os
    primeiros. Recebia a lista inteira e procurava no browser. */
 export const escolher = query({
-  args: { tipo: vTipo, pesquisa: v.optional(v.string()), excluir: v.optional(v.string()), limite: v.optional(v.number()) },
+  args: {
+    tipo: vTipo,
+    pesquisa: v.optional(v.string()),
+    excluir: v.optional(v.string()),
+    /* O que já está escolhido entra sempre, mesmo fora dos primeiros. */
+    incluir: v.optional(v.string()),
+    /* Ao apagar: os parecidos com o que se apaga primeiro (mesmo email ou
+       telefone, depois o mesmo primeiro nome). */
+    semelhante: v.optional(v.object({ nome: v.optional(v.string()), email: v.optional(v.string()), telefone: v.optional(v.string()) })),
+    limite: v.optional(v.number()),
+  },
   handler: async (ctx, a) => {
     await exigirAdmin(ctx, "contactos", "ver");
     const termos = semAcentos(a.pesquisa ?? "").split(/\s+/).filter(Boolean);
     const limite = Math.min(Math.max(1, a.limite ?? 20), 50);
-    if (a.tipo === "organizacoes") {
-      const orgs = await ctx.db.query("organizacoes").collect();
-      return orgs
-        .filter((o) => o._id !== a.excluir)
-        .filter((o) => termos.every((t) => semAcentos([o.nome, o.email, o.telefone, o.localidade, o.nif].filter(Boolean).join(" ")).includes(t)))
-        .sort((x, y) => x.nome.localeCompare(y.nome, "pt"))
-        .slice(0, limite)
-        .map((o) => ({ id: o._id as string, nome: o.nome, subtitulo: o.localidade ?? null, email: o.email ?? null, telefone: o.telefone ?? null }));
-    }
-    const contactos = await ctx.db.query("contactos").collect();
-    return contactos
-      .filter((c) => c._id !== a.excluir)
-      .filter((c) => termos.every((t) => semAcentos([c.nome, c.email, c.telefone, c.funcao].filter(Boolean).join(" ")).includes(t)))
-      .sort((x, y) => y.atualizadoEm - x.atualizadoEm)
-      .slice(0, limite)
-      .map((c) => ({ id: c._id as string, nome: c.nome, subtitulo: c.funcao ?? null, email: c.email ?? null, telefone: c.telefone ?? null }));
+    const primeiro = semAcentos(a.semelhante?.nome ?? "").split(/\s+/)[0] ?? "";
+    const parecido = (x: { nome: string; email?: string | null; telefone?: string | null }) =>
+      (a.semelhante?.email && x.email === a.semelhante.email ? 4 : 0) +
+      (a.semelhante?.telefone && x.telefone === a.semelhante.telefone ? 4 : 0) +
+      (primeiro && semAcentos(x.nome).split(/\s+/)[0] === primeiro ? 1 : 0);
+    const todos =
+      a.tipo === "organizacoes"
+        ? (await ctx.db.query("organizacoes").collect()).map((o) => ({ id: o._id as string, nome: o.nome, subtitulo: o.localidade ?? null, email: o.email ?? null, telefone: o.telefone ?? null, procura: [o.nome, o.email, o.telefone, o.localidade, o.nif], em: o.atualizadoEm }))
+        : (await ctx.db.query("contactos").collect()).map((c) => ({ id: c._id as string, nome: c.nome, subtitulo: c.funcao ?? null, email: c.email ?? null, telefone: c.telefone ?? null, procura: [c.nome, c.email, c.telefone, c.funcao], em: c.atualizadoEm }));
+    const encontrados = todos
+      .filter((x) => x.id !== a.excluir)
+      .filter((x) => termos.every((t) => semAcentos(x.procura.filter(Boolean).join(" ")).includes(t)))
+      .sort((x, y) => parecido(y) - parecido(x) || (a.tipo === "organizacoes" ? x.nome.localeCompare(y.nome, "pt") : y.em - x.em))
+      .slice(0, limite);
+    const extra = a.incluir && !encontrados.some((x) => x.id === a.incluir) ? todos.filter((x) => x.id === a.incluir) : [];
+    return [...extra, ...encontrados].map(({ id, nome, subtitulo, email, telefone }) => ({ id, nome, subtitulo, email, telefone }));
   },
 });
 
