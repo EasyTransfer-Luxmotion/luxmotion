@@ -115,11 +115,19 @@ export const lista = query({
     const pg = pageOf(matching, a);
     const byCategory: Record<string, number> = {};
     for (const d of docs) byCategory[d.category] = (byCategory[d.category] ?? 0) + 1;
+    // The status tabs count within the chosen category, as the screen always did.
+    const inCategory = docs.filter((d) => !a.category || d.category === a.category);
+    const statusCounts = {
+      all: inCategory.length,
+      published: inCategory.filter((d) => d.status === "published").length,
+      draft: inCategory.filter((d) => d.status !== "published").length,
+    };
     return {
       ...pg,
       rows: await Promise.all(pg.rows.map((d) => toRow(ctx, d, mapa, lugar))),
       unfilteredTotal: docs.length,
       byCategory,
+      statusCounts,
       destaques: DESTAQUES,
     };
   },
