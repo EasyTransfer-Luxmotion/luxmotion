@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { matchesSearch, pageArgs, pageOf } from "./lib/list";
 import { internalAction, internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -161,71 +162,147 @@ async function criarConvite(ctx: MutationCtx, p: Doc<"colaboradores">, por: stri
   return id;
 }
 
+/* Everything the team screens show; `lista`, `members` and `roles` share it. */
+async function loadTeam(ctx: QueryCtx) {
+  const [cargos, colaboradores, convites] = await Promise.all([
+    ctx.db.query("cargos").collect(),
+    ctx.db.query("colaboradores").collect(),
+    ctx.db.query("convites").collect(),
+  ]);
+  /* Os convites de cada pessoa, do mais recente para o mais antigo. */
+  const convitesPor = new Map<string, Doc<"convites">[]>();
+  for (const c of convites.sort((a, b) => b.criadoEm - a.criadoEm)) {
+    const l = convitesPor.get(c.colaboradorId) ?? [];
+    l.push(c);
+    convitesPor.set(c.colaboradorId, l);
+  }
+  const agora = Date.now();
+  const nomeCargo = new Map(cargos.map((c) => [c._id as string, c.nome]));
+  const listaDonos = donos();
+  /* A última linha do registo de cada cargo: quem lhe mexeu por último,
+     para a lista. São poucos cargos; uma leitura por cada chega. */
+  const ultimas = await Promise.all(
+    cargos.map((c) =>
+      ctx.db.query("registoEquipa").withIndex("by_cargo", (q) => q.eq("cargoId", c._id)).order("desc").first(),
+    ),
+  );
+  return {
+    cargos: cargos
+      .map((c, i) => {
+        const membros = colaboradores
+          .filter((p) => p.cargoId === c._id)
+          .sort((a, b) => a.nome.localeCompare(b.nome, "pt"))
+          .map((p) => ({ id: p._id, nome: p.nome, estado: p.estado }));
+        return {
+          id: c._id,
+          nome: c.nome,
+          descricao: c.descricao ?? null,
+          permissoes: permissoesValidas(c),
+          capacidades: capacidadesValidas(c),
+          pessoas: membros.length,
+          membros,
+          actualizadoEm: c.actualizadoEm,
+          alteradoPor: ultimas[i]?.ator ?? null,
+        };
+      })
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt")),
+    colaboradores: colaboradores
+      .map((p) => ({
+        id: p._id,
+        email: p.email,
+        nome: p.nome,
+        cargoId: p.cargoId,
+        cargo: nomeCargo.get(p.cargoId) ?? null,
+        estado: p.estado,
+        situacao: situacao(p),
+        convite: resumoConvite(convitesPor.get(p._id)?.[0], convitesPor.get(p._id)?.length ?? 0, agora),
+        /* Também nos donos: o cargo não conta enquanto o email lá estiver. */
+        dono: listaDonos.includes(p.email),
+        criadoEm: p.criadoEm,
+        actualizadoEm: p.actualizadoEm,
+        ultimaEntradaEm: p.ultimaEntradaEm ?? null,
+      }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt")),
+    donos: listaDonos,
+  };
+}
+
 export const lista = query({
   args: {},
   handler: async (ctx) => {
     await exigirAdmin(ctx, "equipa", "ver");
-    const [cargos, colaboradores, convites] = await Promise.all([
-      ctx.db.query("cargos").collect(),
-      ctx.db.query("colaboradores").collect(),
-      ctx.db.query("convites").collect(),
-    ]);
-    /* Os convites de cada pessoa, do mais recente para o mais antigo. */
-    const convitesPor = new Map<string, Doc<"convites">[]>();
-    for (const c of convites.sort((a, b) => b.criadoEm - a.criadoEm)) {
-      const l = convitesPor.get(c.colaboradorId) ?? [];
-      l.push(c);
-      convitesPor.set(c.colaboradorId, l);
-    }
-    const agora = Date.now();
-    const nomeCargo = new Map(cargos.map((c) => [c._id as string, c.nome]));
-    const listaDonos = donos();
-    /* A última linha do registo de cada cargo: quem lhe mexeu por último,
-       para a lista. São poucos cargos; uma leitura por cada chega. */
-    const ultimas = await Promise.all(
-      cargos.map((c) =>
-        ctx.db.query("registoEquipa").withIndex("by_cargo", (q) => q.eq("cargoId", c._id)).order("desc").first(),
-      ),
-    );
+    return loadTeam(ctx);
+  },
+});
+
+type MemberStatus = "active" | "pending" | "declined" | "expired" | "blocked";
+type TeamMember = Awaited<ReturnType<typeof loadTeam>>["colaboradores"][number];
+
+/* The filter's status: someone who never signed in is in their invite's state;
+   a blocked person is blocked whether or not they ever signed in. */
+function memberStatus(m: TeamMember): MemberStatus {
+  if (m.situacao === "suspenso") return "blocked";
+  if (m.situacao === "convidado") {
+    const invite = m.ultimaEntradaEm ? "aceite" : (m.convite?.estado ?? "pendente");
+    return invite === "aceite" ? "active" : invite === "recusado" ? "declined" : invite === "expirado" ? "expired" : "pending";
+  }
+  return "active";
+}
+
+const vMemberStatus = v.union(v.literal("active"), v.literal("pending"), v.literal("declined"), v.literal("expired"), v.literal("blocked"));
+
+/* Team → People: status, role, search and page come from the URL and are
+   resolved here. Owners (ADMIN_EMAILS) with no member row come separately, on
+   the first page only, because they are not rows anyone can edit. */
+export const members = query({
+  args: { search: v.optional(v.string()), status: v.optional(vMemberStatus), roleId: v.optional(v.string()), ...pageArgs },
+  handler: async (ctx, a) => {
+    await exigirAdmin(ctx, "equipa", "ver");
+    const team = await loadTeam(ctx);
+    const all = team.colaboradores;
+    const emails = new Set(all.map((m) => m.email));
+    const looseOwners = team.donos.filter((e) => !emails.has(e));
+    const matching = all
+      .filter((m) => !a.status || memberStatus(m) === a.status)
+      .filter((m) => !a.roleId || m.cargoId === a.roleId)
+      .filter((m) => matchesSearch(a.search, [m.nome, m.email, m.cargo]))
+      // People who signed in first; then invites, newest first.
+      .sort((x, y) => {
+        const ix = x.situacao === "convidado" ? 1 : 0;
+        const iy = y.situacao === "convidado" ? 1 : 0;
+        if (ix !== iy) return ix - iy;
+        return ix ? (y.convite?.criadoEm ?? 0) - (x.convite?.criadoEm ?? 0) : 0;
+      });
+    const pg = pageOf(matching, a);
+    const owners =
+      pg.page === 0 && (!a.status || a.status === "active") && !a.roleId ? looseOwners.filter((e) => matchesSearch(a.search, [e, "dono"])) : [];
+    const count = (st: MemberStatus) => all.filter((m) => memberStatus(m) === st).length + (st === "active" ? looseOwners.length : 0);
     return {
-      cargos: cargos
-        .map((c, i) => {
-          const membros = colaboradores
-            .filter((p) => p.cargoId === c._id)
-            .sort((a, b) => a.nome.localeCompare(b.nome, "pt"))
-            .map((p) => ({ id: p._id, nome: p.nome, estado: p.estado }));
-          return {
-            id: c._id,
-            nome: c.nome,
-            descricao: c.descricao ?? null,
-            permissoes: permissoesValidas(c),
-            capacidades: capacidadesValidas(c),
-            pessoas: membros.length,
-            membros,
-            actualizadoEm: c.actualizadoEm,
-            alteradoPor: ultimas[i]?.ator ?? null,
-          };
-        })
-        .sort((a, b) => a.nome.localeCompare(b.nome, "pt")),
-      colaboradores: colaboradores
-        .map((p) => ({
-          id: p._id,
-          email: p.email,
-          nome: p.nome,
-          cargoId: p.cargoId,
-          cargo: nomeCargo.get(p.cargoId) ?? null,
-          estado: p.estado,
-          situacao: situacao(p),
-          convite: resumoConvite(convitesPor.get(p._id)?.[0], convitesPor.get(p._id)?.length ?? 0, agora),
-          /* Também nos donos: o cargo não conta enquanto o email lá estiver. */
-          dono: listaDonos.includes(p.email),
-          criadoEm: p.criadoEm,
-          actualizadoEm: p.actualizadoEm,
-          ultimaEntradaEm: p.ultimaEntradaEm ?? null,
-        }))
-        .sort((a, b) => a.nome.localeCompare(b.nome, "pt")),
-      donos: listaDonos,
+      ...pg,
+      rows: pg.rows.map((m) => ({ ...m, status: memberStatus(m) })),
+      owners,
+      counts: {
+        all: all.length + looseOwners.length,
+        active: count("active"),
+        pending: count("pending"),
+        declined: count("declined"),
+        expired: count("expired"),
+        blocked: count("blocked"),
+      },
+      // The role filter and the invite dialog need every role, not one page.
+      roles: team.cargos,
     };
+  },
+});
+
+/* Team → Roles: search and page come from the URL and are resolved here. */
+export const roles = query({
+  args: { search: v.optional(v.string()), ...pageArgs },
+  handler: async (ctx, a) => {
+    await exigirAdmin(ctx, "equipa", "ver");
+    const { cargos } = await loadTeam(ctx);
+    const pg = pageOf(cargos.filter((c) => matchesSearch(a.search, [c.nome, c.descricao])), a);
+    return { ...pg, unfilteredTotal: cargos.length, peopleTotal: cargos.reduce((n, c) => n + c.pessoas, 0) };
   },
 });
 
@@ -347,6 +424,22 @@ export const registo = query({
       ? linhas.filter((l) => (tipo === "cargos" ? /cargo/i.test(l.accao) || l.cargoId : !/cargo/i.test(l.accao) || l.colaboradorId))
       : linhas;
     return filtradas.slice(0, n).map(linhaRegisto);
+  },
+});
+
+/* The team log screen: type, search and page come from the URL and are
+   resolved here. It reads the most recent 1000 entries, which is months of
+   changes; the screen never showed more than 500. */
+export const log = query({
+  args: { type: v.optional(v.union(v.literal("cargos"), v.literal("membros"))), search: v.optional(v.string()), ...pageArgs },
+  handler: async (ctx, a) => {
+    await exigirAdmin(ctx, "equipa", "ver");
+    const recent = await ctx.db.query("registoEquipa").withIndex("by_em").order("desc").take(1000);
+    const matching = recent
+      .filter((l) => !a.type || (a.type === "cargos" ? /cargo/i.test(l.accao) || l.cargoId : !/cargo/i.test(l.accao) || l.colaboradorId))
+      .filter((l) => matchesSearch(a.search, [l.ator, l.accao, l.alvo, l.detalhe]));
+    const pg = pageOf(matching, a);
+    return { ...pg, rows: pg.rows.map(linhaRegisto) };
   },
 });
 
