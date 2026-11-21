@@ -1845,6 +1845,8 @@ export default defineSchema({
     mensagemConvite: v.optional(v.string()),
     /* Quando viu o ecrã de boas-vindas da primeira entrada. Sem ele, vê-o. */
     boasVindasEm: v.optional(v.number()),
+    // The member's own photo (Bunny path, uploads/…), set by them on the welcome screen or the account menu.
+    photo: v.optional(v.string()),
   })
     .index("by_email", ["email"])
     .index("by_cargo", ["cargoId"]),

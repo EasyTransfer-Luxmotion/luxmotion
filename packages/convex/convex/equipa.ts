@@ -6,6 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, permite, verificar } from "./lib/admin";
 import { VALIDADE_CONVITE, convitesDe, estadoDoConvite, novoToken, ultimoConvite } from "./lib/convites";
 import { notificar } from "./lib/notificar";
+import { urlDaImagem } from "./lib/imagens";
 import {
   CHAVES_CAPACIDADE,
   eCapacidade,
@@ -186,13 +187,17 @@ async function loadTeam(ctx: QueryCtx) {
       ctx.db.query("registoEquipa").withIndex("by_cargo", (q) => q.eq("cargoId", c._id)).order("desc").first(),
     ),
   );
+  // Each member's own photo (acesso.setMyPhoto), for the avatars on every team screen.
+  const photoUrls = new Map(
+    await Promise.all(colaboradores.filter((p) => p.photo).map(async (p) => [p._id as string, await urlDaImagem(ctx, p.photo)] as const)),
+  );
   return {
     cargos: cargos
       .map((c, i) => {
         const membros = colaboradores
           .filter((p) => p.cargoId === c._id)
           .sort((a, b) => a.nome.localeCompare(b.nome, "pt"))
-          .map((p) => ({ id: p._id, nome: p.nome, estado: p.estado }));
+          .map((p) => ({ id: p._id, nome: p.nome, estado: p.estado, photoUrl: photoUrls.get(p._id) ?? null }));
         return {
           id: c._id,
           nome: c.nome,
@@ -221,6 +226,7 @@ async function loadTeam(ctx: QueryCtx) {
         criadoEm: p.criadoEm,
         actualizadoEm: p.actualizadoEm,
         ultimaEntradaEm: p.ultimaEntradaEm ?? null,
+        photoUrl: photoUrls.get(p._id) ?? null,
       }))
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt")),
     donos: listaDonos,
@@ -330,9 +336,19 @@ export const cargo = query({
       capacidades: capacidadesValidas(c),
       versao: c.actualizadoEm,
       criadoEm: c.criadoEm,
-      membros: membros
-        .sort((a, b) => a.nome.localeCompare(b.nome, "pt"))
-        .map((p) => ({ id: p._id, nome: p.nome, email: p.email, estado: p.estado, situacao: situacao(p), ultimaEntradaEm: p.ultimaEntradaEm ?? null })),
+      membros: await Promise.all(
+        membros
+          .sort((a, b) => a.nome.localeCompare(b.nome, "pt"))
+          .map(async (p) => ({
+            id: p._id,
+            nome: p.nome,
+            email: p.email,
+            estado: p.estado,
+            situacao: situacao(p),
+            ultimaEntradaEm: p.ultimaEntradaEm ?? null,
+            photoUrl: await urlDaImagem(ctx, p.photo),
+          })),
+      ),
       historico: await historico(ctx, { cargoId: c._id }),
     };
   },
@@ -380,6 +396,7 @@ export const membro = query({
       telefone: p.telefone ?? null,
       idioma: p.idioma ?? "pt",
       mensagemConvite: p.mensagemConvite ?? null,
+      photoUrl: await urlDaImagem(ctx, p.photo),
       historico: await historico(ctx, { colaboradorId: p._id }),
     };
   },
