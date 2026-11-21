@@ -661,7 +661,10 @@ export const preencher = internalMutation({
 export const reunioes = query({
   args: { ate: v.number() },
   handler: async (ctx, { ate }) => {
-    await exigirAdmin(ctx);
+    /* Ler, não editar: com o nível por omissão («editar») o «ver como», que é
+       só consulta, recusava e o ecrã das Reuniões não abria. Cada reunião
+       ainda passa pelo módulo do seu cartão, mais abaixo. */
+    await exigirAdmin(ctx, undefined, "ver");
     const acesso = await lerAcesso(ctx);
     const funis = new Map((await ctx.db.query("funis").collect()).map((f) => [f._id as string, f]));
     const marcadas = await ctx.db
@@ -739,7 +742,10 @@ export const preencherReunioes = internalMutation({
 export const calendario = query({
   args: { de: v.number(), ate: v.number() },
   handler: async (ctx, { de, ate }) => {
-    await exigirAdmin(ctx);
+    /* Ler, não editar: com o nível por omissão («editar») o «ver como», que é
+       só consulta, recusava e o ecrã das Reuniões não abria. Cada reunião
+       ainda passa pelo módulo do seu cartão, mais abaixo. */
+    await exigirAdmin(ctx, undefined, "ver");
     const acesso = await lerAcesso(ctx);
     const funis = new Map((await ctx.db.query("funis").collect()).map((f) => [f._id as string, f]));
     const registos = await ctx.db
