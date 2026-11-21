@@ -281,8 +281,9 @@ export const members = query({
         return ix ? (y.convite?.criadoEm ?? 0) - (x.convite?.criadoEm ?? 0) : 0;
       });
     const pg = pageOf(matching, a);
-    const ownerEmails =
-      pg.page === 0 && (!a.status || a.status === "active") && !a.roleId ? looseOwners.filter((e) => matchesSearch(a.search, [e, "dono"])) : [];
+    // Owners without a row match only "all"/"active" and no role filter; they show on the first page.
+    const matchingOwners = (!a.status || a.status === "active") && !a.roleId ? looseOwners.filter((e) => matchesSearch(a.search, [e, "dono"])) : [];
+    const ownerEmails = pg.page === 0 ? matchingOwners : [];
     const ownerPhotos = await ownerPhotoUrls(ctx, ownerEmails);
     const owners = ownerEmails.map((email) => ({ email, photoUrl: ownerPhotos.get(email) ?? null }));
     const count = (st: MemberStatus) => all.filter((m) => memberStatus(m) === st).length + (st === "active" ? looseOwners.length : 0);
@@ -290,6 +291,8 @@ export const members = query({
       ...pg,
       rows: pg.rows.map((m) => ({ ...m, status: memberStatus(m) })),
       owners,
+      // So the footer counts everyone on screen: it said "1–1 de 1" over four people.
+      ownersTotal: matchingOwners.length,
       counts: {
         all: all.length + looseOwners.length,
         active: count("active"),
