@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { matchesSearch, pageArgs, pageOf } from "./lib/list";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
@@ -108,46 +109,108 @@ async function lerExtras(ctx: QueryCtx) {
   return usos;
 }
 
+/* Every photo with the extras that use it, and the extras with no photo.
+   `lista`, `page`, `photo` and `pick` share it. */
+async function loadPhotos(ctx: QueryCtx) {
+  const [biblioteca, extras] = await Promise.all([ctx.db.query("addonImages").collect(), lerExtras(ctx)]);
+
+  type Foto = {
+    caminho: string;
+    url: string | null;
+    nome: string;
+    naBiblioteca: boolean;
+    criadaEm: number;
+    usos: Uso[];
+  };
+  const fotos = new Map<string, Foto>();
+  for (const b of biblioteca) {
+    fotos.set(b.storageId, { caminho: b.storageId, url: null, nome: b.label, naBiblioteca: true, criadaEm: b.createdAt, usos: [] });
+  }
+  const semFoto: Uso[] = [];
+  for (const { imageId, ...u } of extras) {
+    if (!imageId) {
+      if (u.titulo.trim()) semFoto.push(u);
+      continue;
+    }
+    const f = fotos.get(imageId) ?? { caminho: imageId, url: null, nome: u.titulo, naBiblioteca: false, criadaEm: 0, usos: [] };
+    f.usos.push(u);
+    fotos.set(imageId, f);
+  }
+  /* Uma foto herdada (sem linha na biblioteca) toma o nome do primeiro extra
+     que a usa — é o melhor palpite, e muda-se ao renomear. */
+  const lidas = await Promise.all(
+    [...fotos.values()].map(async (f) => ({
+      ...f,
+      url: await urlDaImagem(ctx, f.caminho),
+      usos: f.usos.sort((a, b) => a.titulo.localeCompare(b.titulo, "pt")),
+    })),
+  );
+  return {
+    fotos: lidas.sort((a, b) => b.usos.length - a.usos.length || b.criadaEm - a.criadaEm || a.nome.localeCompare(b.nome, "pt")),
+    semFoto: semFoto.sort((a, b) => Number(b.publicado) - Number(a.publicado) || a.titulo.localeCompare(b.titulo, "pt")),
+  };
+}
+
 export const lista = query({
   args: {},
   handler: async (ctx) => {
     await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"], "ver");
-    const [biblioteca, extras] = await Promise.all([ctx.db.query("addonImages").collect(), lerExtras(ctx)]);
+    return loadPhotos(ctx);
+  },
+});
 
-    type Foto = {
-      caminho: string;
-      url: string | null;
-      nome: string;
-      naBiblioteca: boolean;
-      criadaEm: number;
-      usos: Uso[];
-    };
-    const fotos = new Map<string, Foto>();
-    for (const b of biblioteca) {
-      fotos.set(b.storageId, { caminho: b.storageId, url: null, nome: b.label, naBiblioteca: true, criadaEm: b.createdAt, usos: [] });
-    }
-    const semFoto: Uso[] = [];
-    for (const { imageId, ...u } of extras) {
-      if (!imageId) {
-        if (u.titulo.trim()) semFoto.push(u);
-        continue;
-      }
-      const f = fotos.get(imageId) ?? { caminho: imageId, url: null, nome: u.titulo, naBiblioteca: false, criadaEm: 0, usos: [] };
-      f.usos.push(u);
-      fotos.set(imageId, f);
-    }
-    /* Uma foto herdada (sem linha na biblioteca) toma o nome do primeiro extra
-       que a usa — é o melhor palpite, e muda-se ao renomear. */
-    const lidas = await Promise.all(
-      [...fotos.values()].map(async (f) => ({
-        ...f,
-        url: await urlDaImagem(ctx, f.caminho),
-        usos: f.usos.sort((a, b) => a.titulo.localeCompare(b.titulo, "pt")),
-      })),
-    );
+/* The photo library grid: filter, search and page come from the URL and are
+   resolved here. "missing" is the tab of extras without a photo, which is a
+   short list and comes whole. */
+export const page = query({
+  args: {
+    filter: v.optional(v.union(v.literal("all"), v.literal("inUse"), v.literal("unused"), v.literal("missing"))),
+    search: v.optional(v.string()),
+    ...pageArgs,
+  },
+  handler: async (ctx, a) => {
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"], "ver");
+    const { fotos, semFoto } = await loadPhotos(ctx);
+    const filter = a.filter ?? "all";
+    const matching = fotos
+      .filter((f) => filter === "all" || filter === "missing" || (filter === "inUse" ? f.usos.length > 0 : f.usos.length === 0))
+      .filter((f) => matchesSearch(a.search, [f.nome, ...f.usos.flatMap((u) => [u.titulo, u.onde])]));
+    const pg = pageOf(filter === "missing" ? [] : matching, a);
     return {
-      fotos: lidas.sort((a, b) => b.usos.length - a.usos.length || b.criadaEm - a.criadaEm || a.nome.localeCompare(b.nome, "pt")),
-      semFoto: semFoto.sort((a, b) => Number(b.publicado) - Number(a.publicado) || a.titulo.localeCompare(b.titulo, "pt")),
+      ...pg,
+      counts: {
+        all: fotos.length,
+        inUse: fotos.filter((f) => f.usos.length > 0).length,
+        unused: fotos.filter((f) => f.usos.length === 0).length,
+        missing: semFoto.length,
+      },
+      missing: filter === "missing" ? semFoto : [],
+    };
+  },
+});
+
+/* One photo for the detail sheet, found by its storage path. */
+export const photo = query({
+  args: { path: v.string() },
+  handler: async (ctx, { path }) => {
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"], "ver");
+    const { fotos } = await loadPhotos(ctx);
+    return fotos.find((f) => f.caminho === path) ?? null;
+  },
+});
+
+/* The photo pickers: the search runs here and only the first `limit` matches
+   come back, so a picker never downloads the whole library. */
+export const pick = query({
+  args: { search: v.optional(v.string()), exclude: v.optional(v.string()), limit: v.optional(v.number()) },
+  handler: async (ctx, a) => {
+    await exigirAdmin(ctx, ["fotosExtras", "extras", "tours", "eventos"], "ver");
+    const { fotos } = await loadPhotos(ctx);
+    const matching = fotos.filter((f) => f.url && f.caminho !== a.exclude && matchesSearch(a.search, [f.nome]));
+    const limit = Math.min(Math.max(1, Math.floor(a.limit ?? 120)), 300);
+    return {
+      total: matching.length,
+      rows: matching.slice(0, limit).map((f) => ({ caminho: f.caminho, nome: f.nome, url: f.url!, criadaEm: f.criadaEm })),
     };
   },
 });
