@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { matchesSearch, pageArgs, pageOf } from "./lib/list";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
@@ -55,43 +56,85 @@ function caminhoDoSite(link: string): string | null {
 
 const ordenar = (xs: Doc<"pastExperiences">[]) => [...xs].sort((a, b) => b.createdAt - a.createdAt);
 
+type DestinationMap = Awaited<ReturnType<typeof destinos>>;
+
+async function toRow(ctx: QueryCtx, d: Doc<"pastExperiences">, mapa: DestinationMap, lugar: Map<string, number>) {
+  const caminho = d.linkUrl ? caminhoDoSite(d.linkUrl) : null;
+  const destino = caminho ? (mapa.get(caminho) ?? null) : null;
+  return {
+    id: d._id as string,
+    versao: d.updatedAt,
+    titulo: d.title,
+    local: d.location,
+    categoria: d.category,
+    descricao: d.description,
+    etiquetas: d.tags ?? [],
+    imagem: d.imageId ?? null,
+    imagemUrl: await urlDaImagem(ctx, d.imageId),
+    publicado: d.status === "published",
+    link: d.linkUrl ?? "",
+    /* A que é que o link leva: um evento ou tour (e se está publicado),
+       um endereço de fora, ou uma página do site que já não existe. */
+    destino: !d.linkUrl
+      ? null
+      : destino
+        ? { ...destino, externo: false, antigo: !d.linkUrl.startsWith("/") }
+        : { tipo: caminho ? ("perdido" as const) : ("externo" as const), titulo: d.linkUrl, href: d.linkUrl, publicado: true, externo: !caminho, antigo: !d.linkUrl.startsWith("/") },
+    lugar: lugar.get(d._id) ?? null,
+    criado: d.createdAt,
+  };
+}
+
+/* The place on the site: only published photos with an image, as the site counts them. */
+function sitePlaces(docs: Doc<"pastExperiences">[]) {
+  const noSite = ordenar(docs).filter((d) => d.status === "published" && d.imageId);
+  return new Map(noSite.map((d, i) => [d._id as string, i + 1]));
+}
+
+/* The portfolio list: category, status, search and page come from the URL and
+   are resolved here. Images and link targets are only worked out for the page. */
 export const lista = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    category: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("published"), v.literal("draft"))),
+    search: v.optional(v.string()),
+    ...pageArgs,
+  },
+  handler: async (ctx, a) => {
     await exigirAdmin(ctx, "portefolio", "ver");
     const [docs, mapa] = await Promise.all([ctx.db.query("pastExperiences").collect(), destinos(ctx)]);
-    /* O lugar no site: só as publicadas com fotografia, como o site conta. */
-    const noSite = ordenar(docs).filter((d) => d.status === "published" && d.imageId);
-    const lugar = new Map(noSite.map((d, i) => [d._id as string, i + 1]));
-    const linhas = await Promise.all(
-      ordenar(docs).map(async (d) => {
-        const caminho = d.linkUrl ? caminhoDoSite(d.linkUrl) : null;
-        const destino = caminho ? (mapa.get(caminho) ?? null) : null;
-        return {
-          id: d._id as string,
-          versao: d.updatedAt,
-          titulo: d.title,
-          local: d.location,
-          categoria: d.category,
-          descricao: d.description,
-          etiquetas: d.tags ?? [],
-          imagem: d.imageId ?? null,
-          imagemUrl: await urlDaImagem(ctx, d.imageId),
-          publicado: d.status === "published",
-          link: d.linkUrl ?? "",
-          /* A que é que o link leva: um evento ou tour (e se está publicado),
-             um endereço de fora, ou uma página do site que já não existe. */
-          destino: !d.linkUrl
-            ? null
-            : destino
-              ? { ...destino, externo: false, antigo: !d.linkUrl.startsWith("/") }
-              : { tipo: caminho ? ("perdido" as const) : ("externo" as const), titulo: d.linkUrl, href: d.linkUrl, publicado: true, externo: !caminho, antigo: !d.linkUrl.startsWith("/") },
-          lugar: lugar.get(d._id) ?? null,
-          criado: d.createdAt,
-        };
-      }),
-    );
-    return { linhas, destaques: DESTAQUES };
+    const lugar = sitePlaces(docs);
+    const targetTitle = (d: Doc<"pastExperiences">) => {
+      const caminho = d.linkUrl ? caminhoDoSite(d.linkUrl) : null;
+      return caminho ? (mapa.get(caminho)?.titulo ?? null) : null;
+    };
+    const matching = ordenar(docs)
+      .filter((d) => !a.category || d.category === a.category)
+      .filter((d) => !a.status || (a.status === "published") === (d.status === "published"))
+      .filter((d) => matchesSearch(a.search, [d.title, d.location, targetTitle(d)]));
+    const pg = pageOf(matching, a);
+    const byCategory: Record<string, number> = {};
+    for (const d of docs) byCategory[d.category] = (byCategory[d.category] ?? 0) + 1;
+    return {
+      ...pg,
+      rows: await Promise.all(pg.rows.map((d) => toRow(ctx, d, mapa, lugar))),
+      unfilteredTotal: docs.length,
+      byCategory,
+      destaques: DESTAQUES,
+    };
+  },
+});
+
+/* One photo for the editor. The editor used to load the whole list just to
+   find this row. */
+export const detail = query({
+  args: { id: v.string() },
+  handler: async (ctx, { id }) => {
+    await exigirAdmin(ctx, "portefolio", "ver");
+    const [docs, mapa] = await Promise.all([ctx.db.query("pastExperiences").collect(), destinos(ctx)]);
+    const d = docs.find((x) => x._id === id);
+    if (!d) return { found: false as const, destaques: DESTAQUES };
+    return { found: true as const, row: await toRow(ctx, d, mapa, sitePlaces(docs)), destaques: DESTAQUES };
   },
 });
 
