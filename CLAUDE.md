@@ -344,6 +344,10 @@ Uma correcção publicada que não foi verificada não está confirmada.
 
 ## Idioma
 
-O código, os comentários e as mensagens de commit são em **português europeu**.
-Os comentários explicam **porquê**, não o quê — de preferência o erro concreto
-que a linha evita.
+**Código novo em inglês** (desde 2026-11-21): nomes de funções, variáveis,
+ficheiros, argumentos e comentários. O código que já existe fica em
+português; não se renomeia (os nomes das funções do Convex são a API que o
+site e os dashboards chamam). O que o utilizador lê — textos do ecrã e as
+mensagens dos `ConvexError` — continua em **português europeu**, e as
+mensagens de commit também. Os comentários explicam **porquê**, não o quê —
+de preferência o erro concreto que a linha evita.
