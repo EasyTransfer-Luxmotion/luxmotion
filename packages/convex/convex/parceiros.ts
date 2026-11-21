@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { exigirAdmin } from "./lib/admin";
+import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
 import { acertarCartaoDaOrigem } from "./lib/funilEstado";
 import { urlDaImagem } from "./lib/imagens";
 import { frotaVisivel } from "./lib/frota";
@@ -140,6 +140,9 @@ export const lista = query({
   },
   handler: async (ctx, a) => {
     await exigirAdmin(ctx, "parcerias", "ver");
+    /* A faturação de cada parceiro é «Ver valores»: quem só vê as Parcerias
+       (a Operação) via quanto cada um vendeu. */
+    const verValores = temCapacidade(await lerAcesso(ctx), "valores");
     const [parcerias, reservas, pedidos, activos] = await Promise.all([
       ctx.db.query("partnerships").collect(),
       lerReservas(ctx),
@@ -200,7 +203,7 @@ export const lista = query({
           publicada: publicada(p),
           logo: await urlDaImagem(ctx, p.logoId),
           reservas: n?.reservas ?? 0,
-          faturacao: centimos(n?.faturacao ?? 0),
+          faturacao: verValores ? centimos(n?.faturacao ?? 0) : null,
           pedidos: n?.pedidos ?? 0,
           ultima: n?.ultima ?? null,
           /* Os mesmos avisos do email diário (vigilancia.ts): em 16/11/2026
@@ -251,6 +254,7 @@ export const detalhe = query({
   args: { id: v.string(), mes: v.string() },
   handler: async (ctx, { id, mes }) => {
     await exigirAdmin(ctx, "parcerias", "ver");
+    const verValores = temCapacidade(await lerAcesso(ctx), "valores");
     const nid = ctx.db.normalizeId("partnerships", id);
     const p = nid ? await ctx.db.get(nid) : null;
     if (!p) return null;
@@ -343,12 +347,12 @@ export const detalhe = query({
       frota: await frotaParaOEditor(ctx, p._id),
       numeros: {
         reservas: nReservas,
-        faturacao: centimos(faturacao),
-        valorMedio: nReservas ? centimos(faturacao / nReservas) : null,
+        faturacao: verValores ? centimos(faturacao) : null,
+        valorMedio: verValores && nReservas ? centimos(faturacao / nReservas) : null,
         pedidos: meus.length,
       },
       meses,
-      serie: serie.map((s) => ({ ...s, faturacao: centimos(s.faturacao) })),
+      serie: serie.map((s) => ({ ...s, faturacao: verValores ? centimos(s.faturacao) : null })),
       categorias,
       recentes,
     };

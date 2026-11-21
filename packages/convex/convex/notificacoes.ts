@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { exigirAdmin, lerAcesso, permite, type Acesso } from "./lib/admin";
+import { exigirAdmin, lerAcesso, permite, temCapacidade, type Acesso } from "./lib/admin";
 import type { ModuloPermissao } from "./lib/permissoes";
 import { AVISO_VOLTA_SEM_PRECO, construirPedido, construirReserva, notificar, nomeDe, voltaSemPreco } from "./lib/notificar";
 
@@ -55,14 +55,16 @@ function contaDe(identidade: { email?: string; tokenIdentifier: string }): strin
   return identidade.email?.trim().toLowerCase() || identidade.tokenIdentifier;
 }
 
-function linha(n: Doc<"notificacoes">, lida: boolean) {
+/* O valor de uma reserva paga só com «Ver valores»: a Operação vê as
+   reservas mas não a faturação, e o sino mostrava «51 €» a toda a gente. */
+function linha(n: Doc<"notificacoes">, lida: boolean, verValores: boolean) {
   return {
     id: n._id as string,
     tipo: n.tipo,
     titulo: n.titulo,
     detalhe: n.detalhe ?? null,
     href: n.href,
-    valor: n.valor ?? null,
+    valor: verValores ? (n.valor ?? null) : null,
     aviso: n.tom === "aviso",
     em: n.em,
     lida,
@@ -98,7 +100,7 @@ export const recentes = query({
     const ultimasVisiveis = ultimas.filter((n) => visiveis.has(n.tipo)).slice(0, limite);
     const porLerLista = novas.filter((n) => visiveis.has(n.tipo) && !abertas.has(n._id));
     return {
-      linhas: ultimasVisiveis.map((n) => linha(n, n.em <= desde || abertas.has(n._id))),
+      linhas: ultimasVisiveis.map((n) => linha(n, n.em <= desde || abertas.has(n._id), temCapacidade(acesso, "valores"))),
       porLer: Math.min(porLerLista.length, LIMITE),
       /* A mais recente por ler: o browser abana o sino quando muda. */
       ultimaPorLer: porLerLista[0]?.em ?? null,
@@ -117,7 +119,8 @@ export const lista = query({
   },
   handler: async (ctx, a) => {
     const identidade = await exigirAdmin(ctx, undefined, "ver");
-    const visiveis = tiposVisiveis(await lerAcesso(ctx));
+    const acesso = await lerAcesso(ctx);
+    const visiveis = tiposVisiveis(acesso);
     const estado = await lidasDe(ctx, contaDe(identidade));
     const desde = estado?.lidasAte ?? 0;
     const abertas = new Set<string>(estado?.lidas ?? []);
@@ -135,7 +138,7 @@ export const lista = query({
     const paginas = Math.max(1, Math.ceil(filtradas.length / porPagina));
     const pagina = Math.min(Math.max(0, Math.floor(a.pagina)), paginas - 1);
     return {
-      linhas: filtradas.slice(pagina * porPagina, (pagina + 1) * porPagina).map((n) => linha(n, lida(n))),
+      linhas: filtradas.slice(pagina * porPagina, (pagina + 1) * porPagina).map((n) => linha(n, lida(n), temCapacidade(acesso, "valores"))),
       total: filtradas.length,
       pagina,
       paginas,

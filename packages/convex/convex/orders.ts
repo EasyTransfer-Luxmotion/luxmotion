@@ -6,7 +6,7 @@ import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { resolveReferral } from "./lib/referral";
-import { exigirAdmin } from "./lib/admin";
+import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
 import { exigirAdminAccao } from "./lib/adminAccao";
 
 /*
@@ -1273,8 +1273,16 @@ export const listPaged = query({
   args: pagedArgs,
   handler: async (ctx, a) => {
     await exigirAdmin(ctx, "reservas", "ver");
+    /* A lista antiga (o dashboard de produção ainda a pode chamar): os
+       valores só com «Ver valores», como em reservas.lista. Devolvia o
+       documento inteiro, com o total e as parcelas, a quem só via reservas. */
+    const verValores = temCapacidade(await lerAcesso(ctx), "valores");
+    const semValores = <T extends Doc<"orders">>(o: T): T =>
+      verValores
+        ? o
+        : { ...o, totalAmount: undefined, basePrice: undefined, discountAmount: undefined, additionalFees: undefined, nightTax: undefined, airportServiceFee: undefined, paymentAmount: undefined };
     // Newest first by default — most recent orders are what the admin acts on.
-    const all = await ctx.db.query("orders").order("desc").collect();
+    const all = (await ctx.db.query("orders").order("desc").collect()).map(semValores);
 
     let rows = all.map((o) => ({
       ...o,
@@ -1317,7 +1325,7 @@ export const listPaged = query({
       customer: (r) => (r.customerName ?? "").toLowerCase(),
       adSource: (r) => r.adSourceName,
       date: (r) => r.departureDate ?? "",
-      total: (r) => r.totalAmount ?? 0,
+      total: (r) => (verValores ? (r.totalAmount ?? 0) : 0),
       created: (r) => r.createdAt,
     });
 
