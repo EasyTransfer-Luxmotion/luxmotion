@@ -173,10 +173,9 @@ function rotuloDaOrigem(origem: string | undefined): string | null {
   return tituloDaOrigem(origem);
 }
 
-export const lista = query({
-  args: { tipo: vTipo, pesquisa: v.optional(v.string()), relacao: v.optional(vRelacao) },
-  handler: async (ctx, { tipo, pesquisa, relacao }) => {
-    await exigirAdmin(ctx, "contactos", "ver");
+/* Todas as linhas de um tipo e relação, com o que cada um fez. A lista
+   filtra, ordena e pagina por cima disto, no servidor. */
+async function todasAsLinhas(ctx: QueryCtx, tipo: "organizacoes" | "contactos", relacao?: Relacao) {
     const verValores = temCapacidade(await lerAcesso(ctx), "valores");
     const { porContacto, porOrganizacao, porParceria } = await historias(ctx);
     const colunas = (h: Historia | undefined) => ({
@@ -189,7 +188,7 @@ export const lista = query({
       vendasPagina: h?.reservas ?? 0,
       faturadoPagina: verValores ? Math.round((h?.gasto ?? 0) * 100) / 100 : null,
     });
-    const q = semAcentos(pesquisa?.trim() ?? "");
+    const q = "";
     const todosOrgs = await ctx.db.query("organizacoes").collect();
     const todosContactos = await ctx.db.query("contactos").collect();
     const rel = await segmentos(ctx, todosContactos, todosOrgs);
@@ -268,6 +267,138 @@ export const lista = query({
           };
         }),
     };
+}
+
+const vOrdemContactos = v.union(v.literal("recentes"), v.literal("reservas"), v.literal("gasto"), v.literal("nome"));
+type LinhaContacto = Awaited<ReturnType<typeof todasAsLinhas>>["linhas"][number];
+
+/* As colunas que a lista pode mostrar; vão só as que têm dados em alguma
+   linha (Segmento, Responsável e Carteira estavam a «—» em tudo). */
+const COLUNAS_CONTACTOS: [string, (l: LinhaContacto) => unknown][] = [
+  ["contacto", (l) => l.email || l.telefone],
+  ["pessoas", (l) => l.pessoas],
+  ["vendas", (l) => l.vendasPagina],
+  ["reservas", (l) => l.reservas],
+  ["gasto", (l) => l.gasto],
+  ["ultima", (l) => l.ultimaReserva],
+  ["pedidos", (l) => l.pedidos],
+  ["origem", (l) => l.origem],
+  ["localidade", (l) => l.localidade],
+  ["segmento", (l) => l.segmento],
+  ["responsavel", (l) => l.responsavel],
+  ["carteira", (l) => l.carteira],
+  ["desde", (l) => l.desde],
+];
+
+/*
+ * A lista dos Contactos: filtros, pesquisa, ordem e página vêm do endereço e
+ * resolvem-se aqui. O dashboard só mostra a página que recebe (filtrava a
+ * lista inteira no browser).
+ */
+export const lista = query({
+  args: {
+    tipo: vTipo,
+    relacao: v.optional(vRelacao),
+    pesquisa: v.optional(v.string()),
+    segmento: v.optional(v.string()),
+    responsavel: v.optional(v.string()),
+    idioma: v.optional(v.string()),
+    localidade: v.optional(v.string()),
+    etiqueta: v.optional(v.string()),
+    origem: v.optional(v.string()),
+    carteira: v.optional(v.string()),
+    reservas: v.optional(v.union(v.literal("com"), v.literal("recorrentes"), v.literal("sem"))),
+    ultima: v.optional(v.union(v.literal("30"), v.literal("90"), v.literal("365"), v.literal("inactivos"))),
+    pedidos: v.optional(v.union(v.literal("com"), v.literal("sem"))),
+    ordem: v.optional(vOrdemContactos),
+    pagina: v.number(),
+    porPagina: v.number(),
+  },
+  handler: async (ctx, a) => {
+    await exigirAdmin(ctx, "contactos", "ver");
+    const { linhas: todas } = await todasAsLinhas(ctx, a.tipo, a.relacao);
+    const verValores = todas.some((l) => l.gasto !== null) || temCapacidade(await lerAcesso(ctx), "valores");
+
+    /* As opções vêm da lista inteira, antes dos filtros: escolher uma não
+       pode fazer desaparecer as outras do menu. */
+    const distintos = (de: (l: LinhaContacto) => string | null | string[]) =>
+      [...new Set(todas.flatMap((l) => [de(l)].flat()).filter((x): x is string => Boolean(x)))].sort((x, y) => x.localeCompare(y, "pt"));
+    const opcoes = {
+      segmentos: distintos((l) => l.segmento),
+      responsaveis: distintos((l) => l.responsavel),
+      idiomas: distintos((l) => l.idioma),
+      localidades: distintos((l) => l.localidade),
+      etiquetas: distintos((l) => l.etiquetas),
+      origens: distintos((l) => l.origem),
+      carteiras: distintos((l) => l.carteira),
+    };
+    const colunas = COLUNAS_CONTACTOS.filter(([, de]) => todas.some((l) => { const x = de(l); return x !== null && x !== undefined && x !== "" && x !== 0; })).map(([id]) => id);
+
+    const termos = semAcentos(a.pesquisa ?? "").split(/\s+/).filter(Boolean);
+    const agora = Date.now();
+    let linhas = todas.filter((l) => {
+      if (termos.length && !termos.every((t) => semAcentos([l.nome, l.subtitulo, l.email, l.telefone, ...l.etiquetas].filter(Boolean).join(" ")).includes(t))) return false;
+      if (a.segmento && l.segmento !== a.segmento) return false;
+      if (a.responsavel && l.responsavel !== a.responsavel) return false;
+      if (a.idioma && l.idioma !== a.idioma) return false;
+      if (a.localidade && l.localidade !== a.localidade) return false;
+      if (a.etiqueta && !l.etiquetas.includes(a.etiqueta)) return false;
+      if (a.origem && l.origem !== a.origem) return false;
+      if (a.carteira && l.carteira !== a.carteira) return false;
+      if (a.reservas === "com" && !l.reservas) return false;
+      if (a.reservas === "recorrentes" && l.reservas < 2) return false;
+      if (a.reservas === "sem" && l.reservas) return false;
+      if (a.pedidos === "com" && !l.pedidos) return false;
+      if (a.pedidos === "sem" && l.pedidos) return false;
+      if (a.ultima) {
+        if (!l.ultimaReserva) return false;
+        const dias = (agora - l.ultimaReserva) / 86_400_000;
+        if (a.ultima === "inactivos" ? dias <= 365 : dias > Number(a.ultima)) return false;
+      }
+      return true;
+    });
+
+    /* Ordenar pelo gasto diria a ordem dos valores a quem não os vê. */
+    const ordem = a.ordem === "gasto" && !verValores ? "recentes" : (a.ordem ?? "recentes");
+    if (ordem === "reservas") linhas.sort((x, y) => y.reservas - x.reservas || (y.ultimaReserva ?? 0) - (x.ultimaReserva ?? 0));
+    else if (ordem === "gasto") linhas.sort((x, y) => (y.gasto ?? 0) - (x.gasto ?? 0));
+    else if (ordem === "nome") linhas.sort((x, y) => x.nome.localeCompare(y.nome, "pt"));
+    else linhas.sort((x, y) => y.atualizadoEm - x.atualizadoEm);
+
+    const porPagina = Math.min(Math.max(1, Math.floor(a.porPagina)), 100);
+    const total = linhas.length;
+    const paginas = Math.max(1, Math.ceil(total / porPagina));
+    const pagina = Math.min(Math.max(0, Math.floor(a.pagina)), paginas - 1);
+    linhas = linhas.slice(pagina * porPagina, (pagina + 1) * porPagina);
+    return { tipo: a.tipo, linhas, total, totalSemFiltros: todas.length, pagina, paginas, porPagina, opcoes, colunas, verValores };
+  },
+});
+
+/* Para escolher um contacto ou organização (passar as ligações ao apagar,
+   a organização de uma pessoa): a pesquisa faz-se aqui e vêm só os
+   primeiros. Recebia a lista inteira e procurava no browser. */
+export const escolher = query({
+  args: { tipo: vTipo, pesquisa: v.optional(v.string()), excluir: v.optional(v.string()), limite: v.optional(v.number()) },
+  handler: async (ctx, a) => {
+    await exigirAdmin(ctx, "contactos", "ver");
+    const termos = semAcentos(a.pesquisa ?? "").split(/\s+/).filter(Boolean);
+    const limite = Math.min(Math.max(1, a.limite ?? 20), 50);
+    if (a.tipo === "organizacoes") {
+      const orgs = await ctx.db.query("organizacoes").collect();
+      return orgs
+        .filter((o) => o._id !== a.excluir)
+        .filter((o) => termos.every((t) => semAcentos([o.nome, o.email, o.telefone, o.localidade, o.nif].filter(Boolean).join(" ")).includes(t)))
+        .sort((x, y) => x.nome.localeCompare(y.nome, "pt"))
+        .slice(0, limite)
+        .map((o) => ({ id: o._id as string, nome: o.nome, subtitulo: o.localidade ?? null, email: o.email ?? null, telefone: o.telefone ?? null }));
+    }
+    const contactos = await ctx.db.query("contactos").collect();
+    return contactos
+      .filter((c) => c._id !== a.excluir)
+      .filter((c) => termos.every((t) => semAcentos([c.nome, c.email, c.telefone, c.funcao].filter(Boolean).join(" ")).includes(t)))
+      .sort((x, y) => y.atualizadoEm - x.atualizadoEm)
+      .slice(0, limite)
+      .map((c) => ({ id: c._id as string, nome: c.nome, subtitulo: c.funcao ?? null, email: c.email ?? null, telefone: c.telefone ?? null }));
   },
 });
 
