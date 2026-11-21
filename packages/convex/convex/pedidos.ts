@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { lisbonToday, periodStart } from "./lib/boardFilters";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
@@ -162,10 +163,13 @@ export const lista = query({
        30 dias, este mês, este ano). O browser manda o início do dia, para
        a subscrição não mudar a cada segundo. */
     desde: v.optional(v.number()),
+    // The same period, worked out here in Lisbon time; replaces `desde` (kept for older dashboards).
+    period: v.optional(v.union(v.literal("today"), v.literal("7d"), v.literal("30d"), v.literal("month"), v.literal("year"))),
     pagina: v.number(),
     porPagina: v.number(),
   },
   handler: async (ctx, a) => {
+    const since = a.period ? periodStart(a.period, lisbonToday()) : a.desde;
     await exigirAdmin(ctx, "pedidos", "ver");
     const todos = await lerTodos(ctx);
 
@@ -187,7 +191,7 @@ export const lista = query({
     const filtrados = doTipo
       .filter((x) => a.grupo === "todos" || x.grupo === a.grupo)
       .filter((x) => !a.parceiro || (a.parceiro === "direto" ? !x.parceiro?.trim() : x.parceiro?.trim() === a.parceiro))
-      .filter((x) => a.desde === undefined || x.recebido >= a.desde)
+      .filter((x) => since === undefined || x.recebido >= since)
       .filter((x) => !q || [x.nome, x.empresa, x.email, x.telefone, x.linha, x.parceiro].some((c) => c && semAcentos(c).includes(q)))
       .sort((x, y) => y.recebido - x.recebido);
 
