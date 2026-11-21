@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { boardFiltersActive, lisbonToday, matchesBoardFilters, vBoardFilters } from "./lib/boardFilters";
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, permite, temCapacidade, type Acesso } from "./lib/admin";
@@ -134,13 +135,13 @@ async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
   };
 }
 
-async function cartoesDaEtapa(ctx: QueryCtx, funil: Doc<"funis">, etapa: Etapa) {
+async function cartoesDaEtapa(ctx: QueryCtx, funil: Doc<"funis">, etapa: Etapa, ler = MAX_POR_COLUNA * 2) {
   if (etapa.tipo === "aberta") {
     const lidos = (
       await ctx.db
         .query("negocios")
         .withIndex("by_funil_etapa", (q) => q.eq("funilId", funil._id).eq("etapaId", etapa.id))
-        .take(MAX_POR_COLUNA * 2)
+        .take(ler)
     ).filter((n) => !n.arquivadoEm);
     return { lista: lidos.slice(0, MAX_POR_COLUNA), mais: lidos.length > MAX_POR_COLUNA };
   }
@@ -158,24 +159,43 @@ export const quadro = query({
      funis que já não existem («pedidos», «candidaturas»), e um erro de
      argumento deitava o ecrã abaixo («Este ecrã não abriu»). Recebe null e
      mostra a lista. */
-  args: { chave: v.string() },
-  handler: async (ctx, { chave }) => {
+  args: { chave: v.string(), filters: v.optional(vBoardFilters) },
+  handler: async (ctx, { chave, filters }) => {
     if (!eChaveFunil(chave)) return null;
     await exigirAdmin(ctx, modulosDoFunil(chave), "ver");
     const funil = await funilPorChave(ctx, chave);
     if (!funil) return null;
     const acesso = await lerAcesso(ctx);
+    const f = filters ?? {};
+    const today = lisbonToday();
+    // With filters on, read deeper: a match can sit past the first 300 cards of a column.
+    const filtering = boardFiltersActive(f);
+    const methods = new Set<string>();
+    const sources = new Set<string>();
+    const partners = new Set<string>();
     const colunas = [];
     for (const etapa of funil.etapas) {
-      const { lista, mais } = await cartoesDaEtapa(ctx, funil, etapa);
+      const { lista, mais } = await cartoesDaEtapa(ctx, funil, etapa, filtering ? 1000 : undefined);
       const cartoes = [];
       for (const n of lista) {
         if (!permite(acesso, moduloDoCartao(chave, n.origem))) continue;
-        cartoes.push({ ...cartao(acesso, n), ...(await filtraveis(ctx, n)) });
+        const card = { ...cartao(acesso, n), ...(await filtraveis(ctx, n)) };
+        // The dropdown options come from every card read, not only the ones that pass.
+        if (card.metodo) methods.add(card.metodo);
+        if (card.anuncio) sources.add(card.anuncio);
+        if (card.parceiro) partners.add(card.parceiro);
+        if (matchesBoardFilters(chave, f, today, card)) cartoes.push(card);
       }
-      colunas.push({ etapa, mais, cartoes });
+      colunas.push({ etapa, mais: mais || cartoes.length > MAX_POR_COLUNA, cartoes: cartoes.slice(0, MAX_POR_COLUNA) });
     }
-    return { funilId: funil._id, chave, colunas, verValores: temCapacidade(acesso, "valores") };
+    const sorted = (xs: Set<string>) => [...xs].sort((a, b) => a.localeCompare(b, "pt"));
+    return {
+      funilId: funil._id,
+      chave,
+      colunas,
+      verValores: temCapacidade(acesso, "valores"),
+      options: { methods: sorted(methods), sources: sorted(sources), partners: sorted(partners) },
+    };
   },
 });
 
