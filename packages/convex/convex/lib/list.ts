@@ -34,3 +34,14 @@ export function pageOf<T>(rows: T[], a: { page: number; pageSize: number }) {
 
 export const distinctSorted = (xs: (string | null | undefined)[]) =>
   [...new Set(xs.filter((x): x is string => Boolean(x)))].sort((a, b) => a.localeCompare(b, "pt"));
+
+/* Drag-to-reorder on a paged list: the client holds one page and sends that
+   page's ids in their new order. Returns the full new order, or null when the
+   page no longer matches the table (another tab reordered or added a row),
+   so the caller refuses instead of shuffling rows it did not see. */
+export function reorderSlice<T extends string>(all: T[], start: number, ids: T[]): T[] | null {
+  const slice = all.slice(start, start + ids.length);
+  const sameSet = slice.length === ids.length && new Set(ids).size === ids.length && ids.every((id) => slice.includes(id));
+  if (!sameSet) return null;
+  return [...all.slice(0, start), ...ids, ...all.slice(start + ids.length)];
+}

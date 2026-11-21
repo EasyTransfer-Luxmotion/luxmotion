@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { matchesSearch, pageArgs, pageOf, reorderSlice } from "./lib/list";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { pode, exigirAdmin } from "./lib/admin";
@@ -70,16 +71,34 @@ async function usos(ctx: QueryCtx, id: Id<"vehicles">, todos: Doc<"vehicles">[])
   };
 }
 
+/* The Vehicles list: filters, search and page come from the URL and are
+   resolved here, in checkout order. `place` is the position in the checkout,
+   so it stays right when the list is filtered. */
 export const lista = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    search: v.optional(v.string()),
+    // "global" = the main site's fleet; otherwise a partnership id.
+    owner: v.optional(v.string()),
+    status: v.optional(v.string()),
+    ...pageArgs,
+  },
+  handler: async (ctx, a) => {
     if (!(await pode(ctx, "veiculos"))) return null;
     const todos = await ctx.db.query("vehicles").withIndex("by_order").collect();
     const parceiros = await nomesDosParceiros(ctx);
+    const ownerName = (x: (typeof todos)[number]) => (x.partnershipId ? (parceiros.get(x.partnershipId) ?? "Parceiro") : null);
+    const upgradeName = (x: (typeof todos)[number]) => (x.upgradeFromVehicleId ? (todos.find((y) => y._id === x.upgradeFromVehicleId)?.name ?? null) : null);
+    const place = new Map(todos.map((x, i) => [x._id, i + 1]));
+    const matching = todos
+      .filter((x) => !a.status || x.status === a.status)
+      .filter((x) => !a.owner || (a.owner === "global" ? !x.partnershipId : x.partnershipId === a.owner))
+      .filter((x) => matchesSearch(a.search, [x.name, x.examples, ownerName(x) ?? "Site principal", upgradeName(x)]));
+    const pg = pageOf(matching, a);
     const eventos = await ctx.db.query("events").collect();
-    return Promise.all(
-      todos.map(async (x) => ({
+    const rows = await Promise.all(
+      pg.rows.map(async (x) => ({
         _id: x._id,
+        place: place.get(x._id) ?? 0,
         nome: x.name,
         exemplos: x.examples ?? null,
         imagem: x.imageId ? await urlDaImagem(ctx, x.imageId) : null,
@@ -91,14 +110,23 @@ export const lista = query({
         minimo: x.minimumPrice,
         wifi: x.hasWifi,
         electrico: x.isElectric,
-        dono: x.partnershipId ? (parceiros.get(x.partnershipId) ?? "Parceiro") : null,
+        dono: ownerName(x),
         donoId: x.partnershipId ?? null,
-        upgradeDe: x.upgradeFromVehicleId ? (todos.find((y) => y._id === x.upgradeFromVehicleId)?.name ?? null) : null,
+        upgradeDe: upgradeName(x),
         emEventos: eventos.filter((e) => e.vehicleId === x._id).length,
         avisos: avisosDoUpgrade(x, todos),
         traducoes: (x.translations ?? []).filter((t) => t.name?.trim()).map((t) => t.locale),
       })),
     );
+    const owners = new Map<string, string>();
+    for (const x of todos) if (x.partnershipId) owners.set(x.partnershipId, ownerName(x)!);
+    return {
+      ...pg,
+      rows,
+      unfilteredTotal: todos.length,
+      owners: [...owners].map(([id, name]) => ({ id, name })).sort((x, y) => x.name.localeCompare(y.name, "pt")),
+      withWarnings: todos.filter((x) => avisosDoUpgrade(x, todos).length > 0).length,
+    };
   },
 });
 
@@ -357,6 +385,21 @@ export const mudarEstado = mutation({
     const x = await ctx.db.get(id);
     if (!x) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este veículo já não existe." });
     await ctx.db.patch(id, { status: estado, actualizadoEm: Date.now() });
+  },
+});
+
+/* Reorders one page of the checkout order (see reorderSlice). */
+export const reorderPage = mutation({
+  args: { start: v.number(), ids: v.array(v.id("vehicles")) },
+  handler: async (ctx, { start, ids }) => {
+    await exigirAdmin(ctx, "veiculos");
+    const all = await ctx.db.query("vehicles").withIndex("by_order").collect();
+    const order = reorderSlice(all.map((x) => x._id), start, ids);
+    if (!order) {
+      throw new ConvexError({ tipo: "conflito", mensagem: "A lista mudou entretanto. Recarregue e volte a ordenar." });
+    }
+    const now = Date.now();
+    await Promise.all(order.map((id, i) => ctx.db.patch(id, { order: i, actualizadoEm: now })));
   },
 });
 

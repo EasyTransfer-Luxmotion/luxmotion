@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { matchesSearch, pageArgs, pageOf, reorderSlice } from "./lib/list";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { pode, exigirAdmin } from "./lib/admin";
@@ -132,25 +133,55 @@ async function alcance(ctx: QueryCtx) {
 
 /* ─── Lista ─────────────────────────────────────────────────────────── */
 
+/* The Extras list, one tab at a time: filters, search and page come from the
+   URL and are resolved here, in site order. Images and the universal add-ons'
+   reach are only worked out for the page shown. `place` is the position on the
+   site, so it stays right when the list is filtered. */
 export const lista = query({
-  args: { tipo: vTipo },
-  handler: async (ctx, { tipo }) => {
+  args: {
+    tipo: vTipo,
+    search: v.optional(v.string()),
+    // "missing" = rows the checkout cannot show yet (see faltaCheckout).
+    status: v.optional(v.union(v.literal("published"), v.literal("draft"), v.literal("missing"))),
+    ...pageArgs,
+  },
+  handler: async (ctx, a) => {
+    const { tipo } = a;
     if (!(await pode(ctx, "extras"))) return null;
     const [paragens, experiencias, universais] = await Promise.all([
       ctx.db.query("upsellStops").withIndex("by_order").collect(),
       ctx.db.query("upsellExperiences").withIndex("by_order").collect(),
       ctx.db.query("universalAddons").collect(),
     ]);
-    universais.sort((a, b) => a.order - b.order);
+    universais.sort((x, y) => x.order - y.order);
     const contagens = { paragens: paragens.length, experiencias: experiencias.length, universais: universais.length };
     const raio = await raioKm(ctx);
     const imagem = (id?: string) => (id ? urlDaImagem(ctx, id) : Promise.resolve(null));
     const locais = (xs?: Traducao[]) => (xs ?? []).map((t) => t.locale);
 
+    const select = <D extends { _id: string; status: string; title: string; description?: string }>(
+      docs: D[],
+      missing: (d: D) => string[],
+      location: (d: D) => string | null,
+    ) => {
+      const place = new Map(docs.map((d, i) => [d._id, i + 1]));
+      const withMissing = docs.map((d) => ({ d, falta: missing(d), place: place.get(d._id) ?? 0 }));
+      const matching = withMissing
+        .filter((x) => !a.status || (a.status === "missing" ? x.falta.length > 0 : x.d.status === a.status))
+        .filter((x) => matchesSearch(a.search, [x.d.title, x.d.description, location(x.d)]));
+      return {
+        pg: pageOf(matching, a),
+        // Published but hidden from the checkout: counted over the whole tab, not the page.
+        notOnSiteCount: withMissing.filter((x) => x.d.status === "published" && x.falta.length > 0).length,
+      };
+    };
+
     if (tipo === "paragens") {
-      const linhas = await Promise.all(
-        paragens.map(async (x) => ({
+      const { pg, notOnSiteCount } = select(paragens, (x) => faltaCheckout(x, x.price30).map((f) => f.texto), (x) => x.location?.title ?? null);
+      const rows = await Promise.all(
+        pg.rows.map(async ({ d: x, falta, place }) => ({
           _id: x._id as string,
+          place,
           titulo: x.title,
           descricao: x.description ?? "",
           imagem: await imagem(x.imageId),
@@ -161,15 +192,17 @@ export const lista = query({
           preco: x.price30,
           preco15: x.price15 ?? null,
           idiomas: locais(x.translations),
-          falta: faltaCheckout(x, x.price30).map((f) => f.texto),
+          falta,
         })),
       );
-      return { tipo, contagens, raioKm: raio, linhas };
+      return { tipo, contagens, raioKm: raio, ...pg, rows, notOnSiteCount };
     }
     if (tipo === "experiencias") {
-      const linhas = await Promise.all(
-        experiencias.map(async (x) => ({
+      const { pg, notOnSiteCount } = select(experiencias, (x) => faltaCheckout(x, x.basePrice).map((f) => f.texto), (x) => x.location?.title ?? null);
+      const rows = await Promise.all(
+        pg.rows.map(async ({ d: x, falta, place }) => ({
           _id: x._id as string,
+          place,
           titulo: x.title,
           descricao: x.description ?? "",
           imagem: await imagem(x.imageId),
@@ -182,17 +215,19 @@ export const lista = query({
           duracao: x.duration ?? "",
           opcoes: (x.addons ?? []).length,
           idiomas: locais(x.translations),
-          falta: faltaCheckout(x, x.basePrice).map((f) => f.texto),
+          falta,
         })),
       );
-      return { tipo, contagens, raioKm: raio, linhas };
+      return { tipo, contagens, raioKm: raio, ...pg, rows, notOnSiteCount };
     }
+    const { pg, notOnSiteCount } = select(universais, (x) => faltaUniversal(x).map((f) => f.texto), () => null);
     const onde = await alcance(ctx);
-    const linhas = await Promise.all(
-      universais.map(async (x) => {
-        const a = onde(x);
+    const rows = await Promise.all(
+      pg.rows.map(async ({ d: x, falta, place }) => {
+        const r = onde(x);
         return {
           _id: x._id as string,
+          place,
           titulo: x.title,
           descricao: x.description ?? "",
           imagem: await imagem(x.imageId),
@@ -200,15 +235,15 @@ export const lista = query({
           preco: x.price,
           tipoPreco: x.pricingType,
           ambitos: x.scopes,
-          emTours: a.tours,
-          emEventos: a.eventos,
-          desligados: a.desligadoEm.length,
+          emTours: r.tours,
+          emEventos: r.eventos,
+          desligados: r.desligadoEm.length,
           idiomas: locais(x.translations),
-          falta: faltaUniversal(x).map((f) => f.texto),
+          falta,
         };
       }),
     );
-    return { tipo, contagens, raioKm: raio, linhas };
+    return { tipo, contagens, raioKm: raio, ...pg, rows, notOnSiteCount };
   },
 });
 
@@ -502,6 +537,27 @@ export const mudarEstado = mutation({
     const agora = Date.now();
     await ctx.db.patch(x._id, { status: estado, updatedAt: agora });
     return { versao: agora };
+  },
+});
+
+/* Reorders one page of a tab, in site order (see reorderSlice). */
+export const reorderPage = mutation({
+  args: { tipo: vTipo, start: v.number(), ids: v.array(v.string()) },
+  handler: async (ctx, { tipo, start, ids }) => {
+    await exigirAdmin(ctx, "extras");
+    const all = (await ctx.db.query(TABELA[tipo]).collect()).sort((x, y) => x.order - y.order);
+    const order = reorderSlice(all.map((x) => x._id as string), start, ids);
+    if (!order) {
+      throw new ConvexError({ tipo: "conflito", mensagem: "A lista mudou entretanto. Recarregue e volte a ordenar." });
+    }
+    const byId = new Map(all.map((x) => [x._id as string, x]));
+    const now = Date.now();
+    await Promise.all(
+      order.map((id, i) => {
+        const x = byId.get(id)!;
+        return x.order === i ? null : ctx.db.patch(x._id, { order: i, updatedAt: now });
+      }),
+    );
   },
 });
 

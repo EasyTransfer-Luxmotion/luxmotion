@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { matchesSearch, pageArgs, pageOf } from "./lib/list";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -129,15 +130,31 @@ async function viaturas(ctx: QueryCtx) {
   return vs.map((x) => ({ _id: x._id, nome: x.name, passageiros: x.passengers, exemplos: x.examples ?? null, estado: x.status, donoId: x.partnershipId ?? null }));
 }
 
+/* The Events list: filters, search and page come from the URL and are resolved
+   here. Images, translations and vehicles are only read for the page shown. */
 export const lista = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    search: v.optional(v.string()),
+    when: v.optional(v.union(v.literal("upcoming"), v.literal("past"), v.literal("all"))),
+    status: v.optional(v.string()),
+    ...pageArgs,
+  },
+  handler: async (ctx, a) => {
     if (!(await pode(ctx, "eventos"))) return null;
-    const eventos = await ctx.db.query("events").collect();
+    const events = await ctx.db.query("events").collect();
+    const now = Date.now();
+    const when = a.when ?? "upcoming";
+    const endOf = (e: (typeof events)[number]) => e.endDate ?? e.eventDate;
+    const matching = events
+      .filter((e) => (when === "upcoming" ? endOf(e) >= now : when === "past" ? endOf(e) < now : true))
+      .filter((e) => !a.status || a.status === "all" || e.status === a.status)
+      .filter((e) => matchesSearch(a.search, [e.title, e.location, e.venue]))
+      // Past events read newest first; upcoming ones soonest first.
+      .sort((x, y) => (when === "past" ? y.eventDate - x.eventDate : x.eventDate - y.eventDate));
+    const pg = pageOf(matching, a);
     const traducoes = await ctx.db.query("eventTranslations").collect();
-    const vs = await ctx.db.query("vehicles").collect();
-    return Promise.all(
-      eventos.map(async (e) => ({
+    const rows = await Promise.all(
+      pg.rows.map(async (e) => ({
         _id: e._id,
         titulo: e.title,
         slug: e.slug,
@@ -146,14 +163,24 @@ export const lista = query({
         sitio: e.venue ?? null,
         inicio: e.eventDate,
         fim: e.endDate ?? null,
+        isPast: endOf(e) < now,
         precoPrivado: e.privatePrice ?? e.basePrice ?? null,
         precoPartilhado: e.sharedPrice ?? null,
         destaque: e.isFeatured,
-        viatura: e.vehicleId ? (vs.find((x) => x._id === e.vehicleId)?.name ?? null) : null,
+        viatura: e.vehicleId ? ((await ctx.db.get(e.vehicleId))?.name ?? null) : null,
         imagem: e.bannerImageId ? await urlDaImagem(ctx, e.bannerImageId) : null,
         idiomas: [e.originalLanguage, ...traducoes.filter((x) => x.eventId === e._id).map((x) => x.locale)],
       })),
     );
+    const published = events.filter((e) => e.status === "published");
+    return {
+      ...pg,
+      rows,
+      unfilteredTotal: events.length,
+      upcomingPublishedCount: published.filter((e) => endOf(e) >= now).length,
+      // Published events whose date has passed: in production several sat there waiting to be closed.
+      pastPublishedCount: published.filter((e) => endOf(e) < now).length,
+    };
   },
 });
 

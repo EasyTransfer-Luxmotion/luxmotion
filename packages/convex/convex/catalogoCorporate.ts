@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { matchesSearch, pageArgs, pageOf, reorderSlice } from "./lib/list";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { pode, exigirAdmin } from "./lib/admin";
@@ -47,18 +48,33 @@ function impedimentos(x: Pick<Doc<"corporateExperiences">, "titlePrefix" | "titl
   return falta;
 }
 
+/* The Corporate list: filters, search and page come from the URL and are
+   resolved here. The order is the site's (sortOrder); `place` is each row's
+   position on the site, so it stays right when the list is filtered. */
 export const lista = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    search: v.optional(v.string()),
+    pillar: v.optional(v.string()),
+    status: v.optional(v.string()),
+    ...pageArgs,
+  },
+  handler: async (ctx, a) => {
     if (!(await pode(ctx, "corporate"))) return null;
     const xs = await ctx.db.query("corporateExperiences").withIndex("by_sort").collect();
+    const place = new Map(xs.map((x, i) => [x._id, i + 1]));
+    const matching = xs
+      .filter((x) => !a.pillar || x.pillar === a.pillar)
+      .filter((x) => !a.status || x.status === a.status)
+      .filter((x) => matchesSearch(a.search, [`${x.titlePrefix} ${x.titleAccent}`, x.location, x.subcategory]));
+    const pg = pageOf(matching, a);
     const tr = await ctx.db.query("corporateExperienceTranslations").collect();
-    return Promise.all(
-      xs.map(async (x) => {
+    const rows = await Promise.all(
+      pg.rows.map(async (x) => {
         const capa = x.coverImageId ? await urlDaImagem(ctx, x.coverImageId) : null;
         const galeria0 = x.galleryImageIds[0] ? await urlDaImagem(ctx, x.galleryImageIds[0]) : null;
         return {
           _id: x._id,
+          place: place.get(x._id) ?? 0,
           titulo: `${x.titlePrefix} ${x.titleAccent}`.trim(),
           estado: x.status,
           pilar: x.pillar,
@@ -74,6 +90,16 @@ export const lista = query({
         };
       }),
     );
+    // Broken covers across the whole table, not just this page: one URL check per cover.
+    let brokenCovers = 0;
+    for (const x of xs) if (x.coverImageId && !(await urlDaImagem(ctx, x.coverImageId))) brokenCovers++;
+    return {
+      ...pg,
+      rows,
+      unfilteredTotal: xs.length,
+      publishedCount: xs.filter((x) => x.status === "published").length,
+      brokenCovers,
+    };
   },
 });
 
@@ -185,6 +211,23 @@ export const reordenar = mutation({
     }
     const agora = Date.now();
     await Promise.all(ids.map((id, i) => ctx.db.patch(id, { sortOrder: i, updatedAt: agora })));
+  },
+});
+
+/* Reorders one page of the unfiltered list: `ids` are the rows at positions
+   start..start+n, in their new order. The client only holds one page, so it
+   cannot send the whole order the way `reordenar` expects. */
+export const reorderPage = mutation({
+  args: { start: v.number(), ids: v.array(v.id("corporateExperiences")) },
+  handler: async (ctx, { start, ids }) => {
+    await exigirAdmin(ctx, "corporate");
+    const all = await ctx.db.query("corporateExperiences").withIndex("by_sort").collect();
+    const order = reorderSlice(all.map((x) => x._id), start, ids);
+    if (!order) {
+      throw new ConvexError({ tipo: "conflito", mensagem: "A lista mudou entretanto. Recarregue e volte a ordenar." });
+    }
+    const now = Date.now();
+    await Promise.all(order.map((id, i) => ctx.db.patch(id, { sortOrder: i, updatedAt: now })));
   },
 });
 
