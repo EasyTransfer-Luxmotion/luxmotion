@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { distinctSorted, matchesSearch, pageArgs, pageOf } from "./lib/list";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -223,14 +224,36 @@ async function horarioDe(ctx: QueryCtx, tourId: Id<"tours">) {
     .first();
 }
 
+const STATUS_ORDER: Record<string, number> = { published: 0, draft: 1, archived: 2 };
+// The screen shows these labels, so searching "experiências" must find them.
+const CATEGORY_LABELS: Record<string, string> = { tours: "Tours", experiences: "Experiências", stops: "Paragens extra" };
+
+/* The Tours list: filters, search and page come from the URL and are resolved
+   here. Images and translations are only read for the page being shown. */
 export const lista = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    search: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("active"), v.literal("published"), v.literal("draft"), v.literal("archived"), v.literal("all"))),
+    category: v.optional(v.string()),
+    destination: v.optional(v.string()),
+    ...pageArgs,
+  },
+  handler: async (ctx, a) => {
     if (!(await pode(ctx, "tours"))) return null;
     const tours = await ctx.db.query("tours").collect();
+    const status = a.status ?? "active";
+    const category = a.category ?? "all";
+    const destination = a.destination ?? "all";
+    const matching = tours
+      .filter((t) => (status === "active" ? t.status !== "archived" : status === "all" ? true : t.status === status))
+      .filter((t) => category === "all" || (category === "ultra" ? t.isUltraLuxury : t.category === category && !t.isUltraLuxury))
+      .filter((t) => destination === "all" || t.destination === destination)
+      .filter((t) => matchesSearch(a.search, [t.title, t.slug, t.destination, t.category, CATEGORY_LABELS[t.category], t.isUltraLuxury ? "Ultra-luxo" : null]))
+      .sort((x, y) => (STATUS_ORDER[x.status] ?? 9) - (STATUS_ORDER[y.status] ?? 9) || x.title.localeCompare(y.title, "pt"));
+    const pg = pageOf(matching, a);
     const traducoes = await ctx.db.query("tourTranslations").collect();
-    return Promise.all(
-      tours.map(async (t) => ({
+    const rows = await Promise.all(
+      pg.rows.map(async (t) => ({
         _id: t._id,
         titulo: t.title,
         slug: t.slug,
@@ -249,6 +272,14 @@ export const lista = query({
         avaliacao: t.rating ?? null,
       })),
     );
+    return {
+      ...pg,
+      rows,
+      unfilteredTotal: tours.length,
+      destinations: distinctSorted(tours.map((t) => t.destination)),
+      publishedCount: tours.filter((t) => t.status === "published").length,
+      featuredCount: tours.filter((t) => t.isFeatured).length,
+    };
   },
 });
 

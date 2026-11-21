@@ -62,6 +62,7 @@ import type * as lib_funilEstado from "../lib/funilEstado.js";
 import type * as lib_funis from "../lib/funis.js";
 import type * as lib_geo from "../lib/geo.js";
 import type * as lib_imagens from "../lib/imagens.js";
+import type * as lib_list from "../lib/list.js";
 import type * as lib_markdownToTiptap from "../lib/markdownToTiptap.js";
 import type * as lib_notificar from "../lib/notificar.js";
 import type * as lib_openai from "../lib/openai.js";
@@ -183,6 +184,7 @@ declare const fullApi: ApiFromModules<{
   "lib/funis": typeof lib_funis;
   "lib/geo": typeof lib_geo;
   "lib/imagens": typeof lib_imagens;
+  "lib/list": typeof lib_list;
   "lib/markdownToTiptap": typeof lib_markdownToTiptap;
   "lib/notificar": typeof lib_notificar;
   "lib/openai": typeof lib_openai;
