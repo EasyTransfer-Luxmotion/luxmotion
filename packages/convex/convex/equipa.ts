@@ -7,6 +7,7 @@ import { exigirAdmin, lerAcesso, permite, verificar } from "./lib/admin";
 import { VALIDADE_CONVITE, convitesDe, estadoDoConvite, novoToken, ultimoConvite } from "./lib/convites";
 import { notificar } from "./lib/notificar";
 import { urlDaImagem } from "./lib/imagens";
+import { inviteEmail } from "./lib/inviteEmail";
 import { ownerPhotoUrls } from "./lib/ownerProfiles";
 import {
   CHAVES_CAPACIDADE,
@@ -977,8 +978,6 @@ export const migrarConvites = internalMutation({
   },
 });
 
-const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-const escapar = (t: string) => t.replace(/[&<>"']/g, (c) => ESC[c]!);
 
 export const enviarConvite = internalAction({
   args: { conviteId: v.id("convites") },
@@ -998,45 +997,17 @@ export const enviarConvite = internalAction({
       await ctx.runMutation(internal.equipa.marcarConvite, { conviteId, envio: "semEmail" });
       return;
     }
-    const primeiro = d.nome.split(" ")[0] ?? d.nome;
-    const en = d.idioma === "en";
-    const ate = new Intl.DateTimeFormat(en ? "en-GB" : "pt-PT", { day: "numeric", month: "long", timeZone: "Europe/Lisbon" }).format(d.expiraEm);
-    const como = d.cargo;
-    /* A mensagem de quem convida, como citação: quebras de linha mantidas,
-       e escapada como o resto (vem de um campo de texto livre). */
-    const mensagem = d.mensagem
-      ? `<blockquote style="margin:0 0 24px;padding:12px 16px;border-left:3px solid #c9a96e;background:#faf7f1;font-size:15px;line-height:1.6;color:#3a3833">${escapar(d.mensagem).replace(/\n/g, "<br>")}<br><span style="font-size:13px;color:#8a8780">— ${escapar(por)}</span></blockquote>`
-      : "";
-    const t = en
-      ? {
-          titulo: `Hi ${escapar(primeiro)}, you now have access to the back-office`,
-          quem: `${escapar(por)} added you to the team${como ? ` as <strong>${escapar(como)}</strong>` : ""}.`,
-          como: `Sign in with <strong>${escapar(d.email)}</strong> — with Google, or with a code sent to this address. If you don't have an account yet, you'll create it in the same step.`,
-          botao: "See the invitation",
-          validade: `The invitation is valid until ${ate}. On the next page you can accept it or decline it.`,
-          rodape: "If you weren't expecting this email, you can ignore it: nothing happens unless you sign in with this address.",
-          assunto: "Your invitation to the LuxMotion back-office",
-        }
-      : {
-          titulo: `Olá ${escapar(primeiro)}, tem acesso ao back-office`,
-          quem: `${escapar(por)} acrescentou-o à equipa${como ? ` como <strong>${escapar(como)}</strong>` : ""}.`,
-          como: `Entre com <strong>${escapar(d.email)}</strong> — com o Google, ou com um código enviado para este email. Se ainda não tem conta, cria-a no mesmo passo.`,
-          botao: "Ver o convite",
-          validade: `O convite é válido até ${ate}. Na página seguinte pode aceitá-lo ou recusá-lo.`,
-          rodape: "Se não esperava este email, pode ignorá-lo: sem entrar com este endereço, nada acontece.",
-          assunto: "Convite para o back-office da LuxMotion",
-        };
-    const html = `
-      <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1c1b18">
-        <p style="font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#9a7535;margin:0 0 12px">LuxMotion · Back-office</p>
-        <h1 style="font-size:22px;margin:0 0 16px">${t.titulo}</h1>
-        <p style="font-size:15px;line-height:1.6;margin:0 0 16px">${t.quem}</p>
-        ${mensagem}
-        <p style="font-size:15px;line-height:1.6;margin:0 0 24px">${t.como}</p>
-        <a href="${link}" style="display:inline-block;background:#1c1b18;color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px;font-size:15px">${t.botao}</a>
-        <p style="font-size:13px;color:#5a5852;margin:16px 0 0">${t.validade}</p>
-        <p style="font-size:12px;color:#8a8780;margin:28px 0 0">${t.rodape}</p>
-      </div>`;
+    const mail = inviteEmail({
+      firstName: d.nome.split(" ")[0] ?? d.nome,
+      inviter: por,
+      role: d.cargo,
+      email: d.email,
+      message: d.mensagem ?? null,
+      link,
+      expiresAt: d.expiraEm,
+      lang: d.idioma === "en" ? "en" : "pt",
+      cdnUrl: process.env.BUNNY_CDN_URL ?? null,
+    });
     try {
       const r = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -1044,8 +1015,9 @@ export const enviarConvite = internalAction({
         body: JSON.stringify({
           from: process.env.RESEND_FROM ?? "LuxMotion <onboarding@resend.dev>",
           to: [d.email],
-          subject: t.assunto,
-          html,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
         }),
         signal: AbortSignal.timeout(20_000),
       });
