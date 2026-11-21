@@ -760,8 +760,9 @@ export const preencherReunioes = internalMutation({
  * que está aberta, «realizada» e «falta» fecham-na (na data indicada).
  */
 export const calendario = query({
-  args: { de: v.number(), ate: v.number() },
-  handler: async (ctx, { de, ate }) => {
+  // `funnel`: the funnel picked on the calendar (?funil=), filtered here and not in the browser.
+  args: { de: v.number(), ate: v.number(), funnel: v.optional(v.string()) },
+  handler: async (ctx, { de, ate, funnel }) => {
     /* Ler, não editar: com o nível por omissão («editar») o «ver como», que é
        só consulta, recusava e o ecrã das Reuniões não abria. Cada reunião
        ainda passa pelo módulo do seu cartão, mais abaixo. */
@@ -792,6 +793,7 @@ export const calendario = query({
       if (!n || n.arquivadoEm) continue;
       const f = funis.get(n.funilId);
       if (!f || !eChaveFunil(f.chave)) continue;
+      if (funnel && f.chave !== funnel) continue;
       if (!acesso.dono && !chega(acesso.permissoes[moduloDoCartao(f.chave, n.origem)], "ver")) continue;
       const etapa = f.etapas.find((e) => e.id === n.etapaId);
       for (const e of dentro) {
