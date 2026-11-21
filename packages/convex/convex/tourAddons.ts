@@ -118,7 +118,8 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("tourAddons") },
   handler: async (ctx, args) => {
-    await exigirAdmin(ctx, ["extras", "tours", "eventos"]);
+    /* Apagar um extra pede «Apagar», como o universalAddons.remove. */
+    await exigirAdmin(ctx, ["extras", "tours", "eventos"], "editar", "apagar");
     const addon = await ctx.db.get(args.id);
     if (!addon) throw new ConvexError("Este extra já não existe — talvez tenha sido apagado noutra janela.");
 
