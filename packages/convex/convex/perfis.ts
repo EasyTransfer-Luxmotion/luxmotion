@@ -3,6 +3,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
 import { urlDaImagem } from "./lib/imagens";
+import { matchesSearch, pageArgs, pageOf, reorderSlice } from "./lib/list";
 
 /*
  * Conteúdos → Equipa e Motoristas no dashboard (E4): os perfis públicos que o
@@ -43,42 +44,74 @@ function idDe(ctx: QueryCtx, tipo: Tipo, id: string) {
   return tipo === "equipa" ? ctx.db.normalizeId("teamMembers", id) : ctx.db.normalizeId("drivers", id);
 }
 
-export const lista = query({
-  args: { tipo: vTipo },
-  handler: async (ctx, { tipo }) => {
+async function toRow(ctx: QueryCtx, tipo: Tipo, d: Perfil, place: number) {
+  const base = {
+    id: d._id as string,
+    place,
+    versao: d.updatedAt,
+    nome: d.name,
+    publicado: d.status === "published",
+    imagem: d.imageId ?? null,
+    imagemUrl: await urlDaImagem(ctx, d.imageId),
+  };
+  if (tipo === "equipa") {
+    const x = d as Doc<"teamMembers">;
+    return { ...base, cargo: x.role, bio: x.bio ?? "" };
+  }
+  const x = d as Doc<"drivers">;
+  return {
+    ...base,
+    zona: x.location,
+    frase: x.quote,
+    descricao: x.description ?? "",
+    linguas: x.languages ?? "",
+    viatura: x.vehicle ?? "",
+    avaliacao: x.rating ?? "",
+    viagens: x.rides ?? null,
+  };
+}
+
+/* One profile for the editor, with its place on the site. The editor used to
+   load the whole list just to find this row. */
+export const detail = query({
+  args: { tipo: vTipo, id: v.string() },
+  handler: async (ctx, { tipo, id }) => {
     await exigirAdmin(ctx, moduloDe(tipo), "ver");
     const docs = await lerTodos(ctx, tipo);
-    const linhas = await Promise.all(
-      docs.map(async (d) => {
-        const base = {
-          id: d._id as string,
-          versao: d.updatedAt,
-          nome: d.name,
-          publicado: d.status === "published",
-          imagem: d.imageId ?? null,
-          imagemUrl: await urlDaImagem(ctx, d.imageId),
-        };
-        if (tipo === "equipa") {
-          const x = d as Doc<"teamMembers">;
-          return { ...base, cargo: x.role, bio: x.bio ?? "" };
-        }
-        const x = d as Doc<"drivers">;
-        return {
-          ...base,
-          zona: x.location,
-          frase: x.quote,
-          descricao: x.description ?? "",
-          linguas: x.languages ?? "",
-          viatura: x.vehicle ?? "",
-          avaliacao: x.rating ?? "",
-          viagens: x.rides ?? null,
-        };
-      }),
-    );
+    const i = docs.findIndex((d) => d._id === id);
+    if (i < 0) return { found: false as const };
+    return { found: true as const, row: await toRow(ctx, tipo, docs[i]!, i + 1) };
+  },
+});
+
+/* The site profiles list: status, search and page come from the URL and are
+   resolved here, in site order. `place` is the position on the site, so it
+   stays right when the list is filtered. */
+export const lista = query({
+  args: {
+    tipo: vTipo,
+    search: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("published"), v.literal("draft"))),
+    ...pageArgs,
+  },
+  handler: async (ctx, a) => {
+    const { tipo } = a;
+    await exigirAdmin(ctx, moduloDe(tipo), "ver");
+    const docs = await lerTodos(ctx, tipo);
+    const place = new Map(docs.map((d, i) => [d._id as string, i + 1]));
+    const searchFields = (d: Perfil) =>
+      tipo === "equipa" ? [d.name, (d as Doc<"teamMembers">).role] : [d.name, (d as Doc<"drivers">).location, (d as Doc<"drivers">).vehicle];
+    const matching = docs
+      .filter((d) => !a.status || (a.status === "published") === (d.status === "published"))
+      .filter((d) => matchesSearch(a.search, searchFields(d)));
+    const pg = pageOf(matching, a);
+    const rows = await Promise.all(pg.rows.map((d) => toRow(ctx, tipo, d, place.get(d._id as string) ?? 0)));
     return {
-      linhas,
-      publicados: docs.filter((d) => d.status === "published").length,
-      rascunhos: docs.filter((d) => d.status !== "published").length,
+      ...pg,
+      rows,
+      unfilteredTotal: docs.length,
+      publishedCount: docs.filter((d) => d.status === "published").length,
+      draftCount: docs.filter((d) => d.status !== "published").length,
     };
   },
 });
@@ -204,6 +237,45 @@ export const ordenar = mutation({
     await Promise.all(
       nova.map((d, i) => (d.order === i + 1 ? null : ctx.db.patch(d._id as Id<"teamMembers"> & Id<"drivers">, { order: i + 1 }))),
     );
+  },
+});
+
+async function saveOrder(ctx: MutationCtx, todos: Perfil[], ids: string[]) {
+  const byId = new Map(todos.map((d) => [d._id as string, d]));
+  await Promise.all(
+    ids.map((id, i) => {
+      const d = byId.get(id)!;
+      return d.order === i + 1 ? null : ctx.db.patch(d._id as Id<"teamMembers"> & Id<"drivers">, { order: i + 1 });
+    }),
+  );
+}
+
+/* Reorders one page of the site order (see reorderSlice). */
+export const reorderPage = mutation({
+  args: { tipo: vTipo, start: v.number(), ids: v.array(v.string()) },
+  handler: async (ctx, { tipo, start, ids }) => {
+    await exigirAdmin(ctx, moduloDe(tipo));
+    const todos = await lerTodos(ctx, tipo);
+    const order = reorderSlice(todos.map((d) => d._id as string), start, ids);
+    if (!order) throw new ConvexError({ tipo: "conflito", mensagem: "A lista mudou entretanto. Recarregue e volte a ordenar." });
+    await saveOrder(ctx, todos, order);
+  },
+});
+
+/* The arrow buttons: swaps a profile with its neighbour in the whole list, so
+   the first row of page 2 can move up to page 1. */
+export const moveBy = mutation({
+  args: { tipo: vTipo, id: v.string(), delta: v.union(v.literal(-1), v.literal(1)) },
+  handler: async (ctx, { tipo, id, delta }) => {
+    await exigirAdmin(ctx, moduloDe(tipo));
+    const todos = await lerTodos(ctx, tipo);
+    const ids = todos.map((d) => d._id as string);
+    const i = ids.indexOf(id);
+    const j = i + delta;
+    if (i < 0) throw new ConvexError({ tipo: "naoEncontrado", mensagem: "Este perfil já não existe." });
+    if (j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j]!, ids[i]!];
+    await saveOrder(ctx, todos, ids);
   },
 });
 
