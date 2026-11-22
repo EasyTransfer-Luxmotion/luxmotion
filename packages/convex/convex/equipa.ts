@@ -867,6 +867,9 @@ export const apagarColaborador = mutation({
     const p = await ctx.db.get(id);
     if (!p) throw new ConvexError("Esta pessoa já não está na equipa. Recarregue a página.");
     if (p.email === acesso.email) throw new ConvexError("Não se pode apagar a si próprio.");
+    if (p.owner && p.estado === "activo" && (await activeOwnerCount(ctx, id)) < 1) {
+      throw new ConvexError("É o último dono ativo: apagá-lo deixava o back-office sem dono.");
+    }
     const cargo = await ctx.db.get(p.cargoId);
     for (const c of await convitesDe(ctx.db, id)) await ctx.db.delete(c._id);
     /* "Ver como" e simulações são por email de quem simula, não deste. */
@@ -874,10 +877,20 @@ export const apagarColaborador = mutation({
     await registar(ctx, {
       ator: acesso.email!,
       accao: "Apagou o membro",
-      alvo: `${p.nome} (${p.email})`,
+      alvo: `${p.nome} (${p.email})${p.owner ? " · dono" : ""}`,
       detalhe: cargo ? `Cargo: ${cargo.nome}` : undefined,
       colaboradorId: id,
     });
+    if (p.owner) {
+      await notificar(ctx, {
+        chave: `dono:apagado:${id}:${Date.now()}`,
+        tipo: "equipa",
+        titulo: `${p.nome} (dono) foi apagado da equipa`,
+        detalhe: `por ${acesso.email}`,
+        href: "/equipa/membros",
+        tom: "aviso",
+      });
+    }
     return null;
   },
 });
