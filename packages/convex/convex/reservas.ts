@@ -1,9 +1,12 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
+import { query, type QueryCtx } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, permite, temCapacidade } from "./lib/admin";
 import { acertarCartaoDaOrigem } from "./lib/funilEstado";
+import { facts } from "./lib/orderFacts";
+import { facetOptions, readOrderList } from "./lib/orderList";
 
 /*
  * Reservas no dashboard (E2 do plano de reconstrução do back-office).
@@ -13,9 +16,10 @@ import { acertarCartaoDaOrigem } from "./lib/funilEstado";
  * até este o substituir em todos os ambientes.
  *
  * O que muda:
- *  - A lista lê só a vista pedida, pelo índice de estado. Em produção 81% das
- *    linhas são rascunhos (carrinhos abandonados) e o listPaged lia-os todos,
- *    a cada mudança, para mostrar dez reservas.
+ *  - A lista não lê a tabela: conta e pagina pelos agregados das encomendas
+ *    (lib/orderFacts.ts, lib/orderList.ts) e só carrega as linhas que mostra.
+ *    Lia a vista inteira a cada mudança, o que a 10 000 encomendas por dia
+ *    passava o limite de leitura do Convex numa semana.
  *  - As mudanças de estado seguem uma matriz escrita aqui, e não "qualquer
  *    estado para qualquer estado".
  *  - Confirmar um pagamento é uma só transação: o estado, as transações, o
@@ -78,10 +82,6 @@ function podeConfirmarPagamento(o: Pick<Doc<"orders">, "status" | "paymentStatus
   return o.paymentStatus !== "completed" && (o.status === "pending" || o.status === "confirmed");
 }
 
-function semAcentos(s: string): string {
-  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-}
-
 function local(p: { location?: string; name?: string } | undefined): string {
   return p?.name?.trim() || p?.location?.trim() || "—";
 }
@@ -95,31 +95,6 @@ function origemAnuncio(o: Doc<"orders">): string {
 function pernaDe(o: Doc<"orders">, outra: Doc<"orders"> | null): "ida" | "regresso" | null {
   if (!outra) return null;
   return o._creationTime > outra._creationTime ? "regresso" : "ida";
-}
-
-async function lerVista(ctx: QueryCtx, vista: Vista | "todas"): Promise<Doc<"orders">[]> {
-  if (vista === "todas") return ctx.db.query("orders").collect();
-  const partes = await Promise.all(
-    VISTAS[vista].map((estado) =>
-      ctx.db
-        .query("orders")
-        .withIndex("by_status", (q) => q.eq("status", estado))
-        .collect(),
-    ),
-  );
-  return partes.flat();
-}
-
-/* As reservas de um dia, pelo índice da data da viagem, só com os estados
-   da vista. */
-async function lerDia(ctx: QueryCtx, vista: Vista | "todas", dia: string): Promise<Doc<"orders">[]> {
-  const docs = await ctx.db
-    .query("orders")
-    .withIndex("by_departure_date", (q) => q.gte("departureDate", dia).lt("departureDate", dia + "\uffff"))
-    .collect();
-  if (vista === "todas") return docs;
-  const estados: readonly Estado[] = VISTAS[vista];
-  return docs.filter((o) => estados.includes(o.status));
 }
 
 /* AAAA-MM-DD de hoje em Lisboa, para "próximas" e "passadas". */
@@ -161,65 +136,40 @@ export const lista = query({
     const valores = temCapacidade(acesso, "valores");
 
     const dia = a.dia && /^\d{4}-\d{2}-\d{2}$/.test(a.dia) ? a.dia : null;
-    let docs = dia ? await lerDia(ctx, a.vista, dia) : await lerVista(ctx, a.vista);
-
-    /* As opções de origem vêm da vista inteira, antes dos filtros: escolher
-       uma não pode fazer desaparecer as outras do menu. */
-    const origens = [...new Set(docs.map(origemAnuncio))].filter(Boolean).sort();
-    const pagamentos = [...new Set(docs.map((o) => o.paymentStatus ?? "sem"))].sort();
-    const metodos = [...new Set(docs.map((o) => o.paymentMethod).filter((m): m is string => Boolean(m)))].sort();
-    const parceiros = [...new Set(docs.map((o) => o.partnershipName?.trim()).filter((m): m is string => Boolean(m)))].sort((x, y) => x.localeCompare(y, "pt"));
-
-    if (a.quando && !dia) {
-      const hoje = hojeEmLisboa();
-      docs = docs.filter((o) => (a.quando === "proximas" ? o.departureDate >= hoje : o.departureDate < hoje));
-    }
-    if (a.metodo) docs = docs.filter((o) => o.paymentMethod === a.metodo);
-    if (a.parceiro) docs = docs.filter((o) => (a.parceiro === "direto" ? !o.partnershipName?.trim() : o.partnershipName?.trim() === a.parceiro));
-    if (a.pagamento) docs = docs.filter((o) => (o.paymentStatus ?? "sem") === a.pagamento);
-    if (a.origem) {
-      docs = docs.filter((o) =>
-        a.origem === "desconhecida" ? !origemAnuncio(o) : `source:${origemAnuncio(o)}` === a.origem,
-      );
-    }
-    const termos = semAcentos(a.pesquisa ?? "").split(/\s+/).filter(Boolean);
-    if (termos.length) {
-      docs = docs.filter((o) => {
-        const onde = semAcentos(
-          [
-            o.orderNumber,
-            o.customerName,
-            o.customerEmail,
-            o.customerPhone,
-            o.passengerName,
-            o.partnershipName,
-            o.departure?.location,
-            o.arrival?.location,
-          ]
-            .filter(Boolean)
-            .join(" "),
-        );
-        return termos.every((t) => onde.includes(t));
-      });
-    }
-
+    const hoje = hojeEmLisboa();
     /* Ordenar pelo total diria a ordem dos valores a quem não os pode ver. */
     const ordenar = a.ordenar === "total" && !valores ? "criada" : (a.ordenar ?? "criada");
     const sentido = a.sentido ?? (ordenar === "viagem" && a.quando === "proximas" ? "asc" : "desc");
-    const chave = (o: Doc<"orders">): string | number =>
-      ordenar === "viagem" ? o.departureDate : ordenar === "total" ? (o.totalAmount ?? 0) : o._creationTime;
-    docs.sort((x, y) => {
-      const a1 = chave(x);
-      const b1 = chave(y);
-      const c = a1 < b1 ? -1 : a1 > b1 ? 1 : 0;
-      return sentido === "asc" ? c : -c;
-    });
-
     const porPagina = Math.min(Math.max(1, Math.floor(a.porPagina)), 100);
-    const total = docs.length;
-    const paginas = Math.max(1, Math.ceil(total / porPagina));
-    const pagina = Math.min(Math.max(0, Math.floor(a.pagina)), paginas - 1);
-    const fatia = docs.slice(pagina * porPagina, (pagina + 1) * porPagina);
+    const origem = a.origem === "desconhecida" ? "" : a.origem?.startsWith("source:") ? a.origem.slice(7) : a.origem ? "\u0000" : undefined;
+
+    /* Read through the order facts (lib/orderList.ts): the count is a call
+       and only the rows on screen are loaded, whatever the table's size. */
+    /* One after the other: calls into a component are not run side by side
+       with other reads (convex-test cannot follow them, and it saves little). */
+    const res = await readOrderList(ctx, {
+        view: a.vista,
+        sort: ordenar === "viagem" ? "trip" : ordenar === "total" ? "total" : "created",
+        order: sentido,
+        from: dia ?? (a.quando === "proximas" ? hoje : null),
+        to: dia ? dia + "\uffff" : a.quando === "passadas" ? hoje : null,
+        filters: {
+          payment: a.pagamento || undefined,
+          method: a.metodo || undefined,
+          partner: a.parceiro === "direto" ? "" : a.parceiro || undefined,
+          source: origem,
+        },
+        search: a.pesquisa ?? "",
+        page: Math.floor(a.pagina),
+        pageSize: porPagina,
+      });
+    const opcoes = await facetOptions(ctx, a.vista);
+    const { total, page: pagina, pageCount: paginas, approximate: aproximado } = res;
+    const fatia = res.docs;
+    const origens = opcoes.source.filter(Boolean).sort();
+    const pagamentos = [...opcoes.payment].sort();
+    const metodos = opcoes.method.filter(Boolean).sort();
+    const parceiros = opcoes.partner.filter(Boolean).sort((x, y) => x.localeCompare(y, "pt"));
 
     /* A outra perna só para as linhas da página: é o que diz "ida" ou
        "regresso" e de quem é um regresso sem dados de cliente. */
@@ -258,7 +208,7 @@ export const lista = query({
       };
     });
 
-    return { linhas, total, pagina, paginas, porPagina, origens, metodos, parceiros, pagamentos, valores };
+    return { linhas, total, aproximado, pagina, paginas, porPagina, origens, metodos, parceiros, pagamentos, valores };
   },
 });
 
@@ -268,10 +218,13 @@ export const contagens = query({
   args: {},
   handler: async (ctx) => {
     if (!permite(await lerAcesso(ctx), "reservas")) return null;
-    const [reservas, porPagar, canceladas] = await Promise.all(
-      (["reservas", "porPagar", "canceladas"] as const).map((vista) => lerVista(ctx, vista).then((d) => d.length)),
+    /* One call to the order facts, not a read of every order: this runs in
+       the sidebar of everyone with the back-office open. */
+    const [reservas, porPagar, canceladas] = await facts.countBatch(
+      ctx,
+      (["reservas", "porPagar", "canceladas"] as const).map((vista) => ({ namespace: ["created", vista] })),
     );
-    return { reservas, porPagar, canceladas };
+    return { reservas: reservas!, porPagar: porPagar!, canceladas: canceladas! };
   },
 });
 

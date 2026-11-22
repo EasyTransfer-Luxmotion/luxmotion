@@ -1,6 +1,7 @@
 import { safeStorageDelete } from "./lib/storage"
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { query } from "./_generated/server"
+import { mutation } from "./functions"
 import { enfileirarLead } from "./lib/pipedriveFila"
 import { avisarPedido } from "./lib/avisoPedido"
 import { exigirAdmin } from "./lib/admin";

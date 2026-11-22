@@ -1,7 +1,8 @@
 import { legacyUpsellTranslations } from "./lib/upsellTranslations";
 import { v } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
-import { query, mutation } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./functions";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { haversineKm, roundKm } from "./lib/geo";
 import { siteSettingsDefaults } from "./siteSettings";

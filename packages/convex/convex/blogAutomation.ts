@@ -1,12 +1,6 @@
 import { v, type ObjectType } from "convex/values";
-import {
-  action,
-  internalAction,
-  internalMutation,
-  internalQuery,
-  query,
-  type QueryCtx,
-} from "./_generated/server";
+import { action, internalAction, internalQuery, query, type QueryCtx } from "./_generated/server";
+import { internalMutation } from "./functions";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { publicarNoBunny } from "./lib/bunny";

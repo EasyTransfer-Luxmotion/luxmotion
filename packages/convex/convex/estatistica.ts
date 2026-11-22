@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, query, type QueryCtx } from "./_generated/server";
+import { query, type QueryCtx } from "./_generated/server";
+import { internalMutation } from "./functions";
 import type { Doc } from "./_generated/dataModel";
 import { lerAcesso, permite, temCapacidade, type Acesso } from "./lib/admin";
 import { tituloDaOrigem } from "./lib/funis";

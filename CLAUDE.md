@@ -241,6 +241,24 @@ encomendas com dados pessoais e marcar uma encomenda como paga.
 
 Ao acrescentar uma função nova, decidir em qual das três cai. Na dúvida, admin.
 
+**Toda a mutation vem de `./functions`, nunca de `_generated/server`.** O
+`mutation` e o `internalMutation` de [functions.ts](packages/convex/convex/functions.ts)
+correm os gatilhos de `lib/triggers.ts` em cada escrita: é por eles que os
+contadores, as somas e as posições das encomendas (`lib/orderFacts.ts`, o
+componente `orderFacts`) ficam certos. Uma mutation feita com os de
+`_generated/server` grava sem eles e os números ficam errados até à próxima
+migração; o `tests/facts.test.ts` falha se algum ficheiro o fizer.
+
+**Nada lê a tabela `orders` inteira.** A 10 000 encomendas por dia passa o
+limite de leitura de uma query (~16 MB) numa semana. Listas, contagens e
+números por parceiro vêm dos agregados: `lib/orderList.ts` (lista de
+reservas), `facts.count`/`sum`/`at`/`paginate` com o namespace certo. Um
+ecrã novo que precise de contar ou somar encomendas acrescenta um namespace em
+`factsOf`, não um `.collect()`. Depois de publicar num ambiente onde os
+agregados ainda não existem: `npx convex run orderFacts:backfill '{}'` (pode
+correr outra vez; só repara o que estiver errado) e
+`npx convex run orderFacts:counts` para ver.
+
 **Cuidado com `const x = api as any`**: esconde chamadas a funções do compilador
 e de qualquer pesquisa por `api.modulo.funcao`. Foi assim que fechar o
 `stripe.createCheckoutSession` ao admin partiu os dois checkouts. Usar sempre a

@@ -1,5 +1,6 @@
 import { v, type ObjectType, ConvexError } from "convex/values";
-import { query, mutation, internalMutation, type MutationCtx } from "./_generated/server";
+import { query, type MutationCtx } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { generateSlug, calculateReadTime } from "./lib/utils";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { urlDaImagem, vImagem } from "./lib/imagens";

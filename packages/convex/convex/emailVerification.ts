@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { action, mutation, internalMutation } from "./_generated/server";
+import { action } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { internal } from "./_generated/api";
 
 const CODE_TTL_MS = 10 * 60 * 1000;

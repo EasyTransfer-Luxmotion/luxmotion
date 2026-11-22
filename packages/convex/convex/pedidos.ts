@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { lisbonToday, periodStart } from "./lib/boardFilters";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { query, type QueryCtx } from "./_generated/server";
+import { mutation } from "./functions";
 import type { Doc } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
 import { acertarCartaoDaOrigem } from "./lib/funilEstado";

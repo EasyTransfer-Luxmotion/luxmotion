@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { matchesSearch, pageArgs, pageOf } from "./lib/list";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
 import { urlDaImagem, vImagem } from "./lib/imagens";

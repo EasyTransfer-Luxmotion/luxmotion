@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { boardFiltersActive, lisbonToday, matchesBoardFilters, vBoardFilters } from "./lib/boardFilters";
-import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, permite, temCapacidade, type Acesso } from "./lib/admin";
 import { chega, type Capacidade, type Nivel } from "./lib/permissoes";

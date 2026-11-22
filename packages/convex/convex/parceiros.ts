@@ -1,10 +1,12 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { query, type QueryCtx } from "./_generated/server";
+import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
 import { acertarCartaoDaOrigem } from "./lib/funilEstado";
 import { urlDaImagem } from "./lib/imagens";
 import { frotaVisivel } from "./lib/frota";
+import { facts, isTour } from "./lib/orderFacts";
 
 /*
  * Parceiros no dashboard (E4): as parcerias (a página de marca branca em
@@ -60,8 +62,6 @@ async function slugOcupado(ctx: QueryCtx, slug: string, excepto?: Id<"partnershi
 
 /* ─── O que cada parceria trouxe ─────────────────────────────────────── */
 
-const ESTADOS_DE_SERVICO = new Set(["paid", "confirmed", "completed"]);
-
 /* As tabelas dos formulários com atribuição, com o tipo que a caixa de
    Pedidos usa no endereço (pedidos.ts). */
 const PEDIDOS = {
@@ -74,49 +74,52 @@ const PEDIDOS = {
 } as const;
 type TabelaPedido = keyof typeof PEDIDOS;
 
-type Reserva = { parceria: string; ida: Doc<"orders">; valor: number; volta: boolean; tour: boolean };
-
 /*
- * As reservas pagas de cada parceria. Ida e volta contam uma vez, mas a
- * faturação soma as duas pernas; a volta nasce sem parceria (o pagamento fica
- * na ida), por isso vai buscar a da ida. Os tours pagos entram pela encomenda
- * espelho (tourBookingId), que leva a parceria do tourBooking — contar também
- * os tourBookings era contar duas vezes.
+ * What each partner brought, from the order facts (lib/orderFacts.ts), not
+ * from the orders: a read of the whole table (1 830 orders in Nov 2026) would
+ * pass the query limit within days at 10 000 a day.
  *
- * Lê a tabela inteira: 1 830 encomendas em produção a 2026-11-15, as mesmas
- * que o Início lê no período "tudo".
+ * Same rules as before: paid, confirmed or done; a round trip counts once
+ * and its revenue is both legs; the return is the outbound's partner's; a
+ * paid tour enters by its mirror order. Leads are the form rows with the
+ * partner's id.
  */
-async function lerReservas(ctx: QueryCtx): Promise<Reserva[]> {
-  const docs = await ctx.db.query("orders").collect();
-  const porId = new Map(docs.map((o) => [o._id as string, o]));
-  const fora: Reserva[] = [];
-  for (const o of docs) {
-    if (!ESTADOS_DE_SERVICO.has(o.status)) continue;
-    const outra = o.relatedOrderId ? porId.get(o.relatedOrderId) : undefined;
-    const volta = Boolean(outra && outra._creationTime < o._creationTime);
-    const ida = volta ? outra! : o;
-    if (!ida.partnershipId) continue;
-    fora.push({
-      parceria: ida.partnershipId,
-      ida,
-      valor: o.totalAmount ?? 0,
-      volta,
-      tour: Boolean(o.tourBookingId) || (o.orderNumber ?? "").startsWith("TB"),
+type Numeros = { reservas: number; faturacao: number; pedidos: number; ultima: number | null };
+
+async function numerosDe(ctx: QueryCtx, ids: Id<"partnerships">[]): Promise<Map<string, Numeros>> {
+  const out = new Map<string, Numeros>();
+  if (!ids.length) return out;
+  const ns = ids.flatMap((id) => [["partner", id, "outbound"], ["partner", id, "return"], ["partnerLead", id]].map((n) => ({ namespace: n })));
+  const counts = await facts.countBatch(ctx, ns);
+  const sums = await facts.sumBatch(ctx, ns);
+  /* The latest booking or lead: the last item of each non-empty namespace. */
+  const cheios = ns.filter((_, i) => i % 3 !== 1 && counts[i]! > 0);
+  const ultimos = cheios.length ? await facts.atBatch(ctx, cheios.map((n) => ({ ...n, offset: -1 }))) : [];
+  const ultimaDe = new Map<string, number>();
+  cheios.forEach((n, i) => {
+    const id = n.namespace[1]!;
+    ultimaDe.set(id, Math.max(ultimaDe.get(id) ?? 0, Number(ultimos[i]!.key)));
+  });
+  const ultimas = ids.map((id) => ultimaDe.get(id) ?? null);
+  ids.forEach((id, i) => {
+    out.set(id, {
+      reservas: counts[i * 3]!,
+      faturacao: sums[i * 3]! + sums[i * 3 + 1]!,
+      pedidos: counts[i * 3 + 2]!,
+      ultima: ultimas[i]!,
     });
-  }
-  return fora;
+  });
+  return out;
 }
 
-type Pedido = { parceria: string; tabela: TabelaPedido; doc: Doc<TabelaPedido> };
+type Pedido = { tabela: TabelaPedido; doc: Doc<TabelaPedido> };
 
-async function lerPedidos(ctx: QueryCtx): Promise<Pedido[]> {
-  const tabelas = Object.keys(PEDIDOS) as TabelaPedido[];
-  const listas = await Promise.all(tabelas.map((t) => ctx.db.query(t).collect()));
-  return tabelas.flatMap((tabela, i) =>
-    (listas[i] as Doc<TabelaPedido>[])
-      .filter((d) => d.partnershipId)
-      .map((doc) => ({ parceria: doc.partnershipId as string, tabela, doc })),
-  );
+/* Lisbon midnight of a day (AAAA-MM-DD), in ms: the month buckets of the
+   partner's page are Lisbon months, like the rest of the back-office. */
+function inicioEmLisboa(dia: string): number {
+  const utc = Date.parse(`${dia}T00:00:00Z`);
+  const h = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Lisbon", hour: "2-digit", hourCycle: "h23" }).format(new Date(utc)));
+  return utc - h * 3_600_000;
 }
 
 const centimos = (n: number) => Math.round(n * 100) / 100;
@@ -143,32 +146,11 @@ export const lista = query({
     /* A faturação de cada parceiro é «Ver valores»: quem só vê as Parcerias
        (a Operação) via quanto cada um vendeu. */
     const verValores = temCapacidade(await lerAcesso(ctx), "valores");
-    const [parcerias, reservas, pedidos, activos] = await Promise.all([
+    const [parcerias, activos] = await Promise.all([
       ctx.db.query("partnerships").collect(),
-      lerReservas(ctx),
-      lerPedidos(ctx),
       ctx.db.query("vehicles").withIndex("by_status", (q) => q.eq("status", "active")).collect(),
     ]);
-
-    const numeros = new Map<string, { reservas: number; faturacao: number; pedidos: number; ultima: number | null }>();
-    const de = (id: string) => {
-      let n = numeros.get(id);
-      if (!n) numeros.set(id, (n = { reservas: 0, faturacao: 0, pedidos: 0, ultima: null }));
-      return n;
-    };
-    for (const r of reservas) {
-      const n = de(r.parceria);
-      n.faturacao += r.valor;
-      if (!r.volta) {
-        n.reservas++;
-        n.ultima = Math.max(n.ultima ?? 0, r.ida._creationTime);
-      }
-    }
-    for (const p of pedidos) {
-      const n = de(p.parceria);
-      n.pedidos++;
-      n.ultima = Math.max(n.ultima ?? 0, p.doc.createdAt);
-    }
+    const numeros = await numerosDe(ctx, parcerias.map((p) => p._id));
 
     /* Contagens dos filtros antes da pesquisa, para não mudarem a cada letra. */
     const porTemplate = Object.fromEntries(TEMPLATES.map((t) => [t, parcerias.filter((p) => templateDe(p) === t).length]));
@@ -259,51 +241,64 @@ export const detalhe = query({
     const p = nid ? await ctx.db.get(nid) : null;
     if (!p) return null;
 
-    const [reservas, pedidos] = await Promise.all([lerReservas(ctx), lerPedidos(ctx)]);
-    const minhas = reservas.filter((r) => r.parceria === p._id);
-    const meus = pedidos.filter((x) => x.parceria === p._id);
-
     const actual = /^\d{4}-\d{2}$/.test(mes) ? mes : mesDe(Date.now());
     const meses = Array.from({ length: 12 }, (_, i) => somarMeses(actual, i - 11));
-    const serie = meses.map(() => ({ reservas: 0, pedidos: 0, faturacao: 0 }));
+    const tabelas = Object.keys(PEDIDOS) as TabelaPedido[];
+    const ida = ["partner", p._id, "outbound"];
+    const volta = ["partner", p._id, "return"];
+    const leads = ["partnerLead", p._id];
 
-    let faturacao = 0;
-    let nReservas = 0;
-    let nTours = 0;
-    for (const r of minhas) {
-      faturacao += r.valor;
-      const b = meses.indexOf(mesDe(r.ida._creationTime));
-      if (b >= 0) serie[b]!.faturacao += r.valor;
-      if (r.volta) continue;
-      nReservas++;
-      if (r.tour) nTours++;
-      if (b >= 0) serie[b]!.reservas++;
-    }
-    const porTabela = new Map<TabelaPedido, number>();
-    for (const x of meus) {
-      porTabela.set(x.tabela, (porTabela.get(x.tabela) ?? 0) + 1);
-      const b = meses.indexOf(mesDe(x.doc.createdAt));
-      if (b >= 0) serie[b]!.pedidos++;
-    }
+    /* Totals, per form, per month: a few batched calls to the facts. */
+    const todos = [ida, volta, leads, ["partner", p._id, "tour"], ...tabelas.map((t) => ["partnerLead", p._id, t])].map((n) => ({ namespace: n }));
+    const doMes = (n: string[]) =>
+      meses.map((m) => ({
+        namespace: n,
+        bounds: { lower: { key: inicioEmLisboa(`${m}-01`), inclusive: true }, upper: { key: inicioEmLisboa(`${somarMeses(m, 1)}-01`), inclusive: false } },
+      }));
+    const cTotal = await facts.countBatch(ctx, todos);
+    const sTotal = await facts.sumBatch(ctx, todos);
+    const cIda = await facts.countBatch(ctx, doMes(ida));
+    const sIda = await facts.sumBatch(ctx, doMes(ida));
+    const sVolta = await facts.sumBatch(ctx, doMes(volta));
+    const cLeads = await facts.countBatch(ctx, doMes(leads));
+    const ultimasIdas = await facts.paginate(ctx, { namespace: ida, order: "desc", pageSize: 8 });
+    const ultimosLeads = await facts.paginate(ctx, { namespace: leads, order: "desc", pageSize: 8 });
+    const nReservas = cTotal[0]!;
+    const faturacao = sTotal[0]! + sTotal[1]!;
+    const nPedidos = cTotal[2]!;
+    const nTours = cTotal[3]!;
+    const porTabela = new Map(tabelas.map((t, i) => [t, cTotal[4 + i]!]));
+    const serie = meses.map((_, i) => ({ reservas: cIda[i]!, pedidos: cLeads[i]!, faturacao: sIda[i]! + sVolta[i]! }));
 
     const categorias = [
       { rotulo: "Transfers", n: nReservas - nTours },
       { rotulo: "Tours e eventos", n: nTours },
-      ...(Object.keys(PEDIDOS) as TabelaPedido[]).map((t) => ({ rotulo: `Pedidos · ${PEDIDOS[t].rotulo}`, n: porTabela.get(t) ?? 0 })),
+      ...tabelas.map((t) => ({ rotulo: `Pedidos · ${PEDIDOS[t].rotulo}`, n: porTabela.get(t) ?? 0 })),
     ].filter((c) => c.n > 0);
 
     /* O que chegou por último, com o caminho para o abrir no dashboard. */
+    const idas = (await Promise.all(ultimasIdas.page.map((i) => ctx.db.get(i.id as Id<"orders">)))).filter((o): o is Doc<"orders"> => o !== null);
+    const meus = (
+      await Promise.all(
+        ultimosLeads.page.map(async (i): Promise<Pedido | null> => {
+          const tabela = tabelas.find((t) => ctx.db.normalizeId(t, i.id) !== null);
+          const doc = tabela ? await ctx.db.get(ctx.db.normalizeId(tabela, i.id)!) : null;
+          return tabela && doc ? { tabela, doc: doc as Doc<TabelaPedido> } : null;
+        }),
+      )
+    ).filter((x): x is Pedido => x !== null);
     const recentes = [
-      ...minhas
-        .filter((r) => !r.volta)
-        .map((r) => ({
+      ...idas.map((o) => {
+        const tour = isTour(o);
+        return {
           tipo: "reserva" as const,
-          quando: r.ida._creationTime,
-          nome: r.ida.customerName?.trim() || "Cliente sem nome",
-          linha: [r.ida.orderNumber, r.tour ? "Tour ou evento" : "Transfer"].filter(Boolean).join(" · "),
-          estado: ESTADO_RESERVA[r.ida.status] ?? r.ida.status,
-          href: r.ida.orderNumber ? `/orders?vista=todas&quando=todas&reserva=${encodeURIComponent(r.ida.orderNumber)}` : null,
-        })),
+          quando: o._creationTime,
+          nome: o.customerName?.trim() || "Cliente sem nome",
+          linha: [o.orderNumber, tour ? "Tour ou evento" : "Transfer"].filter(Boolean).join(" · "),
+          estado: ESTADO_RESERVA[o.status] ?? o.status,
+          href: o.orderNumber ? `/orders?vista=todas&quando=todas&reserva=${encodeURIComponent(o.orderNumber)}` : null,
+        };
+      }),
       ...meus.map((x) => {
         const tipo = PEDIDOS[x.tabela].tipo;
         const estado = (x.doc as { status?: string }).status ?? (tipo === "corporate" ? "submitted" : "new");
@@ -349,7 +344,7 @@ export const detalhe = query({
         reservas: nReservas,
         faturacao: verValores ? centimos(faturacao) : null,
         valorMedio: verValores && nReservas ? centimos(faturacao / nReservas) : null,
-        pedidos: meus.length,
+        pedidos: nPedidos,
       },
       meses,
       serie: serie.map((s) => ({ ...s, faturacao: verValores ? centimos(s.faturacao) : null })),

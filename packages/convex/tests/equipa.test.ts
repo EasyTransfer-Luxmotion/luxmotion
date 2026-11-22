@@ -1,8 +1,7 @@
-import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
-import schema from "../convex/schema";
+import { makeTest } from "./convex";
 
 /*
  * Who gets into the back-office and who decides about owners (lib/admin.ts,
@@ -11,11 +10,10 @@ import schema from "../convex/schema";
  * or the back-office could end up without an owner.
  */
 
-const modules = import.meta.glob("../convex/**/*.*s");
 const RECOVERY = "recovery@example.com";
 const ident = (email: string) => ({ subject: email, issuer: "test", tokenIdentifier: `test|${email}`, email, emailVerified: true, name: email });
 
-let t: ReturnType<typeof convexTest>;
+let t: ReturnType<typeof makeTest>;
 let role: Id<"cargos">;
 
 async function member(email: string, extra: { owner?: boolean; estado?: "activo" | "suspenso"; entered?: boolean } = {}) {
@@ -38,7 +36,7 @@ const access = (email: string) => t.withIdentity(ident(email)).query(api.acesso.
 
 beforeEach(async () => {
   vi.stubEnv("ADMIN_EMAILS", RECOVERY);
-  t = convexTest(schema, modules);
+  t = makeTest();
   role = await t.run((ctx) =>
     ctx.db.insert("cargos", {
       nome: "Operação",

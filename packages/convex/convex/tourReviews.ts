@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { notificar } from "./lib/notificar";
-import { query, mutation } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./functions";
 import { exigirAdmin } from "./lib/admin";
 
 export const listApprovedByEvent = query({

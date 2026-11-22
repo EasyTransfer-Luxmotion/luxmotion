@@ -1,6 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
-import { query, mutation } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";

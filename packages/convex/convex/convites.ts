@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./functions";
 import { estadoDoConvite } from "./lib/convites";
 import { notificar } from "./lib/notificar";
 

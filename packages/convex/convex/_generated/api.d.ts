@@ -38,6 +38,7 @@ import type * as estatistica from "../estatistica.js";
 import type * as events from "../events.js";
 import type * as flights from "../flights.js";
 import type * as fotosExtras from "../fotosExtras.js";
+import type * as functions from "../functions.js";
 import type * as funis from "../funis.js";
 import type * as googleReviews from "../googleReviews.js";
 import type * as http from "../http.js";
@@ -68,6 +69,8 @@ import type * as lib_list from "../lib/list.js";
 import type * as lib_markdownToTiptap from "../lib/markdownToTiptap.js";
 import type * as lib_notificar from "../lib/notificar.js";
 import type * as lib_openai from "../lib/openai.js";
+import type * as lib_orderFacts from "../lib/orderFacts.js";
+import type * as lib_orderList from "../lib/orderList.js";
 import type * as lib_ownerProfiles from "../lib/ownerProfiles.js";
 import type * as lib_pagination from "../lib/pagination.js";
 import type * as lib_parceriaPorSlug from "../lib/parceriaPorSlug.js";
@@ -82,6 +85,7 @@ import type * as lib_saidas from "../lib/saidas.js";
 import type * as lib_storage from "../lib/storage.js";
 import type * as lib_stripeCheckout from "../lib/stripeCheckout.js";
 import type * as lib_tabelasImagens from "../lib/tabelasImagens.js";
+import type * as lib_triggers from "../lib/triggers.js";
 import type * as lib_upsellTranslations from "../lib/upsellTranslations.js";
 import type * as lib_utils from "../lib/utils.js";
 import type * as lib_vPerna from "../lib/vPerna.js";
@@ -90,6 +94,7 @@ import type * as migracaoBunny from "../migracaoBunny.js";
 import type * as migracaoTextoBunny from "../migracaoTextoBunny.js";
 import type * as newsletterSubscriptions from "../newsletterSubscriptions.js";
 import type * as notificacoes from "../notificacoes.js";
+import type * as orderFacts from "../orderFacts.js";
 import type * as orders from "../orders.js";
 import type * as parceiros from "../parceiros.js";
 import type * as partnerApplications from "../partnerApplications.js";
@@ -106,6 +111,7 @@ import type * as recompressao from "../recompressao.js";
 import type * as reservas from "../reservas.js";
 import type * as saidas from "../saidas.js";
 import type * as schoolQuoteSubmissions from "../schoolQuoteSubmissions.js";
+import type * as seedLocal from "../seedLocal.js";
 import type * as siteSettings from "../siteSettings.js";
 import type * as stripe from "../stripe.js";
 import type * as teamMembers from "../teamMembers.js";
@@ -163,6 +169,7 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   flights: typeof flights;
   fotosExtras: typeof fotosExtras;
+  functions: typeof functions;
   funis: typeof funis;
   googleReviews: typeof googleReviews;
   http: typeof http;
@@ -193,6 +200,8 @@ declare const fullApi: ApiFromModules<{
   "lib/markdownToTiptap": typeof lib_markdownToTiptap;
   "lib/notificar": typeof lib_notificar;
   "lib/openai": typeof lib_openai;
+  "lib/orderFacts": typeof lib_orderFacts;
+  "lib/orderList": typeof lib_orderList;
   "lib/ownerProfiles": typeof lib_ownerProfiles;
   "lib/pagination": typeof lib_pagination;
   "lib/parceriaPorSlug": typeof lib_parceriaPorSlug;
@@ -207,6 +216,7 @@ declare const fullApi: ApiFromModules<{
   "lib/storage": typeof lib_storage;
   "lib/stripeCheckout": typeof lib_stripeCheckout;
   "lib/tabelasImagens": typeof lib_tabelasImagens;
+  "lib/triggers": typeof lib_triggers;
   "lib/upsellTranslations": typeof lib_upsellTranslations;
   "lib/utils": typeof lib_utils;
   "lib/vPerna": typeof lib_vPerna;
@@ -215,6 +225,7 @@ declare const fullApi: ApiFromModules<{
   migracaoTextoBunny: typeof migracaoTextoBunny;
   newsletterSubscriptions: typeof newsletterSubscriptions;
   notificacoes: typeof notificacoes;
+  orderFacts: typeof orderFacts;
   orders: typeof orders;
   parceiros: typeof parceiros;
   partnerApplications: typeof partnerApplications;
@@ -231,6 +242,7 @@ declare const fullApi: ApiFromModules<{
   reservas: typeof reservas;
   saidas: typeof saidas;
   schoolQuoteSubmissions: typeof schoolQuoteSubmissions;
+  seedLocal: typeof seedLocal;
   siteSettings: typeof siteSettings;
   stripe: typeof stripe;
   teamMembers: typeof teamMembers;
@@ -278,4 +290,191 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  orderFacts: {
+    btree: {
+      aggregateBetween: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; k2?: any; namespace?: any },
+        { count: number; sum: number }
+      >;
+      aggregateBetweenBatch: FunctionReference<
+        "query",
+        "internal",
+        { queries: Array<{ k1?: any; k2?: any; namespace?: any }> },
+        Array<{ count: number; sum: number }>
+      >;
+      atNegativeOffset: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; k2?: any; namespace?: any; offset: number },
+        { k: any; s: number; v: any }
+      >;
+      atOffset: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; k2?: any; namespace?: any; offset: number },
+        { k: any; s: number; v: any }
+      >;
+      atOffsetBatch: FunctionReference<
+        "query",
+        "internal",
+        {
+          queries: Array<{
+            k1?: any;
+            k2?: any;
+            namespace?: any;
+            offset: number;
+          }>;
+        },
+        Array<{ k: any; s: number; v: any }>
+      >;
+      get: FunctionReference<
+        "query",
+        "internal",
+        { key: any; namespace?: any },
+        null | { k: any; s: number; v: any }
+      >;
+      offset: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; key: any; namespace?: any },
+        number
+      >;
+      offsetUntil: FunctionReference<
+        "query",
+        "internal",
+        { k2?: any; key: any; namespace?: any },
+        number
+      >;
+      paginate: FunctionReference<
+        "query",
+        "internal",
+        {
+          cursor?: string;
+          k1?: any;
+          k2?: any;
+          limit: number;
+          namespace?: any;
+          order: "asc" | "desc";
+        },
+        {
+          cursor: string;
+          isDone: boolean;
+          page: Array<{ k: any; s: number; v: any }>;
+        }
+      >;
+      paginateNamespaces: FunctionReference<
+        "query",
+        "internal",
+        { cursor?: string; limit: number },
+        { cursor: string; isDone: boolean; page: Array<any> }
+      >;
+      validate: FunctionReference<
+        "query",
+        "internal",
+        { namespace?: any },
+        any
+      >;
+    };
+    inspect: {
+      display: FunctionReference<"query", "internal", { namespace?: any }, any>;
+      dump: FunctionReference<"query", "internal", { namespace?: any }, string>;
+      inspectNode: FunctionReference<
+        "query",
+        "internal",
+        { namespace?: any; node?: string },
+        null
+      >;
+      listTreeNodes: FunctionReference<
+        "query",
+        "internal",
+        { take?: number },
+        Array<{
+          _creationTime: number;
+          _id: string;
+          aggregate?: { count: number; sum: number };
+          items: Array<{ k: any; s: number; v: any }>;
+          subtrees: Array<string>;
+        }>
+      >;
+      listTrees: FunctionReference<
+        "query",
+        "internal",
+        { take?: number },
+        Array<{
+          _creationTime: number;
+          _id: string;
+          maxNodeSize: number;
+          namespace?: any;
+          root: string;
+        }>
+      >;
+    };
+    public: {
+      clear: FunctionReference<
+        "mutation",
+        "internal",
+        { maxNodeSize?: number; namespace?: any; rootLazy?: boolean },
+        null
+      >;
+      delete_: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any },
+        null
+      >;
+      deleteIfExists: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any },
+        any
+      >;
+      init: FunctionReference<
+        "mutation",
+        "internal",
+        { maxNodeSize?: number; namespace?: any; rootLazy?: boolean },
+        null
+      >;
+      insert: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any; summand?: number; value: any },
+        null
+      >;
+      makeRootLazy: FunctionReference<
+        "mutation",
+        "internal",
+        { namespace?: any },
+        null
+      >;
+      replace: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          currentKey: any;
+          namespace?: any;
+          newKey: any;
+          newNamespace?: any;
+          summand?: number;
+          value: any;
+        },
+        null
+      >;
+      replaceOrInsert: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          currentKey: any;
+          namespace?: any;
+          newKey: any;
+          newNamespace?: any;
+          summand?: number;
+          value: any;
+        },
+        any
+      >;
+    };
+  };
+};

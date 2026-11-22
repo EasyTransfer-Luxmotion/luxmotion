@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { parceriaPorSlug } from "./lib/parceriaPorSlug";
-import { mutation, query } from "./_generated/server";
+import { query } from "./_generated/server";
+import { mutation } from "./functions";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
 import { urlDaImagem, vImagem } from "./lib/imagens";
 import { exigirAdmin } from "./lib/admin";

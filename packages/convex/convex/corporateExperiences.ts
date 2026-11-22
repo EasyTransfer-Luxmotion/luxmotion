@@ -1,6 +1,7 @@
 import { urlDaImagem, vImagem } from "./lib/imagens";
 import { v, ConvexError } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { query } from "./_generated/server"
+import { mutation } from "./functions"
 import type { QueryCtx } from "./_generated/server"
 import type { Doc } from "./_generated/dataModel"
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination"

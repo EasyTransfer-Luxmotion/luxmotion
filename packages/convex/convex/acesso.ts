@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internalQuery, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation } from "./functions";
 import { urlDaImagem } from "./lib/imagens";
 import { lerAcesso, verificar } from "./lib/admin";
 import { ultimoConvite } from "./lib/convites";

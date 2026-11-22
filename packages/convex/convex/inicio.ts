@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import { facts } from "./lib/orderFacts";
 import { lerAcesso, permite, temCapacidade } from "./lib/admin";
 import { codigoDoAeroporto } from "./lib/precoTransfer";
 
@@ -48,11 +49,15 @@ export const servicos = query({
     if (!permite(await lerAcesso(ctx), "reservas")) return null;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return { linhas: [], mais: false };
 
-    const docs = await ctx.db
-      .query("orders")
-      .withIndex("by_departure_date", (q) => q.gte("departureDate", dia).lt("departureDate", dia + "￿"))
-      .take(MAXIMO * 3);
-    const doDia = docs.filter((o) => ESTADOS_DE_SERVICO.has(o.status));
+    /* Only the day's services, from the order facts ("Serviços" by trip
+       date). Reading the day by the date index and dropping the rest cut
+       real services off once a day had more abandoned carts than MAXIMO*3. */
+    const bounds = { lower: { key: dia, inclusive: true }, upper: { key: dia + "\uffff", inclusive: false } };
+    const n = await facts.count(ctx, { namespace: ["trip", "reservas"], bounds });
+    const { page } = await facts.paginate(ctx, { namespace: ["trip", "reservas"], bounds, pageSize: MAXIMO });
+    const doDia = (await Promise.all(page.map((i) => ctx.db.get(i.id as Id<"orders">)))).filter(
+      (o): o is Doc<"orders"> => o !== null && ESTADOS_DE_SERVICO.has(o.status),
+    );
 
     /*
      * Ida e regresso são duas linhas ligadas por relatedOrderId nos dois
@@ -68,7 +73,7 @@ export const servicos = query({
         .map(async (o) => relacionadas.set(o._id, await ctx.db.get(o.relatedOrderId!))),
     );
 
-    const linhas = doDia.slice(0, MAXIMO).map((o) => {
+    const linhas = doDia.map((o) => {
       const outra = relacionadas.get(o._id) ?? null;
       const perna: "ida" | "regresso" | null = outra
         ? o._creationTime > outra._creationTime
@@ -95,7 +100,7 @@ export const servicos = query({
       };
     });
     linhas.sort((a, b) => (a.hora ?? "99").localeCompare(b.hora ?? "99"));
-    return { linhas, mais: doDia.length > MAXIMO };
+    return { linhas, mais: n > MAXIMO };
   },
 });
 

@@ -1,7 +1,8 @@
 import { minimoDoTransfer } from "./lib/precoTransfer";
 import { ConvexError, v } from "convex/values";
 import { isNightDeparture } from "./lib/pricing";
-import { mutation, query, action, internalMutation, internalQuery } from "./_generated/server";
+import { query, action, internalQuery } from "./_generated/server";
+import { internalMutation, mutation } from "./functions";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";

@@ -300,10 +300,15 @@ export default defineSchema({
     // Affiliate/partnership this order was attributed to (referral link).
     partnershipId: v.optional(v.id("partnerships")),
 
+    /* What the reservations search looks in (lib/orderFacts.ts,
+       searchTextOf), written by the trigger on every change. */
+    searchText: v.optional(v.string()),
+
     // Timestamps
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .searchIndex("search_orders", { searchField: "searchText", filterFields: ["status"] })
     .index("by_status", ["status"])
     .index("by_payment_status", ["paymentStatus"])
     .index("by_order_number", ["orderNumber"])
@@ -313,7 +318,25 @@ export default defineSchema({
     .index("by_tour_booking", ["tourBookingId"])
     .index("by_transfer_order", ["transferOrderId"])
     .index("by_contacto", ["contactoId"])
-    .index("by_organizacao", ["organizacaoId"]),
+    .index("by_organizacao", ["organizacaoId"])
+    .index("by_partnership", ["partnershipId"]),
+
+  /* What each order was last filed under in the orderFacts aggregate
+     (lib/orderFacts.ts): the trigger applies only the difference. */
+  orderFactState: defineTable({
+    orderId: v.id("orders"),
+    entries: v.array(v.object({ ns: v.array(v.string()), key: v.union(v.string(), v.number()), sum: v.number() })),
+    /* The filter values already recorded in orderFacetValues. */
+    facets: v.optional(v.array(v.string())),
+  }).index("by_order", ["orderId"]),
+
+  /* The values each reservations view has had per filter (método, origem,
+     parceiro, pagamento): the menus, without reading the orders. */
+  orderFacetValues: defineTable({
+    view: v.string(),
+    dim: v.string(),
+    value: v.string(),
+  }).index("by_view_dim", ["view", "dim", "value"]),
 
   bookings: defineTable({
     customerId: v.string(),
