@@ -46,9 +46,11 @@ export const updatePaymentStatus = internalMutation({
     // in every callback). Immune to the 15-char orderId truncation (ifthenpay init does
     // substring(0,15)) that makes a long orderNumber never match exactly for cc/mbway.
     if (!order && args.requestId) {
+      /* By index: a filter here read the whole orders table on every
+         callback that got this far. */
       order = await ctx.db
         .query("orders")
-        .filter((q) => q.eq(q.field("paymentRequestId"), args.requestId))
+        .withIndex("by_payment_request", (q) => q.eq("paymentRequestId", args.requestId))
         .first();
     }
 

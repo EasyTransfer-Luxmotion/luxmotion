@@ -319,7 +319,9 @@ export default defineSchema({
     .index("by_transfer_order", ["transferOrderId"])
     .index("by_contacto", ["contactoId"])
     .index("by_organizacao", ["organizacaoId"])
-    .index("by_partnership", ["partnershipId"]),
+    .index("by_partnership", ["partnershipId"])
+    /* The payment callback finds the order by the gateway's request id. */
+    .index("by_payment_request", ["paymentRequestId"]),
 
   /* What each order was last filed under in the orderFacts aggregate
      (lib/orderFacts.ts): the trigger applies only the difference. */
