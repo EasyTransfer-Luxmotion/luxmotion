@@ -1,7 +1,7 @@
 import { Triggers } from "convex-helpers/server/triggers";
 import { onCardChange, onContactChange, onOrderForContacts, onOrgChange } from "./contactFacts";
 import type { DataModel } from "../_generated/dataModel";
-import { LEAD_TABLES, requestSearchText, searchTextOf, syncLeadFacts, syncNewsletterFacts, syncOrderFacts } from "./orderFacts";
+import { LEAD_TABLES, requestSearchText, searchTextOf, syncLeadFacts, syncAddonFacts, syncNewsletterFacts, syncOrderFacts } from "./orderFacts";
 
 /*
  * Code that runs inside the same transaction as every write to a table, for
@@ -47,6 +47,10 @@ for (const table of LEAD_TABLES) {
     await syncLeadFacts(ctx, table, change.oldDoc, change.newDoc);
   });
 }
+
+triggers.register("tourBookings", async (ctx, change) => {
+  await syncAddonFacts(ctx, change.oldDoc, change.newDoc);
+});
 
 triggers.register("newsletterSubscriptions", async (ctx, change) => {
   await syncNewsletterFacts(ctx, change.oldDoc, change.newDoc);

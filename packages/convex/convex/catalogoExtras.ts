@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { matchesSearch, pageArgs, pageOf, reorderSlice } from "./lib/list";
 import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { mutation } from "./functions";
+import { facts } from "./lib/orderFacts";
 import type { Doc, Id } from "./_generated/dataModel";
 import { pode, exigirAdmin } from "./lib/admin";
 import { urlDaImagem, vImagem } from "./lib/imagens";
@@ -292,7 +293,7 @@ export const detalheUniversal = query({
     if (!x) return { encontrado: false as const };
     const a = (await alcance(ctx))(x);
     /* As reservas guardam o extra pelo id: dá para dizer quantas o levaram. */
-    const reservas = (await ctx.db.query("tourBookings").collect()).filter((b) => (b.selectedAddons ?? []).some((s) => s.universalAddonId === id)).length;
+    const reservas = await facts.count(ctx, { namespace: ["addon", id] });
     return {
       encontrado: true as const,
       extra: x,

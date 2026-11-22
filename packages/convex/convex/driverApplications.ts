@@ -81,8 +81,10 @@ export const submit = mutation({
     termsAccepted: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const total = await ctx.db.query("driverApplications").collect()
-    const queuePosition = total.length + 1
+    /* The next number after the latest: counting the whole table on every
+       submission stops fitting once it holds thousands. */
+    const ultimo = await ctx.db.query("driverApplications").order("desc").first()
+    const queuePosition = (ultimo?.queuePosition ?? 0) + 1
 
     const id = await ctx.db.insert("driverApplications", {
       ...args,

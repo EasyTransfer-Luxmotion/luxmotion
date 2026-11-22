@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { lisbonToday, periodStart } from "./lib/boardFilters";
 import { query, type QueryCtx } from "./_generated/server";
 import { mutation } from "./functions";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
 import { acertarCartaoDaOrigem } from "./lib/funilEstado";
 import { ESTADOS, GRUPOS, TABELA, TIPOS, estadoDe, grupoDe, resumo, vTipo, type Grupo, type Qualquer, type Tipo } from "./lib/requests";
@@ -216,6 +216,8 @@ export const remover = mutation({
   },
 });
 
+const NEWSLETTER_SCAN = 5000;
+
 /* A newsletter: só consulta. Não há contrato de envio nem de consentimento
    editável, e o plano não quer que se invente (PED-07). */
 export const newsletter = query({
@@ -223,10 +225,21 @@ export const newsletter = query({
   handler: async (ctx, a) => {
     await exigirAdmin(ctx, "pedidos", "ver");
     const q = semAcentos(a.pesquisa?.trim() ?? "");
-    const todos = (await ctx.db.query("newsletterSubscriptions").collect())
-      .filter((x) => !q || [x.email, x.name, x.source].some((c) => c && semAcentos(c).includes(q)))
-      .sort((x, y) => y.createdAt - x.createdAt)
-      .map((x) => ({ id: x._id as string, email: x.email, nome: x.name ?? null, origem: x.source ?? null, recebido: x.createdAt }));
+    const linha = (x: Doc<"newsletterSubscriptions">) => ({ id: x._id as string, email: x.email, nome: x.name ?? null, origem: x.source ?? null, recebido: x.createdAt });
+    if (!q) {
+      /* Without search, from the facts: the count is a call, the page a read. */
+      const porPagina = Math.max(1, Math.min(100, Math.floor(a.porPagina)));
+      const total = await facts.count(ctx, { namespace: ["newsletter"] });
+      const paginas = Math.max(1, Math.ceil(total / porPagina));
+      const pagina = Math.min(Math.max(0, Math.floor(a.pagina)), paginas - 1);
+      const ids = total ? await mergedPage(ctx, [["newsletter"]], [total], {}, "desc", pagina * porPagina, porPagina) : [];
+      const docs = (await Promise.all(ids.map((id) => ctx.db.get(id as Id<"newsletterSubscriptions">)))).filter((x): x is Doc<"newsletterSubscriptions"> => x !== null);
+      return { linhas: docs.map(linha), total, pagina, paginas, porPagina };
+    }
+    /* A search looks through the most recent NEWSLETTER_SCAN. */
+    const todos = (await ctx.db.query("newsletterSubscriptions").withIndex("by_created").order("desc").take(NEWSLETTER_SCAN))
+      .filter((x) => [x.email, x.name, x.source].some((c) => c && semAcentos(c).includes(q)))
+      .map(linha);
     const porPagina = Math.max(1, Math.min(100, Math.floor(a.porPagina)));
     const paginas = Math.max(1, Math.ceil(todos.length / porPagina));
     const pagina = Math.min(Math.max(0, Math.floor(a.pagina)), paginas - 1);

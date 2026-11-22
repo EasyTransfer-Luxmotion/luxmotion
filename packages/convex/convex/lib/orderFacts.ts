@@ -314,3 +314,15 @@ export async function syncNewsletterFacts(ctx: Writer, oldDoc: { _id: string; cr
   if (oldDoc && !newDoc) await facts.deleteIfExists(ctx, { namespace: ["newsletter"], key: oldDoc.createdAt, id: oldDoc._id });
   if (newDoc && !oldDoc) await facts.insertIfDoesNotExist(ctx, { namespace: ["newsletter"], key: newDoc.createdAt, id: newDoc._id, sumValue: 0 });
 }
+
+/* The tour bookings that took each universal extra (catalogoExtras: "levaram
+   este extra"), instead of reading every tour booking. */
+type WithAddons = { _id: string; _creationTime: number; selectedAddons?: { universalAddonId?: string }[] } | null;
+const addonsOf = (d: WithAddons) => new Set((d?.selectedAddons ?? []).map((s) => s.universalAddonId).filter((x): x is string => Boolean(x)));
+export async function syncAddonFacts(ctx: Writer, oldDoc: WithAddons, newDoc: WithAddons) {
+  const before = addonsOf(oldDoc);
+  const after = addonsOf(newDoc);
+  const d = (newDoc ?? oldDoc)!;
+  for (const a of before) if (!after.has(a)) await facts.deleteIfExists(ctx, { namespace: ["addon", a], key: d._creationTime, id: d._id });
+  for (const a of after) if (!before.has(a)) await facts.insertIfDoesNotExist(ctx, { namespace: ["addon", a], key: d._creationTime, id: d._id, sumValue: 0 });
+}
