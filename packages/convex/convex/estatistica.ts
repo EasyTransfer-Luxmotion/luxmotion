@@ -1,22 +1,11 @@
 import { v } from "convex/values";
 import { query, type QueryCtx } from "./_generated/server";
 import { internalMutation } from "./functions";
-import type { Doc } from "./_generated/dataModel";
 import { lerAcesso, permite, temCapacidade, type Acesso } from "./lib/admin";
 import { tituloDaOrigem } from "./lib/funis";
-import {
-  ESTADOS_DE_SERVICO,
-  METODOS,
-  SEM_METODO,
-  SEM_PARCEIRO,
-  deIndice,
-  indiceDia,
-  local,
-  origemNoEndereco,
-  paraDia,
-  parceiroDe,
-  somarMeses,
-} from "./inicio";
+import { deIndice, indiceDia, paraDia, somarMeses } from "./inicio";
+import { facts } from "./lib/orderFacts";
+import { ANTECEDENCIA, byKey, clientsIn, latestDay, partnerClients, rowsIn, topIn, total, type Seg, type StatRow } from "./lib/orderStats";
 
 /*
  * Estatística: a central de informação do negócio (o dashboard em
@@ -86,72 +75,19 @@ function em(j: Janela, dia: string, p: Periodo): boolean {
 }
 const algum = (j: Janela, dia: string) => em(j, dia, "agora") || em(j, dia, "antes") || em(j, dia, "ano");
 
-type Produto = "transfer" | "tour" | "evento";
-type Linha = {
-  o: Doc<"orders">;
-  dia: string;
-  volta: boolean;
-  ida: Doc<"orders">;
-  produto: Produto;
-  valor: number;
-  paga: boolean;
-  cliente: string;
-  nome: string;
-  titulo: string | null;
-};
+/*
+ * Everything below reads the day and month totals of lib/orderStats.ts, not
+ * the orders: a period of 12 months at 10 000 orders a day is millions of
+ * orders, and this used to read them all, three times (the period, the one
+ * before and the same one a year earlier). Same rules as before: a sale is
+ * paid, confirmed or done; a round trip is one service and both legs'
+ * money; the day is the day it was bought, in Lisbon.
+ */
 
-/* As reservas do período e do anterior, com o que todas as secções precisam. */
-async function lerReservas(ctx: QueryCtx, j: Janela): Promise<Linha[]> {
-  const [recentes, doAno] = await Promise.all([
-    ctx.db
-      .query("orders")
-      .withIndex("by_creation_time", (q) => q.gte("_creationTime", j.desdeMs).lte("_creationTime", j.ateMs))
-      .collect(),
-    /* O ano passado, só a parte que não está já nos recentes. Antes só se
-       lia quando não se sobrepunham, e em «Este ano» faltava o início. */
-    j.anoDesdeMs < j.desdeMs
-      ? ctx.db
-          .query("orders")
-          .withIndex("by_creation_time", (q) => q.gte("_creationTime", j.anoDesdeMs).lt("_creationTime", Math.min(j.desdeMs, j.anoAteMs + 1)))
-          .collect()
-      : Promise.resolve([] as Doc<"orders">[]),
-  ]);
-  const docs = [...doAno, ...recentes];
-  const porId = new Map(docs.map((o) => [o._id as string, o]));
-  const outras = new Map<string, Doc<"orders"> | null>();
-  await Promise.all(
-    docs
-      .filter((o) => o.relatedOrderId && !porId.has(o.relatedOrderId))
-      .map(async (o) => outras.set(o.relatedOrderId!, await ctx.db.get(o.relatedOrderId!))),
-  );
-  const tours = new Map<string, Doc<"tourBookings"> | null>();
-  await Promise.all(docs.filter((o) => o.tourBookingId).map(async (o) => tours.set(o._id, await ctx.db.get(o.tourBookingId!))));
-  const linhas: Linha[] = [];
-  for (const o of docs) {
-    const dia = paraDia(o._creationTime);
-    if (!algum(j, dia)) continue;
-    const outra = o.relatedOrderId ? (porId.get(o.relatedOrderId) ?? outras.get(o.relatedOrderId) ?? null) : null;
-    /* A volta é a perna mais recente das duas: conta na faturação, não nas viagens. */
-    const volta = Boolean(outra && outra._creationTime < o._creationTime);
-    const ida = volta && outra ? outra : o;
-    const tb = tours.get(o._id);
-    const produto: Produto = tb ? (tb.productType === "event" ? "evento" : "tour") : (o.orderNumber ?? "").startsWith("TB") ? "tour" : "transfer";
-    const email = (ida.customerEmail ?? "").trim().toLowerCase();
-    linhas.push({
-      o,
-      dia,
-      volta,
-      ida,
-      produto,
-      valor: o.totalAmount ?? 0,
-      paga: ESTADOS_DE_SERVICO.has(o.status),
-      cliente: email || (ida.customerPhone ?? "").replace(/\D/g, "") || (ida.customerName ?? "").trim().toLowerCase() || o._id,
-      nome: ida.customerName?.trim() || ida.customerEmail || "Sem nome",
-      titulo: tb?.tourTitle ?? null,
-    });
-  }
-  return linhas;
-}
+const TRANSFER: Seg[] = ["transfer:site", "transfer:parceiro"];
+const TOURS: Seg[] = ["tour:site", "tour:parceiro", "evento:site", "evento:parceiro"];
+const DE_PARCEIRO: Seg[] = ["transfer:parceiro", "tour:parceiro", "evento:parceiro"];
+const produtoDe = (seg: string) => seg.split(":")[0] as "transfer" | "tour" | "evento";
 
 /*
  * As linhas de negócio, com os nomes do resto do back-office: Reservas (o
@@ -159,78 +95,66 @@ async function lerReservas(ctx: QueryCtx, j: Janela): Promise<Linha[]> {
  * Parceiros (o que vendem as páginas dos parceiros), Tours e Eventos.
  */
 export const LINHAS_NEGOCIO = ["Reservas", "Parceiros", "Tours", "Eventos"] as const;
-type LinhaNegocio = (typeof LINHAS_NEGOCIO)[number];
-function linhaDe(l: Linha): LinhaNegocio {
-  if (l.produto === "tour") return "Tours";
-  if (l.produto === "evento") return "Eventos";
-  return parceiroDe(l.ida) === SEM_PARCEIRO ? "Reservas" : "Parceiros";
-}
-
-/* IVA estimado (o preço mostrado já o inclui): 6% no transporte, 23% nos
-   tours e eventos. A confirmar com a contabilidade; o dashboard marca-o
-   como estimativa. */
-const IVA: Record<Produto, number> = { transfer: 0.06, tour: 0.23, evento: 0.23 };
-const liquido = (l: Linha) => l.valor / (1 + IVA[l.produto]);
-/* Taxa do cartão: os ~2% que se absorvem (não se passam ao cliente) em
-   todos os pagamentos pelo Stripe — cartão, Link, MB WAY e Multibanco. */
-const TAXA_STRIPE = 0.02;
-const PELO_STRIPE = new Set(["ccard", "card", "link", "mbway", "mb", "multibanco"]);
-const taxaDe = (l: Linha) => (PELO_STRIPE.has((l.ida.paymentMethod ?? "").trim().toLowerCase()) ? l.valor * TAXA_STRIPE : 0);
+const SEGS_DA_LINHA: Record<(typeof LINHAS_NEGOCIO)[number], Seg[]> = {
+  Reservas: ["transfer:site"],
+  Parceiros: ["transfer:parceiro"],
+  Tours: ["tour:site", "tour:parceiro"],
+  Eventos: ["evento:site", "evento:parceiro"],
+};
 
 function acessoOuNull(acesso: Acesso, ...modulos: Parameters<typeof permite>[1][]) {
   return modulos.some((m) => permite(acesso, m));
 }
 
-/* Soma por chave: n (contagem), faturação e o que vier a mais. */
-function agrupar<T extends { n: number; faturacao: number }>(m: Map<string, T>, chave: string, novo: () => T, valor: number, conta = true) {
-  const x = m.get(chave) ?? novo();
-  x.faturacao += valor;
-  if (conta) x.n++;
-  m.set(chave, x);
-  return x;
-}
-const lista = <T extends { n: number; faturacao: number }>(m: Map<string, T>, porFaturacao = true) =>
-  [...m.values()].map((x) => ({ ...x, faturacao: arred(x.faturacao) })).sort((a, b) => (porFaturacao ? b.faturacao - a.faturacao || b.n - a.n : b.n - a.n || b.faturacao - a.faturacao));
-
-/* Os melhores clientes: os que mais gastaram (ou mais reservaram, sem valores). */
-function topClientes(linhas: Linha[], valores: boolean, n = 10) {
-  const m = new Map<string, { chave: string; nome: string; email: string | null; n: number; faturacao: number; ultima: string }>();
-  for (const l of linhas) {
-    const x = agrupar(m, l.cliente, () => ({ chave: l.cliente, nome: l.nome, email: l.ida.customerEmail ?? null, n: 0, faturacao: 0, ultima: l.dia }), l.valor, !l.volta);
-    if (l.dia > x.ultima) x.ultima = l.dia;
-  }
-  return lista(m, valores)
-    .slice(0, n)
-    .map((c) => ({ ...c, faturacao: valores ? c.faturacao : 0 }));
-}
-
-/* Resumo de um conjunto de linhas pagas. */
-function resumo(linhas: Linha[]) {
-  const servicos = linhas.filter((l) => !l.volta);
-  const faturacao = linhas.reduce((t, l) => t + l.valor, 0);
-  const clientes = new Set(servicos.map((l) => l.cliente)).size;
+/* Resumo de um período: as linhas "total" e os clientes únicos. */
+async function resumo(ctx: QueryCtx, segs: readonly Seg[], de: string, ate: string, rows?: StatRow[]) {
+  const t = total(rows ?? (await rowsIn(ctx, segs, ["total"], de, ate)));
   return {
-    servicos: servicos.length,
-    faturacao: arred(faturacao),
-    ticket: servicos.length ? arred(faturacao / servicos.length) : null,
-    clientes,
-    pessoas: servicos.reduce((t, l) => t + (l.o.passengers ?? 0), 0),
+    servicos: t.n,
+    faturacao: arred(t.v),
+    ticket: t.n ? arred(t.v / t.n) : null,
+    clientes: await clientsIn(ctx, segs, de, ate),
+    pessoas: t.p,
   };
 }
 const semEuros = <T extends { faturacao: number; ticket: number | null }>(r: T, valores: boolean): T => (valores ? r : { ...r, faturacao: 0, ticket: null });
 
+/* Somas por chave, para os painéis: n e faturação, ordenados. */
+function painel(rows: StatRow[], valores: boolean, porFaturacao = valores) {
+  return [...byKey(rows).values()]
+    .map((x) => ({ rotulo: x.key, n: x.n, faturacao: valores ? arred(x.v) : 0 }))
+    .sort((a, b) => (porFaturacao ? b.faturacao - a.faturacao || b.n - a.n : b.n - a.n || b.faturacao - a.faturacao));
+}
+
+/* Em que balde de j cai uma linha (dia ou mês); `ano` desloca o ano passado
+   para os baldes deste. */
+function baldeDe(j: Janela, per: string, ano = false): number {
+  const p = ano ? `${Number(per.slice(0, 4)) + 1}${per.slice(4) === "-02-29" ? "-02-28" : per.slice(4)}` : per;
+  if (p.length === 7) return j.granularidade === "mes" ? j.baldes.indexOf(p) : -1;
+  return j.balde(p);
+}
+/* As linhas "total" para a série: por dia quando os baldes são dias ou
+   semanas, por mês (e os dias das pontas) quando são meses. */
+const daSerie = (ctx: QueryCtx, j: Janela, segs: readonly Seg[], de: string, ate: string) => rowsIn(ctx, segs, ["total"], de, ate, j.granularidade !== "mes");
+
+/* Os melhores clientes: os que mais gastaram (ou mais reservaram, sem valores). */
+async function topClientes(ctx: QueryCtx, j: Janela, segs: readonly Seg[], valores: boolean, n = 10) {
+  const top = await topIn(ctx, segs, "cliente", j.de, j.ate, n * 2);
+  const linhas = await Promise.all(
+    top.map(async (c) => {
+      const [nome, email] = c.label ? (JSON.parse(c.label) as [string, string | null]) : ["Sem nome", null];
+      return { chave: c.key, nome, email, n: c.n, faturacao: arred(c.v), ultima: (await latestDay(ctx, segs, "cliente", c.key, j.ate)) ?? j.ate };
+    }),
+  );
+  return linhas
+    .sort((a, b) => (valores ? b.faturacao - a.faturacao || b.n - a.n : b.n - a.n || b.faturacao - a.faturacao))
+    .slice(0, n)
+    .map((c) => ({ ...c, faturacao: valores ? c.faturacao : 0 }));
+}
+
 const SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
-const diaDaSemana = (dia: string) => (new Date(`${dia}T12:00:00Z`).getUTCDay() + 6) % 7;
 
 /* ─── Transfers ──────────────────────────────────────────────────────── */
-
-const ANTECEDENCIA = [
-  { rotulo: "Menos de 24 h", ate: 0 },
-  { rotulo: "1 a 3 dias", ate: 3 },
-  { rotulo: "4 a 7 dias", ate: 7 },
-  { rotulo: "8 a 30 dias", ate: 30 },
-  { rotulo: "Mais de 30 dias", ate: Infinity },
-];
 
 export const transfers = query({
   /* soSite: só o que se vende directamente no site (Finanças → Reservas);
@@ -242,120 +166,87 @@ export const transfers = query({
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j) return null;
-    const todas = (await lerReservas(ctx, j)).filter((l) => l.produto === "transfer" && (!soSite || parceiroDe(l.ida) === SEM_PARCEIRO));
-    const doPeriodo = (p: Periodo) => todas.filter((l) => em(j, l.dia, p));
+    const segs: Seg[] = soSite ? ["transfer:site"] : TRANSFER;
 
-    const indicadores = (ls: Linha[]) => {
-      const pagas = ls.filter((l) => l.paga);
-      const viagens = pagas.filter((l) => !l.volta);
-      const r = resumo(pagas);
-      const iniciados = ls.filter((l) => !l.volta).length;
-      const antecedencias = viagens
-        .map((l) => indiceDia(String(l.o.departureDate).slice(0, 10)) - indiceDia(l.dia))
-        .filter((x) => Number.isFinite(x) && x >= 0);
-      const pct = (n: number) => (viagens.length ? Math.round((n / viagens.length) * 1000) / 10 : null);
+    const indicadores = async (de: string, ate: string) => {
+      const rows = await rowsIn(ctx, segs, ["total", "funil"], de, ate);
+      const totais = rows.filter((r) => r.dim === "total");
+      const t = total(totais);
+      const funil = byKey(rows.filter((r) => r.dim === "funil"));
+      const iniciados = [...funil.values()].filter((x) => x.key.startsWith("iniciados#")).reduce((s, x) => s + x.n, 0);
+      const pct = (n: number) => (t.n ? Math.round((n / t.n) * 1000) / 10 : null);
       return {
-        ...semEuros(r, valores),
-        conversao: iniciados ? Math.round((viagens.length / iniciados) * 1000) / 10 : null,
-        idaVolta: pct(viagens.filter((l) => l.o.relatedOrderId || l.o.isRoundTrip).length),
-        aeroporto: pct(viagens.filter((l) => (l.o.airportServiceFee ?? 0) > 0 || /aeroporto/i.test(local(l.o.departure) + local(l.o.arrival))).length),
-        noturnas: pct(viagens.filter((l) => (l.o.nightTax ?? 0) > 0).length),
-        antecedencia: antecedencias.length ? Math.round((antecedencias.reduce((t, x) => t + x, 0) / antecedencias.length) * 10) / 10 : null,
-        canceladas: ls.filter((l) => !l.volta && l.o.status === "cancelled").length,
-        extras: valores ? arred(pagas.reduce((t, l) => t + (l.o.addonsTotal ?? 0), 0)) : 0,
+        ...semEuros(await resumo(ctx, segs, de, ate, totais), valores),
+        conversao: iniciados ? Math.round((t.n / iniciados) * 1000) / 10 : null,
+        idaVolta: pct(t.iv),
+        aeroporto: pct(t.ae),
+        noturnas: pct(t.no),
+        antecedencia: t.an ? Math.round((t.as / t.an) * 10) / 10 : null,
+        canceladas: funil.get("canceladas")?.n ?? 0,
+        extras: valores ? arred(t.x) : 0,
       };
     };
 
-    const agora = doPeriodo("agora").filter((l) => l.paga);
-    const viagens = agora.filter((l) => !l.volta);
     const serieViagens = j.baldes.map(() => 0);
     const serieFaturacao = j.baldes.map(() => 0);
-    for (const l of agora) {
-      const b = j.balde(l.dia);
+    for (const r of await daSerie(ctx, j, segs, j.de, j.ate)) {
+      const b = baldeDe(j, r.per);
       if (b < 0) continue;
-      serieFaturacao[b]! += l.valor;
-      if (!l.volta) serieViagens[b]!++;
+      serieFaturacao[b]! += r.v;
+      serieViagens[b]! += r.n;
+    }
+    const anoF = j.baldes.map(() => 0);
+    const anoN = j.baldes.map(() => 0);
+    for (const r of await daSerie(ctx, j, segs, j.anoDe, j.anoAte)) {
+      const b = baldeDe(j, r.per, true);
+      if (b < 0) continue;
+      anoF[b]! += r.v;
+      anoN[b]! += r.n;
     }
 
-    const rotas = new Map<string, { origem: string; destino: string; n: number; faturacao: number }>();
-    const viaturas = new Map<string, { rotulo: string; n: number; faturacao: number }>();
-    const metodos = new Map<string, { rotulo: string; n: number; faturacao: number }>();
-    const origens = new Map<string, { rotulo: string; n: number; faturacao: number }>();
-    const canais = new Map<string, { rotulo: string; n: number; faturacao: number }>();
-    for (const l of agora) {
-      const ida = l.ida;
-      const origem = local(ida.departure);
-      const destino = local(ida.arrival);
-      agrupar(rotas, `${origem}→${destino}`.toLowerCase(), () => ({ origem, destino, n: 0, faturacao: 0 }), l.valor, !l.volta);
-      const vi = ida.vehicleName?.trim() || "Sem viatura indicada";
-      agrupar(viaturas, vi, () => ({ rotulo: vi, n: 0, faturacao: 0 }), l.valor, !l.volta);
-      const m = ida.paymentMethod?.trim().toLowerCase();
-      const mr = m ? (METODOS[m] ?? m) : SEM_METODO;
-      agrupar(metodos, mr, () => ({ rotulo: mr, n: 0, faturacao: 0 }), l.valor, !l.volta);
-      const or = origemNoEndereco(ida);
-      agrupar(origens, or, () => ({ rotulo: or, n: 0, faturacao: 0 }), l.valor, !l.volta);
-      const canal = parceiroDe(ida) === SEM_PARCEIRO ? "Site" : "Parceiros";
-      agrupar(canais, canal, () => ({ rotulo: canal, n: 0, faturacao: 0 }), l.valor, !l.volta);
-    }
+    const grupos = await rowsIn(ctx, segs, ["total", "metodo", "origem", "viatura", "tipoCliente", "diaSemana", "hora", "antecedencia"], j.de, j.ate);
+    const de_ = (dim: string) => grupos.filter((r) => r.dim === dim);
+    const contagem = (dim: string) => byKey(de_(dim));
 
-    const diaSemana = SEMANA.map((rotulo) => ({ rotulo, n: 0 }));
-    const horas = Array.from({ length: 24 }, (_, h) => ({ rotulo: `${String(h).padStart(2, "0")}h`, n: 0 }));
-    const antecedencia = ANTECEDENCIA.map((a) => ({ rotulo: a.rotulo, n: 0 }));
-    for (const l of viagens) {
-      const dv = String(l.o.departureDate);
-      if (DIA.test(dv.slice(0, 10))) {
-        diaSemana[diaDaSemana(dv.slice(0, 10))]!.n++;
-        const dias = indiceDia(dv.slice(0, 10)) - indiceDia(l.dia);
-        const k = ANTECEDENCIA.findIndex((a) => dias <= a.ate);
-        if (dias >= 0 && k >= 0) antecedencia[k]!.n++;
-      }
-      const h = /T(\d{2}):/.exec(dv)?.[1] ?? / (\d{2}):/.exec(dv)?.[1];
-      if (h) horas[Number(h)]!.n++;
-    }
+    const diaSemana = SEMANA.map((rotulo, i) => ({ rotulo, n: contagem("diaSemana").get(String(i))?.n ?? 0 }));
+    const horasM = contagem("hora");
+    const horas = Array.from({ length: 24 }, (_, h) => ({ rotulo: `${String(h).padStart(2, "0")}h`, n: horasM.get(String(h).padStart(2, "0"))?.n ?? 0 }));
+    const antM = contagem("antecedencia");
+    const antecedencia = ANTECEDENCIA.map((a, i) => ({ rotulo: a.rotulo, n: antM.get(String(i))?.n ?? 0 }));
+    const tipos = contagem("tipoCliente");
+    const canal = (seg: Seg, rotulo: string) => {
+      const t = total(de_("total").filter((r) => r.seg === seg));
+      return { rotulo, n: t.n, faturacao: valores ? arred(t.v) : 0 };
+    };
 
-    const zeroF = <T extends { faturacao: number }>(x: T) => (valores ? x : { ...x, faturacao: 0 });
+    const rotas = (await topIn(ctx, segs, "rota", j.de, j.ate, 10)).map((r) => {
+      const [origem, destino] = r.label ? (JSON.parse(r.label) as [string, string]) : [r.key, ""];
+      return { origem, destino, n: r.n, faturacao: valores ? arred(r.v) : 0 };
+    });
+
     return {
       valores,
       periodo: { de: j.de, ate: j.ate, antesDe: j.antesDe, antesAte: j.antesAte, dias: j.dias },
       granularidade: j.granularidade,
       baldes: j.baldes,
-      agora: indicadores(doPeriodo("agora")),
-      antes: indicadores(doPeriodo("antes")),
-      ano: indicadores(doPeriodo("ano")),
+      agora: await indicadores(j.de, j.ate),
+      antes: await indicadores(j.antesDe, j.antesAte),
+      ano: await indicadores(j.anoDe, j.anoAte),
       serie: { viagens: serieViagens, faturacao: serieFaturacao.map((x) => (valores ? arred(x) : 0)) },
-      serieAno: (() => {
-        const f = j.baldes.map(() => 0);
-        const n = j.baldes.map(() => 0);
-        for (const l of doPeriodo("ano").filter((x) => x.paga)) {
-          const b = j.balde(j.maisUmAno(l.dia));
-          if (b < 0) continue;
-          f[b]! += l.valor;
-          if (!l.volta) n[b]!++;
-        }
-        return { viagens: n, faturacao: f.map((x) => (valores ? arred(x) : 0)) };
-      })(),
+      serieAno: { viagens: anoN, faturacao: anoF.map((x) => (valores ? arred(x) : 0)) },
       /* Particulares ou empresas (NIF de empresa ou ligadas a uma organização). */
-      particularesEmpresas: await (async () => {
-        const orgs = new Map((await ctx.db.query("organizacoes").collect()).map((o) => [o._id as string, o.nome]));
-        let pf = 0, pn = 0, ef = 0, en = 0;
-        for (const l of agora) {
-          const emp = empresaDe(l.ida, orgs) !== null;
-          if (emp) { ef += l.valor; if (!l.volta) en++; } else { pf += l.valor; if (!l.volta) pn++; }
-        }
-        return [
-          { rotulo: "Particulares", n: pn, faturacao: valores ? arred(pf) : 0 },
-          { rotulo: "Empresas", n: en, faturacao: valores ? arred(ef) : 0 },
-        ];
-      })(),
-      rotas: lista(rotas, valores).slice(0, 10).map(zeroF),
-      viaturas: lista(viaturas, valores).map(zeroF),
-      metodos: lista(metodos, valores).map(zeroF),
-      origens: lista(origens, false).map(zeroF),
-      canais: lista(canais, valores).map(zeroF),
+      particularesEmpresas: ["Particulares", "Empresas"].map((rotulo) => ({ rotulo, n: tipos.get(rotulo)?.n ?? 0, faturacao: valores ? arred(tipos.get(rotulo)?.v ?? 0) : 0 })),
+      rotas,
+      viaturas: painel(de_("viatura"), valores),
+      metodos: painel(de_("metodo"), valores),
+      origens: painel(de_("origem"), valores, false),
+      canais: [canal("transfer:site", "Site"), ...(soSite ? [] : [canal("transfer:parceiro", "Parceiros")])]
+        .filter((c) => c.n > 0 || c.faturacao > 0)
+        .sort((a, b) => (valores ? b.faturacao - a.faturacao || b.n - a.n : b.n - a.n)),
       diaSemana,
       horas: horas.filter((h, i) => h.n > 0 || (i >= 6 && i <= 23)),
       antecedencia,
-      topClientes: topClientes(agora, valores),
+      topClientes: await topClientes(ctx, j, segs, valores),
     };
   },
 });
@@ -371,52 +262,59 @@ export const tours = query({
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j) return null;
-    const todas = (await lerReservas(ctx, j)).filter((l) => l.produto !== "transfer" && l.paga && (!tipo || l.produto === tipo));
-    const agora = todas.filter((l) => em(j, l.dia, "agora"));
-    const antes = todas.filter((l) => em(j, l.dia, "antes"));
-    const ano = todas.filter((l) => em(j, l.dia, "ano"));
+    const segs = tipo ? TOURS.filter((s) => produtoDe(s) === tipo) : TOURS;
+    const agora = await rowsIn(ctx, segs, ["total"], j.de, j.ate);
+    const ponto = (r: StatRow) => (valores ? r.v : r.n);
+
     const serie = { tour: j.baldes.map(() => 0), evento: j.baldes.map(() => 0) };
-    const produtos = new Map<string, { rotulo: string; tipo: Produto; n: number; pessoas: number; faturacao: number }>();
-    for (const l of agora) {
-      const b = j.balde(l.dia);
-      if (b >= 0 && l.produto !== "transfer") serie[l.produto][b]! += valores ? l.valor : l.volta ? 0 : 1;
-      const t = l.titulo ?? (l.produto === "evento" ? "Evento sem título" : "Tour sem título");
-      const x = agrupar(produtos, t, () => ({ rotulo: t, tipo: l.produto, n: 0, pessoas: 0, faturacao: 0 }), l.valor, !l.volta);
-      if (!l.volta) x.pessoas += l.o.passengers ?? 0;
+    const serieTotal = j.baldes.map(() => 0);
+    for (const r of await daSerie(ctx, j, segs, j.de, j.ate)) {
+      const b = baldeDe(j, r.per);
+      if (b < 0) continue;
+      const p = produtoDe(r.seg);
+      if (p !== "transfer") serie[p][b]! += ponto(r);
+      serieTotal[b]! += ponto(r);
     }
-    const porTipo = (ls: Linha[], tipo: Produto) => semEuros(resumo(ls.filter((l) => l.produto === tipo)), valores);
+    const serieAno = j.baldes.map(() => 0);
+    for (const r of await daSerie(ctx, j, segs, j.anoDe, j.anoAte)) {
+      const b = baldeDe(j, r.per, true);
+      if (b >= 0) serieAno[b]! += ponto(r);
+    }
+
+    const produtos = new Map<string, { rotulo: string; tipo: "tour" | "evento"; n: number; pessoas: number; faturacao: number }>();
+    for (const r of await rowsIn(ctx, segs, ["produto"], j.de, j.ate)) {
+      const t = produtoDe(r.seg) as "tour" | "evento";
+      const k = `${t}|${r.key}`;
+      const x = produtos.get(k) ?? { rotulo: r.key, tipo: t, n: 0, pessoas: 0, faturacao: 0 };
+      x.n += r.n;
+      x.pessoas += r.p;
+      x.faturacao += r.v;
+      produtos.set(k, x);
+    }
+    const porTipo = async (t: "tour" | "evento") => {
+      const ss = segs.filter((x) => produtoDe(x) === t);
+      return semEuros(await resumo(ctx, ss, j.de, j.ate, agora.filter((r) => ss.includes(r.seg as Seg))), valores);
+    };
     return {
       valores,
       periodo: { de: j.de, ate: j.ate, antesDe: j.antesDe, antesAte: j.antesAte, dias: j.dias },
       granularidade: j.granularidade,
       baldes: j.baldes,
-      agora: semEuros(resumo(agora), valores),
-      antes: semEuros(resumo(antes), valores),
-      ano: semEuros(resumo(ano), valores),
-      serieAno: (() => {
-        const f = j.baldes.map(() => 0);
-        for (const l of ano) {
-          const b = j.balde(j.maisUmAno(l.dia));
-          if (b >= 0) f[b]! += valores ? l.valor : l.volta ? 0 : 1;
-        }
-        return f.map(arred);
-      })(),
-      serieTotal: (() => {
-        const f = j.baldes.map(() => 0);
-        for (const l of agora) {
-          const b = j.balde(l.dia);
-          if (b >= 0) f[b]! += valores ? l.valor : l.volta ? 0 : 1;
-        }
-        return f.map(arred);
-      })(),
-      tours: porTipo(agora, "tour"),
-      eventos: porTipo(agora, "evento"),
+      agora: semEuros(await resumo(ctx, segs, j.de, j.ate, agora), valores),
+      antes: semEuros(await resumo(ctx, segs, j.antesDe, j.antesAte), valores),
+      ano: semEuros(await resumo(ctx, segs, j.anoDe, j.anoAte), valores),
+      serieAno: serieAno.map(arred),
+      serieTotal: serieTotal.map(arred),
+      tours: await porTipo("tour"),
+      eventos: await porTipo("evento"),
       serie: [
         { nome: "Tours", pontos: serie.tour.map(arred) },
         { nome: "Eventos", pontos: serie.evento.map(arred) },
       ],
-      produtos: lista(produtos, valores).map((p) => ({ ...p, faturacao: valores ? p.faturacao : 0 })),
-      topClientes: topClientes(agora, valores),
+      produtos: [...produtos.values()]
+        .map((p) => ({ ...p, faturacao: valores ? arred(p.faturacao) : 0 }))
+        .sort((a, b) => (valores ? b.faturacao - a.faturacao || b.n - a.n : b.n - a.n || b.faturacao - a.faturacao)),
+      topClientes: await topClientes(ctx, j, segs, valores),
     };
   },
 });
@@ -431,55 +329,43 @@ export const parceiros = query({
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j) return null;
-    const pagas = (await lerReservas(ctx, j)).filter((l) => l.paga);
-    const agora = pagas.filter((l) => em(j, l.dia, "agora"));
-    const antes = pagas.filter((l) => em(j, l.dia, "antes"));
-    const dePar = (ls: Linha[]) => ls.filter((l) => parceiroDe(l.ida) !== SEM_PARCEIRO);
 
-    type P = { rotulo: string; n: number; faturacao: number; antesN: number; antesF: number; ultima: string; clientes: Set<string> };
-    const m = new Map<string, P>();
-    const novo = (rotulo: string) => (): P => ({ rotulo, n: 0, faturacao: 0, antesN: 0, antesF: 0, ultima: "", clientes: new Set() });
-    for (const l of dePar(agora)) {
-      const k = parceiroDe(l.ida);
-      const x = agrupar(m, k, novo(k), l.valor, !l.volta);
-      if (l.dia > x.ultima) x.ultima = l.dia;
-      x.clientes.add(l.cliente);
-    }
-    for (const l of dePar(antes)) {
-      const k = parceiroDe(l.ida);
-      const x = m.get(k) ?? novo(k)();
-      x.antesF += l.valor;
-      if (!l.volta) x.antesN++;
-      m.set(k, x);
-    }
-    const ranking = [...m.values()]
-      .map((x) => ({
-        rotulo: x.rotulo,
-        n: x.n,
-        faturacao: valores ? arred(x.faturacao) : 0,
-        ticket: valores && x.n ? arred(x.faturacao / x.n) : null,
-        antesN: x.antesN,
-        antesF: valores ? arred(x.antesF) : 0,
-        ultima: x.ultima || null,
-        clientes: x.clientes.size,
-      }))
-      .sort((a, b) => (valores ? b.faturacao - a.faturacao : 0) || b.n - a.n || b.antesN - a.antesN);
+    const doParceiro = (de: string, ate: string) => rowsIn(ctx, DE_PARCEIRO, ["parceiro"], de, ate);
+    const agoraP = await doParceiro(j.de, j.ate);
+    const antesP = byKey(await doParceiro(j.antesDe, j.antesAte));
+    const clientesP = await partnerClients(ctx, DE_PARCEIRO, j.de, j.ate);
+    const chaves = new Set([...agoraP.map((r) => r.key), ...antesP.keys()]);
+    const ranking = (
+      await Promise.all(
+        [...chaves].map(async (k) => {
+          const meus = agoraP.filter((r) => r.key === k);
+          const t = total(meus);
+          const a = antesP.get(k);
+          return {
+            rotulo: k,
+            n: t.n,
+            faturacao: valores ? arred(t.v) : 0,
+            ticket: valores && t.n ? arred(t.v / t.n) : null,
+            antesN: a?.n ?? 0,
+            antesF: valores ? arred(a?.v ?? 0) : 0,
+            ultima: t.n > 0 || t.v > 0 ? await latestDay(ctx, DE_PARCEIRO, "parceiro", k, j.ate) : null,
+            clientes: clientesP.get(k) ?? 0,
+          };
+        }),
+      )
+    ).sort((a, b) => (valores ? b.faturacao - a.faturacao : 0) || b.n - a.n || b.antesN - a.antesN);
 
     /* Parceiros com página publicada e sem reservas no período. */
     const paginas = await ctx.db.query("partnerships").collect();
     const comReservas = new Set(ranking.filter((r) => r.n > 0).map((r) => r.rotulo.toLowerCase()));
-    const ultimaDe = new Map<string, string>();
-    const historico = await ctx.db.query("orders").withIndex("by_creation_time").order("desc").take(3000);
-    for (const o of historico) {
-      if (!ESTADOS_DE_SERVICO.has(o.status)) continue;
-      const k = parceiroDe(o).toLowerCase();
-      if (!ultimaDe.has(k)) ultimaDe.set(k, paraDia(o._creationTime));
-    }
-    const inactivos = paginas
-      /* Publicada é tudo o que não está «inactive» (parceiros.ts → publicada). */
-      .filter((p) => p.status !== "inactive" && !comReservas.has(p.name.trim().toLowerCase()))
-      .map((p) => ({ rotulo: p.name, ultima: ultimaDe.get(p.name.trim().toLowerCase()) ?? null, desde: paraDia(p.createdAt ?? p._creationTime) }))
-      .sort((a, b) => (b.ultima ?? "").localeCompare(a.ultima ?? "") || a.rotulo.localeCompare(b.rotulo, "pt"));
+    const inactivos = (
+      await Promise.all(
+        paginas
+          /* Publicada é tudo o que não está «inactive» (parceiros.ts → publicada). */
+          .filter((p) => p.status !== "inactive" && !comReservas.has(p.name.trim().toLowerCase()))
+          .map(async (p) => ({ rotulo: p.name, ultima: await latestDay(ctx, DE_PARCEIRO, "parceiro", p.name.trim(), "9999-12-31"), desde: paraDia(p.createdAt ?? p._creationTime) })),
+      )
+    ).sort((a, b) => (b.ultima ?? "").localeCompare(a.ultima ?? "") || a.rotulo.localeCompare(b.rotulo, "pt"));
     const novos = paginas.filter((p) => em(j, paraDia(p.createdAt ?? p._creationTime), "agora")).length;
 
     /* A angariação: o funil das Parcerias no período. */
@@ -497,7 +383,9 @@ export const parceiros = query({
         if (em(j, paraDia(n.criadoEm), "agora")) {
           recebidas++;
           const r = tituloDaOrigem(n.origem);
-          agrupar(porOrigem, r, () => ({ rotulo: r, n: 0, faturacao: 0, ganhas: 0 }), 0);
+          const x = porOrigem.get(r) ?? { rotulo: r, n: 0, faturacao: 0, ganhas: 0 };
+          x.n++;
+          porOrigem.set(r, x);
         }
         if (n.fechadoEm && em(j, paraDia(n.fechadoEm), "agora")) {
           if (tipo.get(n.etapaId) === "ganho") {
@@ -511,13 +399,13 @@ export const parceiros = query({
       }
     }
 
-    const totalAgora = agora.reduce((t, l) => t + l.valor, 0);
-    const rP = resumo(dePar(agora));
-    const rPB = resumo(dePar(antes));
+    const todasAgora = total(await rowsIn(ctx, SEGS_TODOS, ["total"], j.de, j.ate));
+    const rP = await resumo(ctx, DE_PARCEIRO, j.de, j.ate);
+    const rPB = await resumo(ctx, DE_PARCEIRO, j.antesDe, j.antesAte);
     const serie = j.baldes.map(() => 0);
-    for (const l of dePar(agora)) {
-      const b = j.balde(l.dia);
-      if (b >= 0) serie[b]! += valores ? l.valor : l.volta ? 0 : 1;
+    for (const r of await daSerie(ctx, j, DE_PARCEIRO, j.de, j.ate)) {
+      const b = baldeDe(j, r.per);
+      if (b >= 0) serie[b]! += valores ? r.v : r.n;
     }
     return {
       valores,
@@ -527,11 +415,11 @@ export const parceiros = query({
       agora: {
         ...semEuros(rP, valores),
         activos: ranking.filter((r) => r.n > 0).length,
-        peso: totalAgora ? Math.round((rP.faturacao / totalAgora) * 1000) / 10 : null,
+        peso: todasAgora.v ? Math.round((rP.faturacao / todasAgora.v) * 1000) / 10 : null,
         novos,
       },
       antes: { ...semEuros(rPB, valores), activos: ranking.filter((r) => r.antesN > 0).length },
-      ano: semEuros(resumo(dePar(pagas.filter((l) => em(j, l.dia, "ano")))), valores),
+      ano: semEuros(await resumo(ctx, DE_PARCEIRO, j.anoDe, j.anoAte), valores),
       serie: serie.map(arred),
       ranking,
       inactivos,
@@ -546,31 +434,16 @@ export const parceiros = query({
   },
 });
 
-/* ─── B2B: vendas a empresas ────────────────────────────────────────── */
-
-/*
- * Uma reserva é de uma empresa quando está ligada a uma organização
- * (contactos.ts) ou quando o NIF é de pessoa colectiva (os NIF portugueses
- * de empresas começam por 5, 6, 8 ou 9; os de particulares por 1, 2 ou 3).
- * As reservas que chegam pelos sites dos parceiros ficam na secção
- * Parceiros: são clientes do parceiro.
- */
-const NIF_EMPRESA = /^[5689]\d{8}$/;
-function empresaDe(o: Doc<"orders">, orgs: Map<string, string>): string | null {
-  if (o.organizacaoId) return orgs.get(o.organizacaoId) ?? "Empresa";
-  const nif = (o.customerNif ?? "").replace(/\D/g, "").replace(/^351/, "");
-  if (NIF_EMPRESA.test(nif)) return o.customerName?.trim() ? `${o.customerName.trim()} (NIF ${nif})` : `NIF ${nif}`;
-  return null;
-}
-
 /* ─── Finanças → Resumo ──────────────────────────────────────────────── */
+
+const SEGS_TODOS: Seg[] = [...TRANSFER, ...TOURS];
 
 /*
  * O que um CFO pergunta primeiro: quanto ganhámos de verdade (líquido de
  * IVA e da taxa do cartão), se estamos a crescer face ao mesmo período do
  * ano passado, de onde vem o dinheiro, quanto já está garantido para os
  * próximos meses e onde está o risco (concentração, cancelamentos pagos).
- * IVA e taxa do cartão são estimativas (ver IVA e TAXA_STRIPE).
+ * IVA e taxa do cartão são estimativas (lib/orderStats.ts).
  */
 export const resumoFinancas = query({
   args: { ...vPeriodo, hoje: v.string() },
@@ -580,90 +453,86 @@ export const resumoFinancas = query({
     const valores = temCapacidade(acesso, "valores");
     const j = janela(de, ate);
     if (!j || !DIA.test(hoje)) return null;
-    const todas = await lerReservas(ctx, j);
-    const pagas = todas.filter((l) => l.paga);
-    const de_ = (p: Periodo) => pagas.filter((l) => em(j, l.dia, p));
 
-    const contas = (ls: Linha[]) => {
-      const bruto = ls.reduce((t, l) => t + l.valor, 0);
-      const semIva = ls.reduce((t, l) => t + liquido(l), 0);
-      const taxas = ls.reduce((t, l) => t + taxaDe(l), 0);
-      const servicos = ls.filter((l) => !l.volta).length;
+    const contas = (rows: StatRow[]) => {
+      const t = total(rows);
       return {
-        bruto: arred(bruto),
-        liquido: arred(semIva - taxas),
-        iva: arred(bruto - semIva),
-        taxas: arred(taxas),
-        servicos,
-        ticket: servicos ? arred(bruto / servicos) : null,
+        bruto: arred(t.v),
+        liquido: arred(t.liq),
+        iva: arred(t.v - t.liq - t.tx),
+        taxas: arred(t.tx),
+        servicos: t.n,
+        ticket: t.n ? arred(t.v / t.n) : null,
       };
     };
     const zero = <T extends Record<string, number | null>>(x: T): T =>
       valores ? x : (Object.fromEntries(Object.entries(x).map(([k, val]) => [k, k === "servicos" ? val : k === "ticket" ? null : 0])) as T);
 
+    const totais = (de: string, ate: string) => rowsIn(ctx, SEGS_TODOS, ["total"], de, ate);
+    const agora = await totais(j.de, j.ate);
+    const antes = await totais(j.antesDe, j.antesAte);
+    const ano = await totais(j.anoDe, j.anoAte);
+
     /* De onde vem o dinheiro: as quatro linhas, agora e há um ano. */
     const porLinha = LINHAS_NEGOCIO.map((linha) => {
-      const a = de_("agora").filter((l) => linhaDe(l) === linha);
-      const y = de_("ano").filter((l) => linhaDe(l) === linha);
-      return { linha, servicos: a.filter((l) => !l.volta).length, liquido: valores ? arred(a.reduce((t, l) => t + liquido(l) - taxaDe(l), 0)) : 0, liquidoAno: valores ? arred(y.reduce((t, l) => t + liquido(l) - taxaDe(l), 0)) : 0 };
+      const segs = SEGS_DA_LINHA[linha];
+      const a = total(agora.filter((r) => segs.includes(r.seg as Seg)));
+      const y = total(ano.filter((r) => segs.includes(r.seg as Seg)));
+      return { linha, servicos: a.n, liquido: valores ? arred(a.liq) : 0, liquidoAno: valores ? arred(y.liq) : 0 };
     });
 
     /* A evolução: receita líquida por balde, este período e o mesmo do ano passado. */
     const serie = j.baldes.map(() => 0);
     const serieAno = j.baldes.map(() => 0);
-    for (const l of de_("agora")) {
-      const b = j.balde(l.dia);
-      if (b >= 0) serie[b]! += liquido(l) - taxaDe(l);
+    for (const r of await daSerie(ctx, j, SEGS_TODOS, j.de, j.ate)) {
+      const b = baldeDe(j, r.per);
+      if (b >= 0) serie[b]! += r.liq;
     }
-    for (const l of de_("ano")) {
-      const b = j.balde(j.maisUmAno(l.dia));
-      if (b >= 0) serieAno[b]! += liquido(l) - taxaDe(l);
+    for (const r of await daSerie(ctx, j, SEGS_TODOS, j.anoDe, j.anoAte)) {
+      const b = baldeDe(j, r.per, true);
+      if (b >= 0) serieAno[b]! += r.liq;
     }
 
-    /* Garantido: viagens já pagas que ainda vão acontecer (por data da viagem). */
-    const fim = deIndice(indiceDia(hoje) + 90);
-    const futuras = (await ctx.db
-      .query("orders")
-      .withIndex("by_departure_date", (q) => q.gte("departureDate", hoje).lte("departureDate", fim + "￿"))
-      .collect()).filter((o) => ESTADOS_DE_SERVICO.has(o.status));
-    const garantido = [30, 60, 90].map((dias) => {
+    /* Garantido: viagens já pagas que ainda vão acontecer, pela data da
+       viagem, dos agregados das encomendas (soma de todas as pernas, uma
+       viagem por ida). */
+    const garantido = [];
+    for (const dias of [30, 60, 90]) {
       const limite = deIndice(indiceDia(hoje) + dias);
-      const os = futuras.filter((o) => o.departureDate.slice(0, 10) <= limite);
-      /* Uma ida e volta é uma viagem: conta-se o par uma vez (a perna com o id menor). */
-      const viagens = new Set(os.map((o) => (o.relatedOrderId && o.relatedOrderId < o._id ? o.relatedOrderId : o._id) as string)).size;
-      return { dias, valor: valores ? arred(os.reduce((t, o) => t + (o.totalAmount ?? 0), 0)) : 0, servicos: viagens };
-    });
+      const bounds = { lower: { key: hoje, inclusive: true }, upper: { key: limite + "￿", inclusive: false } };
+      garantido.push({
+        dias,
+        valor: valores ? arred(await facts.sum(ctx, { namespace: ["trip", "reservas"], bounds })) : 0,
+        servicos: await facts.count(ctx, { namespace: ["svc", "reservas"], bounds }),
+      });
+    }
 
     /* Concentração: quanto vale o top 5 de clientes e de parceiros. */
-    const agora = de_("agora");
-    const total = agora.reduce((t, l) => t + l.valor, 0);
-    const topN = (chave: (l: Linha) => string | null) => {
-      const m = new Map<string, number>();
-      for (const l of agora) {
-        const k = chave(l);
-        if (k) m.set(k, (m.get(k) ?? 0) + l.valor);
-      }
-      const top = [...m.values()].sort((a, b) => b - a).slice(0, 5).reduce((t, x) => t + x, 0);
-      return total ? Math.round((top / total) * 1000) / 10 : null;
-    };
+    const totalAgora = total(agora).v;
+    const topClientes5 = (await topIn(ctx, SEGS_TODOS, "cliente", j.de, j.ate, 5)).reduce((s, x) => s + x.v, 0);
+    const topParceiros5 = [...byKey(await rowsIn(ctx, DE_PARCEIRO, ["parceiro"], j.de, j.ate)).values()]
+      .map((x) => x.v)
+      .sort((a, b) => b - a)
+      .slice(0, 5)
+      .reduce((s, x) => s + x, 0);
+    const parte = (x: number) => (totalAgora ? Math.round((x / totalAgora) * 1000) / 10 : null);
 
     /* Perdas: canceladas depois de pagas (o dinheiro entrou e saiu). */
-    const canceladasPagas = todas.filter((l) => em(j, l.dia, "agora") && l.o.status === "cancelled" && l.o.paymentStatus === "completed");
+    const perdas = byKey(await rowsIn(ctx, SEGS_TODOS, ["funil"], j.de, j.ate)).get("perdas");
 
-    const cA = contas(agora);
     return {
       valores,
       periodo: { de: j.de, ate: j.ate, antesDe: j.antesDe, antesAte: j.antesAte, anoDe: j.anoDe, anoAte: j.anoAte, dias: j.dias },
       granularidade: j.granularidade,
       baldes: j.baldes,
-      agora: zero(cA),
-      antes: zero(contas(de_("antes"))),
-      ano: zero(contas(de_("ano"))),
+      agora: zero(contas(agora)),
+      antes: zero(contas(antes)),
+      ano: zero(contas(ano)),
       porLinha,
       serie: { agora: serie.map((x) => (valores ? arred(x) : 0)), ano: serieAno.map((x) => (valores ? arred(x) : 0)) },
       garantido,
-      concentracao: { clientes: topN((l) => l.cliente), parceiros: topN((l) => (parceiroDe(l.ida) === SEM_PARCEIRO ? null : parceiroDe(l.ida))) },
-      perdas: { canceladas: canceladasPagas.filter((l) => !l.volta).length, valor: valores ? arred(canceladasPagas.reduce((t, l) => t + l.valor, 0)) : 0 },
+      concentracao: { clientes: parte(topClientes5), parceiros: parte(topParceiros5) },
+      perdas: { canceladas: perdas?.n ?? 0, valor: valores ? arred(perdas?.v ?? 0) : 0 },
     };
   },
 });

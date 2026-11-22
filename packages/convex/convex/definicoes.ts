@@ -4,6 +4,8 @@ import { mutation } from "./functions";
 import { exigirAdmin } from "./lib/admin";
 import { siteSettingsDefaults } from "./siteSettings";
 import { marketingStatsDefaults } from "./marketingStats";
+import { deIndice, indiceDia } from "./lib/orderLabels";
+import { SEGS, rowsIn, total } from "./lib/orderStats";
 
 /*
  * Configurações → Definições do site no dashboard (E4). Junta os dois
@@ -24,7 +26,6 @@ import { marketingStatsDefaults } from "./marketingStats";
  */
 
 const CHAVE = "global";
-const ESTADOS_DE_SERVICO = new Set(["paid", "confirmed", "completed"]);
 const diaLisboa = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" });
 
 export const detalhe = query({
@@ -40,21 +41,13 @@ export const detalhe = query({
     const m = marketingStatsDefaults;
 
     /* As reservas de verdade dos últimos 30 dias, para comparar com os
-       números que o site mostra. Ida e volta contam uma vez (a volta é a
-       perna mais recente das duas, como no Início). */
-    const desde = Date.now() - 31 * 86_400_000;
-    const recentes = await ctx.db
-      .query("orders")
-      .withIndex("by_creation_time", (q) => q.gte("_creationTime", desde))
-      .collect();
-    const porId = new Map(recentes.map((o) => [o._id as string, o]));
-    const reservas = recentes.filter((o) => {
-      if (!ESTADOS_DE_SERVICO.has(o.status)) return false;
-      const outra = o.relatedOrderId ? porId.get(o.relatedOrderId) : undefined;
-      return !(outra && outra._creationTime < o._creationTime);
-    });
+       números que o site mostra: dos totais por dia (lib/orderStats.ts), não
+       das encomendas, que a 10 000 por dia já não cabiam numa leitura. Ida e
+       volta contam uma vez. */
     const hojeValido = /^\d{4}-\d{2}-\d{2}$/.test(hoje) ? hoje : diaLisboa.format(new Date());
-    const deHoje = reservas.filter((o) => diaLisboa.format(new Date(o._creationTime)) === hojeValido).length;
+    const linhas = await rowsIn(ctx, SEGS, ["total"], deIndice(indiceDia(hojeValido) - 29), hojeValido, true);
+    const deHoje = total(linhas.filter((r) => r.per === hojeValido));
+    const trinta = total(linhas);
 
     return {
       gravado: { site: Boolean(site), marketing: Boolean(mkt) },
@@ -77,11 +70,9 @@ export const detalhe = query({
         reservadosCheckoutMax: mkt?.checkoutBookedTodayMax ?? m.checkoutBookedTodayMax,
       },
       reais: {
-        reservasHoje: deHoje,
-        mediaDiaria30: Math.round((reservas.length / 30) * 10) / 10,
-        passageirosHoje: reservas
-          .filter((o) => diaLisboa.format(new Date(o._creationTime)) === hojeValido)
-          .reduce((s, o) => s + (o.passengers ?? 0), 0),
+        reservasHoje: deHoje.n,
+        mediaDiaria30: Math.round((trinta.n / 30) * 10) / 10,
+        passageirosHoje: deHoje.p,
       },
     };
   },

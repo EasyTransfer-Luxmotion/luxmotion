@@ -848,22 +848,14 @@ export const getTodayOrders = internalQuery({
     endOfDay.setUTCHours(23, 59, 59, 999);
     const endOfDayTimestamp = endOfDay.getTime();
     
-    const allOrders = await ctx.db.query("orders").collect();
-    
-    // Filtrar apenas pedidos criados hoje E com status "paid"
-    const todayOrders = allOrders.filter((order: any) => {
-      const createdAt = order.createdAt || order._creationTime || 0;
-      const isToday = createdAt >= startOfDayTimestamp && createdAt <= endOfDayTimestamp;
-      const isPaid = order.status === "paid";
-      return isToday && isPaid;
-    });
-    
-    // Ordenar por data de criação (mais recentes primeiro)
-    const sortedOrders = todayOrders.sort((a: any, b: any) => {
-      const aTime = a.createdAt || a._creationTime || 0;
-      const bTime = b.createdAt || b._creationTime || 0;
-      return bTime - aTime; // Descendente (mais recentes primeiro)
-    });
+    /* Paid and created today, straight from the status index (it ends in
+       _creationTime): this read the whole table, which at 10 000 orders a
+       day stops fitting in one query within a week. */
+    const sortedOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "paid").gte("_creationTime", startOfDayTimestamp).lte("_creationTime", endOfDayTimestamp))
+      .order("desc")
+      .collect();
     
     return sortedOrders;
   },

@@ -328,7 +328,40 @@ export default defineSchema({
     entries: v.array(v.object({ ns: v.array(v.string()), key: v.union(v.string(), v.number()), sum: v.number() })),
     /* The filter values already recorded in orderFacetValues. */
     facets: v.optional(v.array(v.string())),
+    /* What the order added to orderStats (lib/orderStats.ts). */
+    stats: v.optional(v.array(v.object({ id: v.string(), d: v.record(v.string(), v.number()), h: v.optional(v.string()), c: v.optional(v.string()) }))),
   }).index("by_order", ["orderId"]),
+
+  /* The numbers of Finanças and Definições per day (g "d") and per month
+     (g "m"), by segment (product:channel) and grouping (lib/orderStats.ts).
+     n services, v revenue, p passengers, x extras, liq net of VAT and card
+     fees, tx card fees, iv/ae/no round trips, airport, night, as/an lead
+     time sum and count; hll the unique clients. */
+  orderStats: defineTable({
+    g: v.union(v.literal("d"), v.literal("m")),
+    seg: v.string(),
+    dim: v.string(),
+    per: v.string(),
+    key: v.string(),
+    label: v.optional(v.string()),
+    n: v.number(),
+    v: v.number(),
+    p: v.number(),
+    x: v.number(),
+    liq: v.number(),
+    tx: v.number(),
+    iv: v.number(),
+    ae: v.number(),
+    no: v.number(),
+    as: v.number(),
+    an: v.number(),
+    hll: v.optional(v.bytes()),
+    /* Day "parceiro" rows: client hash → legs, for exact client counts. */
+    cm: v.optional(v.record(v.string(), v.number())),
+  })
+    .index("by_row", ["g", "seg", "dim", "per", "key"])
+    .index("by_top", ["g", "seg", "dim", "per", "v"])
+    .index("by_key", ["g", "seg", "dim", "key", "per"]),
 
   /* The values each reservations view has had per filter (método, origem,
      parceiro, pagamento): the menus, without reading the orders. */

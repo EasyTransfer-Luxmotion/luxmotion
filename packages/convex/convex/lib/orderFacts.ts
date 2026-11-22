@@ -3,6 +3,7 @@ import { components } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server";
 import type { DataModel } from "../_generated/dataModel";
+import { applyStats, statsOf, type StoredContribution } from "./orderStats";
 
 /*
  * Order facts: what each order counts for, kept up to date on every write.
@@ -106,7 +107,9 @@ export async function factsOf(ctx: Reader, o: Doc<"orders">): Promise<FactEntry[
   const view = VIEW_OF[o.status];
   const slot = slotOf(view, o._id);
   const out: FactEntry[] = [
-    { ns: ["trip", slot], key: o.departureDate, sum: 0 },
+    /* With the money of the services: Finanças → "Garantido" sums the paid
+       trips still to happen (estatistica.resumoFinancas). */
+    { ns: ["trip", slot], key: o.departureDate, sum: view === "reservas" ? (o.totalAmount ?? 0) : 0 },
     { ns: ["created", slot], key: o._creationTime, sum: 0 },
     { ns: ["total", slot], key: o.totalAmount ?? 0, sum: 0 },
   ];
@@ -125,6 +128,8 @@ export async function factsOf(ctx: Reader, o: Doc<"orders">): Promise<FactEntry[
   }
   if (SERVICE.has(o.status)) {
     const { isReturn, outbound } = await legOf(ctx, o);
+    /* One per service by trip date: a round trip is one trip ("Garantido"). */
+    if (!isReturn) out.push({ ns: ["svc", "reservas"], key: o.departureDate, sum: 0 });
     /* The partner's numbers (parceiros.lista/detalhe): bookings count the
        outbound legs only, revenue both. Filed by the outbound's creation, the
        moment the partner sold it. */
@@ -185,12 +190,19 @@ export async function syncOrderFacts(ctx: Writer, id: Id<"orders">): Promise<voi
     if (!seen) await ctx.db.insert("orderFacetValues", { view, dim, value });
   }
 
+  /* The day and month numbers (lib/orderStats.ts), same difference rule. */
+  const stats = await applyStats(ctx, (state?.stats ?? []) as StoredContribution[], o ? await statsOf(ctx, o) : []);
+
   if (!o) {
     if (state) await ctx.db.delete(state._id);
   } else if (!state) {
-    await ctx.db.insert("orderFactState", { orderId: id, entries: next, facets });
-  } else if (JSON.stringify(state.entries) !== JSON.stringify(next) || JSON.stringify(state.facets ?? []) !== JSON.stringify(facets)) {
-    await ctx.db.patch(state._id, { entries: next, facets });
+    await ctx.db.insert("orderFactState", { orderId: id, entries: next, facets, stats });
+  } else if (
+    JSON.stringify(state.entries) !== JSON.stringify(next) ||
+    JSON.stringify(state.facets ?? []) !== JSON.stringify(facets) ||
+    JSON.stringify(state.stats ?? []) !== JSON.stringify(stats)
+  ) {
+    await ctx.db.patch(state._id, { entries: next, facets, stats });
   }
 }
 
