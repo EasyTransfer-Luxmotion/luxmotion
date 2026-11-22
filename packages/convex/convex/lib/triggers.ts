@@ -1,6 +1,6 @@
 import { Triggers } from "convex-helpers/server/triggers";
 import type { DataModel } from "../_generated/dataModel";
-import { LEAD_TABLES, searchTextOf, syncLeadFacts, syncOrderFacts } from "./orderFacts";
+import { LEAD_TABLES, requestSearchText, searchTextOf, syncLeadFacts, syncNewsletterFacts, syncOrderFacts } from "./orderFacts";
 
 /*
  * Code that runs inside the same transaction as every write to a table, for
@@ -26,6 +26,15 @@ triggers.register("orders", async (ctx, change) => {
 
 for (const table of LEAD_TABLES) {
   triggers.register(table, async (ctx, change) => {
+    const d = change.newDoc;
+    if (d) {
+      const text = requestSearchText(table, d);
+      if (d.searchText !== text) await ctx.innerDb.patch(change.id, { searchText: text });
+    }
     await syncLeadFacts(ctx, table, change.oldDoc, change.newDoc);
   });
 }
+
+triggers.register("newsletterSubscriptions", async (ctx, change) => {
+  await syncNewsletterFacts(ctx, change.oldDoc, change.newDoc);
+});

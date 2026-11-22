@@ -1014,8 +1014,11 @@ export default defineSchema({
     // Affiliate/partnership attribution (referral link).
     partnershipId: v.optional(v.id("partnerships")),
     partnershipName: v.optional(v.string()),
+    /* What the Pedidos search looks in (lib/orderFacts.ts, requestSearchText). */
+    searchText: v.optional(v.string()),
     createdAt: v.number(),
-  }).index("by_created", ["createdAt"])
+  }).searchIndex("search_text", { searchField: "searchText" })
+    .index("by_created", ["createdAt"])
     /* Para o contador de pedidos por tratar na sidebar do dashboard. */
     .index("by_status", ["status"]),
 
@@ -1030,8 +1033,11 @@ export default defineSchema({
     // Affiliate/partnership attribution (referral link).
     partnershipId: v.optional(v.id("partnerships")),
     partnershipName: v.optional(v.string()),
+    /* What the Pedidos search looks in (lib/orderFacts.ts, requestSearchText). */
+    searchText: v.optional(v.string()),
     createdAt: v.number(),
   })
+    .searchIndex("search_text", { searchField: "searchText" })
     .index("by_created", ["createdAt"])
     .index("by_status", ["status"]),
 
@@ -1254,10 +1260,13 @@ export default defineSchema({
       v.literal("rejected"),
     ),
     queuePosition: v.number(),
+    /* What the Pedidos search looks in (lib/orderFacts.ts, requestSearchText). */
+    searchText: v.optional(v.string()),
     createdAt: v.number(),
     reviewedAt: v.optional(v.number()),
     internalNotes: v.optional(v.string()),
   })
+    .searchIndex("search_text", { searchField: "searchText" })
     .index("by_created", ["createdAt"])
     .index("by_status", ["status"]),
 
@@ -1277,8 +1286,11 @@ export default defineSchema({
     // Affiliate/partnership attribution (referral link).
     partnershipId: v.optional(v.id("partnerships")),
     partnershipName: v.optional(v.string()),
+    /* What the Pedidos search looks in (lib/orderFacts.ts, requestSearchText). */
+    searchText: v.optional(v.string()),
     createdAt: v.number(),
   })
+    .searchIndex("search_text", { searchField: "searchText" })
     .index("by_created", ["createdAt"])
     .index("by_status", ["status"]),
 
@@ -1320,8 +1332,11 @@ export default defineSchema({
     // Affiliate/partnership attribution (referral link).
     partnershipId: v.optional(v.id("partnerships")),
     partnershipName: v.optional(v.string()),
+    /* What the Pedidos search looks in (lib/orderFacts.ts, requestSearchText). */
+    searchText: v.optional(v.string()),
     createdAt: v.number(),
   })
+    .searchIndex("search_text", { searchField: "searchText" })
     .index("by_created", ["createdAt"])
     .index("by_status", ["status"]),
 
@@ -1343,8 +1358,11 @@ export default defineSchema({
     // Affiliate/partnership attribution (referral link).
     partnershipId: v.optional(v.id("partnerships")),
     partnershipName: v.optional(v.string()),
+    /* What the Pedidos search looks in (lib/orderFacts.ts, requestSearchText). */
+    searchText: v.optional(v.string()),
     createdAt: v.number(),
   })
+    .searchIndex("search_text", { searchField: "searchText" })
     .index("by_created", ["createdAt"])
     .index("by_status", ["status"]),
 

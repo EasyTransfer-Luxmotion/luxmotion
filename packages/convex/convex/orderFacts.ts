@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
-import { LEAD_TABLES, searchTextOf, slotsOf, syncLeadFacts, syncOrderFacts, VIEWS, facts } from "./lib/orderFacts";
+import { LEAD_TABLES, requestSearchText, searchTextOf, slotsOf, syncLeadFacts, syncNewsletterFacts, syncOrderFacts, VIEWS, facts } from "./lib/orderFacts";
 import { internalQuery } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
@@ -19,7 +19,7 @@ import type { Id } from "./_generated/dataModel";
 /* Small batches: each order is ~15 writes to the aggregate, and a mutation
    has a second of work. */
 const BATCH = 25;
-const TABLES = ["orders", ...LEAD_TABLES] as const;
+const TABLES = ["orders", ...LEAD_TABLES, "newsletterSubscriptions"] as const;
 
 export const backfill = internalMutation({
   args: { table: v.optional(v.string()), cursor: v.optional(v.union(v.string(), v.null())), done: v.optional(v.number()) },
@@ -34,8 +34,13 @@ export const backfill = internalMutation({
         const text = searchTextOf(order);
         if (order.searchText !== text) await ctx.db.patch(order._id, { searchText: text });
         else await syncOrderFacts(ctx, order._id);
+      } else if (table === "newsletterSubscriptions") {
+        await syncNewsletterFacts(ctx, null, doc as Parameters<typeof syncNewsletterFacts>[2]);
       } else {
-        await syncLeadFacts(ctx, table, null, doc as Parameters<typeof syncLeadFacts>[3]);
+        /* The search text through a patch (the trigger files it too). */
+        const text = requestSearchText(table, doc as Parameters<typeof requestSearchText>[1]);
+        if ((doc as { searchText?: string }).searchText !== text) await ctx.db.patch(doc._id as never, { searchText: text } as never);
+        else await syncLeadFacts(ctx, table, null, doc as Parameters<typeof syncLeadFacts>[3]);
       }
     }
     const done = (a.done ?? 0) + page.page.length;

@@ -3,6 +3,7 @@ import { query, type QueryCtx } from "./_generated/server";
 import { lerAcesso, permite } from "./lib/admin";
 import type { ModuloPermissao } from "./lib/permissoes";
 import { moduloDoCartao } from "./lib/funis";
+import { facts } from "./lib/orderFacts";
 
 /*
  * Os números ao lado dos módulos na sidebar do dashboard: Pedidos e
@@ -48,14 +49,13 @@ async function somar(ctx: QueryCtx, pares: [Tabela, string | undefined][]): Prom
    nesse dia. Rascunhos, pendentes (carrinhos por pagar) e canceladas não são
    trabalho para hoje. */
 async function servicosDoDia(ctx: QueryCtx, dia: string): Promise<number> {
-  const docs = await ctx.db
-    .query("orders")
-    .withIndex("by_departure_date", (q) => q.gte("departureDate", dia).lt("departureDate", dia + "\uffff"))
-    .take(500);
-  return Math.min(
-    docs.filter((o) => o.status === "paid" || o.status === "confirmed" || o.status === "completed").length,
-    LIMITE,
-  );
+  /* From the order facts: reading the day by date and dropping carts cut
+     real services off once a day had more than 500 orders of any kind. */
+  const n = await facts.count(ctx, {
+    namespace: ["trip", "reservas"],
+    bounds: { lower: { key: dia, inclusive: true }, upper: { key: dia + "\uffff", inclusive: false } },
+  });
+  return Math.min(n, LIMITE);
 }
 
 /*

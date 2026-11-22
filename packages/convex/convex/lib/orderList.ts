@@ -54,7 +54,7 @@ export type ListResult = {
 const statusesOf = (view: View | "todas") =>
   (Object.keys(VIEW_OF) as Doc<"orders">["status"][]).filter((s) => view === "todas" || VIEW_OF[s] === view);
 
-type Side = { lower?: Bound<FactKey, string>; upper?: Bound<FactKey, string> };
+export type Side = { lower?: Bound<FactKey, string>; upper?: Bound<FactKey, string> };
 
 function tripBounds(a: ListArgs): Side | undefined {
   if (a.from === null && a.to === null) return undefined;
@@ -216,7 +216,7 @@ const cmpItem = (x: Item, y: Item) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 
  * batched count), and that grows with its position in its own tree, so each
  * tree is searched by probing positions until one lands exactly on offset.
  */
-async function mergedPage(
+export async function mergedPage(
   ctx: QueryCtx,
   list: string[][],
   counts: number[],

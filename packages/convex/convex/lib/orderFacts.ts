@@ -4,6 +4,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { GenericDatabaseReader, GenericDatabaseWriter } from "convex/server";
 import type { DataModel } from "../_generated/dataModel";
 import { applyStats, statsOf, type StoredContribution } from "./orderStats";
+import { TIPO_DA_TABELA, estadoDe, grupoDe, resumo, type Qualquer } from "./requests";
 
 /*
  * Order facts: what each order counts for, kept up to date on every write.
@@ -251,26 +252,32 @@ export const LEAD_TABLES = [
 ] as const;
 export type LeadTable = (typeof LEAD_TABLES)[number];
 
-type Lead = { _id: string; partnershipId?: Id<"partnerships">; createdAt: number };
+type Lead = { _id: string; partnershipId?: Id<"partnerships">; partnershipName?: string; status?: string; createdAt: number };
 
-/* A lead from a partner's page is filed twice: all of the partner's leads by
-   date (count, latest, the recent list) and per form (the categories). */
+/*
+ * A request is filed for the inbox (pedidos.lista): by form and group
+ * (por tratar, em curso, fechados), and again by partner ("" is direct), all
+ * by date received. A lead from a partner's page is also filed for the
+ * partner's page numbers: all its leads by date (count, latest, the recent
+ * list) and per form (the categories).
+ */
 function leadEntries(table: LeadTable, d: Lead | null): FactEntry[] {
-  if (!d?.partnershipId) return [];
-  return [
-    { ns: ["partnerLead", d.partnershipId], key: d.createdAt, sum: 0 },
-    { ns: ["partnerLead", d.partnershipId, table], key: d.createdAt, sum: 0 },
+  if (!d) return [];
+  const tipo = TIPO_DA_TABELA[table];
+  const grupo = grupoDe(estadoDe(tipo, d.status));
+  const out: FactEntry[] = [
+    { ns: ["req", tipo, grupo], key: d.createdAt, sum: 0 },
+    { ns: ["req", tipo, grupo, "p", d.partnershipName?.trim() ?? ""], key: d.createdAt, sum: 0 },
   ];
+  if (d.partnershipId) {
+    out.push({ ns: ["partnerLead", d.partnershipId], key: d.createdAt, sum: 0 });
+    out.push({ ns: ["partnerLead", d.partnershipId, table], key: d.createdAt, sum: 0 });
+  }
+  return out;
 }
 
-/* These rows only change partner by hand, so the old document says what was
-   filed: no state table needed. */
-export async function syncLeadFacts(
-  ctx: Parameters<typeof facts.insert>[0],
-  table: LeadTable,
-  oldDoc: Lead | null,
-  newDoc: Lead | null,
-): Promise<void> {
+/* The old document says what was filed: no state table needed. */
+export async function syncLeadFacts(ctx: Writer, table: LeadTable, oldDoc: Lead | null, newDoc: Lead | null): Promise<void> {
   const before = new Map(leadEntries(table, oldDoc).map((e) => [nsId(e.ns), e]));
   const after = new Map(leadEntries(table, newDoc).map((e) => [nsId(e.ns), e]));
   const id = (newDoc ?? oldDoc)!._id;
@@ -280,4 +287,26 @@ export async function syncLeadFacts(
     else if (n.key !== e.key) await facts.replaceOrInsert(ctx, { namespace: e.ns, key: e.key, id }, { namespace: n.ns, key: n.key });
   }
   for (const [k, e] of after) if (!before.has(k)) await facts.insertIfDoesNotExist(ctx, { namespace: e.ns, key: e.key, id, sumValue: 0 });
+  /* The inbox's partner menu. */
+  const partner = newDoc?.partnershipName?.trim();
+  if (partner && partner !== oldDoc?.partnershipName?.trim()) {
+    const seen = await ctx.db
+      .query("orderFacetValues")
+      .withIndex("by_view_dim", (q) => q.eq("view", "pedidos").eq("dim", "partner").eq("value", partner))
+      .first();
+    if (!seen) await ctx.db.insert("orderFacetValues", { view: "pedidos", dim: "partner", value: partner });
+  }
+}
+
+/* What the inbox search looks in: the same fields as before, in one string. */
+export function requestSearchText(table: LeadTable, d: Qualquer): string {
+  const tipo = TIPO_DA_TABELA[table];
+  const r = resumo(tipo, d);
+  return plain([r.nome, r.empresa, d.email, d.phone, r.linha, d.partnershipName].filter(Boolean).join(" "));
+}
+
+/* The newsletter list: only its size is shown. */
+export async function syncNewsletterFacts(ctx: Writer, oldDoc: { _id: string; createdAt: number } | null, newDoc: { _id: string; createdAt: number } | null) {
+  if (oldDoc && !newDoc) await facts.deleteIfExists(ctx, { namespace: ["newsletter"], key: oldDoc.createdAt, id: oldDoc._id });
+  if (newDoc && !oldDoc) await facts.insertIfDoesNotExist(ctx, { namespace: ["newsletter"], key: newDoc.createdAt, id: newDoc._id, sumValue: 0 });
 }

@@ -5,6 +5,9 @@ import { mutation } from "./functions";
 import type { Doc } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
 import { acertarCartaoDaOrigem } from "./lib/funilEstado";
+import { ESTADOS, GRUPOS, TABELA, TIPOS, estadoDe, grupoDe, resumo, vTipo, type Grupo, type Qualquer, type Tipo } from "./lib/requests";
+import { facts } from "./lib/orderFacts";
+import { mergedPage } from "./lib/orderList";
 
 /*
  * Operação → Pedidos no dashboard (E4). Os seis formulários de pedido do site
@@ -21,135 +24,31 @@ import { acertarCartaoDaOrigem } from "./lib/funilEstado";
  * mudar o contador só por espreitar escondia pedidos a quem viesse a seguir.
  */
 
-const vTipo = v.union(
-  v.literal("contactos"),
-  v.literal("orcamentos"),
-  v.literal("ultraluxo"),
-  v.literal("casamentos"),
-  v.literal("escolas"),
-  v.literal("corporate"),
-);
-type Tipo = typeof vTipo.type;
-type Grupo = "porTratar" | "emCurso" | "fechados";
-
-const TABELA = {
-  contactos: "contactSubmissions",
-  orcamentos: "contactQuotes",
-  ultraluxo: "tourInquiries",
-  casamentos: "weddingQuoteSubmissions",
-  escolas: "schoolQuoteSubmissions",
-  corporate: "corporateRequests",
-} as const;
-
-/* Os estados que cada tabela aceita, pela ordem em que se mostram. */
-const ESTADOS: Record<Tipo, readonly string[]> = {
-  contactos: ["new", "read", "archived"],
-  orcamentos: ["new", "inProgress", "resolved", "archived"],
-  ultraluxo: ["new", "read", "archived"],
-  casamentos: ["new", "read", "archived"],
-  escolas: ["new", "read", "archived"],
-  corporate: ["submitted", "reviewing", "approved", "rejected"],
-};
-
-/* Sem estado gravado é "novo": o campo é opcional em quatro tabelas, e os
-   pedidos antigos não o têm (é a mesma regra do contador). */
-function estadoDe(tipo: Tipo, status: string | undefined): string {
-  return status ?? (tipo === "corporate" ? "submitted" : "new");
-}
-function grupoDe(estado: string): Grupo {
-  if (estado === "new" || estado === "submitted") return "porTratar";
-  if (estado === "read" || estado === "inProgress" || estado === "reviewing") return "emCurso";
-  return "fechados";
+/* A request as the list shows it. */
+function linhaDe(tipo: Tipo, d: Qualquer) {
+  const estado = estadoDe(tipo, d.status);
+  const r = resumo(tipo, d);
+  return {
+    tipo,
+    id: d._id as string,
+    estado,
+    grupo: grupoDe(estado),
+    recebido: d.createdAt,
+    nome: r.nome,
+    empresa: r.empresa,
+    linha: r.linha,
+    email: d.email,
+    telefone: d.phone || null,
+    parceiro: d.partnershipName ?? null,
+  };
 }
 
-type Qualquer =
-  | Doc<"contactSubmissions">
-  | Doc<"contactQuotes">
-  | Doc<"tourInquiries">
-  | Doc<"weddingQuoteSubmissions">
-  | Doc<"schoolQuoteSubmissions">
-  | Doc<"corporateRequests">;
-
-const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-function dataCurta(s: string | number | undefined): string | null {
-  if (s === undefined || s === "") return null;
-  const d = typeof s === "number" ? new Date(s) : new Date(s.length === 10 ? `${s}T12:00:00` : s);
-  if (!Number.isFinite(d.getTime())) return String(s);
-  return `${d.getUTCDate()} ${MESES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-}
-/* Milhares sempre separados: em pt-PT o Intl deixa "2500 €" sem espaço e
-   "12 000 €" com ele, e lado a lado parecia um erro. À mão porque o
-   useGrouping: "always" não existe na versão de TypeScript do Convex. */
-const euros = (n: number | undefined) =>
-  typeof n === "number" ? `${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0")}\u00a0€` : null;
-
-/* O nome e uma linha que diga do que se trata, para a lista. */
-function resumo(tipo: Tipo, d: Qualquer): { nome: string; empresa: string | null; linha: string } {
-  const partes = (xs: (string | number | null | undefined | false)[]) => xs.filter(Boolean).join(" · ");
-  switch (tipo) {
-    case "contactos": {
-      const x = d as Doc<"contactSubmissions">;
-      return { nome: x.name, empresa: null, linha: x.message.replace(/\s+/g, " ").trim() };
-    }
-    case "orcamentos": {
-      const x = d as Doc<"contactQuotes">;
-      return { nome: x.fullName, empresa: x.company || null, linha: partes([x.subject, x.message.replace(/\s+/g, " ").trim()]) };
-    }
-    case "ultraluxo": {
-      const x = d as Doc<"tourInquiries">;
-      return {
-        nome: x.name,
-        empresa: null,
-        linha: partes([x.tourTitle || "Itinerário à medida", x.people && `${x.people} pessoas`, x.date ? dataCurta(x.date) : x.datesFlexible && "datas flexíveis"]),
-      };
-    }
-    case "casamentos": {
-      const x = d as Doc<"weddingQuoteSubmissions">;
-      return { nome: x.fullName, empresa: null, linha: partes([dataCurta(x.weddingDate), x.guests && `${x.guests} convidados`, x.venue, euros(x.budget)]) };
-    }
-    case "escolas": {
-      const x = d as Doc<"schoolQuoteSubmissions">;
-      return { nome: x.name, empresa: null, linha: partes([x.route, x.children && `${x.children} crianças`, euros(x.budget)]) };
-    }
-    case "corporate": {
-      const x = d as Doc<"corporateRequests">;
-      return { nome: x.fullName, empresa: x.companyName || null, linha: partes([dataCurta(x.eventDate), x.guests && `${x.guests} convidados`, x.vehicleType, euros(x.budget)]) };
-    }
-  }
+/* Which form a request id belongs to (the ids carry their table). */
+function tipoDoId(ctx: QueryCtx, id: string): Tipo | null {
+  return TIPOS.find((t) => ctx.db.normalizeId(TABELA[t], id) !== null) ?? null;
 }
 
-async function lerTodos(ctx: QueryCtx) {
-  /* Volumes pequenos (37 pedidos em produção a 2026-11-15): lê-se tudo e
-     filtra-se aqui. Com milhares, isto passa a ler pelo índice de estado. */
-  const [contactos, orcamentos, ultraluxo, casamentos, escolas, corporate] = await Promise.all([
-    ctx.db.query("contactSubmissions").collect(),
-    ctx.db.query("contactQuotes").collect(),
-    ctx.db.query("tourInquiries").collect(),
-    ctx.db.query("weddingQuoteSubmissions").collect(),
-    ctx.db.query("schoolQuoteSubmissions").collect(),
-    ctx.db.query("corporateRequests").collect(),
-  ]);
-  const por: Record<Tipo, Qualquer[]> = { contactos, orcamentos, ultraluxo, casamentos, escolas, corporate };
-  return (Object.keys(por) as Tipo[]).flatMap((tipo) =>
-    por[tipo].map((d) => {
-      const estado = estadoDe(tipo, d.status);
-      const r = resumo(tipo, d);
-      return {
-        tipo,
-        id: d._id as string,
-        estado,
-        grupo: grupoDe(estado),
-        recebido: d.createdAt,
-        nome: r.nome,
-        empresa: r.empresa,
-        linha: r.linha,
-        email: d.email,
-        telefone: d.phone || null,
-        parceiro: d.partnershipName ?? null,
-      };
-    }),
-  );
-}
+const SEARCH_LIMIT = 200;
 
 const semAcentos = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
@@ -172,43 +71,81 @@ export const lista = query({
   handler: async (ctx, a) => {
     const since = a.period ? periodStart(a.period, lisbonToday()) : a.desde;
     await exigirAdmin(ctx, "pedidos", "ver");
-    const todos = await lerTodos(ctx);
+    /*
+     * From the request facts (lib/orderFacts.ts): a tree per form and group,
+     * and per partner, by date received. Counts are calls and only the page
+     * is read. This read all six tables every time a request came in; 37
+     * requests in Nov 2026, but at thousands a day it stops fitting.
+     */
+    const tipos = a.tipo === "todos" ? TIPOS : [a.tipo];
+    const grupos = a.grupo === "todos" ? GRUPOS : [a.grupo];
+    const parceiro = a.parceiro === undefined || a.parceiro === "" ? undefined : a.parceiro === "direto" ? "" : a.parceiro;
+    const bounds = since !== undefined ? { lower: { key: since, inclusive: true } } : undefined;
 
-    /* Contagens para os separadores: por tratar de cada tipo, e os grupos do
-       tipo aberto (antes da pesquisa, para não mudarem a cada letra). */
-    const porTipo = Object.fromEntries(
-      (Object.keys(TABELA) as Tipo[]).map((t) => [t, todos.filter((x) => x.tipo === t && x.grupo === "porTratar").length]),
-    ) as Record<Tipo, number>;
-    const doTipo = a.tipo === "todos" ? todos : todos.filter((x) => x.tipo === a.tipo);
-    const porGrupo = {
-      porTratar: doTipo.filter((x) => x.grupo === "porTratar").length,
-      emCurso: doTipo.filter((x) => x.grupo === "emCurso").length,
-      fechados: doTipo.filter((x) => x.grupo === "fechados").length,
-      todos: doTipo.length,
-    };
-
-    const parceiros = [...new Set(todos.map((x) => x.parceiro?.trim()).filter((m): m is string => Boolean(m)))].sort((x, y) => x.localeCompare(y, "pt"));
-    const q = semAcentos(a.pesquisa?.trim() ?? "");
-    const filtrados = doTipo
-      .filter((x) => a.grupo === "todos" || x.grupo === a.grupo)
-      .filter((x) => !a.parceiro || (a.parceiro === "direto" ? !x.parceiro?.trim() : x.parceiro?.trim() === a.parceiro))
-      .filter((x) => since === undefined || x.recebido >= since)
-      .filter((x) => !q || [x.nome, x.empresa, x.email, x.telefone, x.linha, x.parceiro].some((c) => c && semAcentos(c).includes(q)))
-      .sort((x, y) => y.recebido - x.recebido);
+    const porTipoN = await facts.countBatch(ctx, TIPOS.map((t) => ({ namespace: ["req", t, "porTratar"] })));
+    const porTipo = Object.fromEntries(TIPOS.map((t, i) => [t, porTipoN[i]!])) as Record<Tipo, number>;
+    const porGrupoN = await facts.countBatch(ctx, GRUPOS.flatMap((g) => tipos.map((t) => ({ namespace: ["req", t, g] }))));
+    const somaGrupo = (k: number) => porGrupoN.slice(k * tipos.length, (k + 1) * tipos.length).reduce((x, y) => x + y, 0);
+    const porGrupo = { porTratar: somaGrupo(0), emCurso: somaGrupo(1), fechados: somaGrupo(2), todos: somaGrupo(0) + somaGrupo(1) + somaGrupo(2) };
 
     const porPagina = Math.max(1, Math.min(100, Math.floor(a.porPagina)));
-    const paginas = Math.max(1, Math.ceil(filtrados.length / porPagina));
-    const pagina = Math.min(Math.max(0, Math.floor(a.pagina)), paginas - 1);
+    const q = semAcentos(a.pesquisa?.trim() ?? "");
+    let linhas: ReturnType<typeof linhaDe>[];
+    let total: number;
+    let pagina: number;
+    let paginas: number;
+    if (q) {
+      /* The search index of each form, then the same filters. */
+      const termos = q.split(/\s+/).filter(Boolean);
+      const selectiva = termos.find((x) => /\d/.test(x)) ?? termos.reduce((x, y) => (y.length > x.length ? y : x));
+      const encontrados: ReturnType<typeof linhaDe>[] = [];
+      for (const t of tipos) {
+        for (const texto of [...new Set([termos.join(" "), selectiva])]) {
+          const docs = (await ctx.db
+            .query(TABELA[t])
+            .withSearchIndex("search_text", (s) => s.search("searchText", texto))
+            .take(SEARCH_LIMIT)) as Qualquer[];
+          for (const d of docs) if (!encontrados.some((x) => x.id === d._id) && termos.every((x) => (d.searchText ?? "").includes(x))) encontrados.push(linhaDe(t, d));
+        }
+      }
+      const filtrados = encontrados
+        .filter((x) => grupos.includes(x.grupo))
+        .filter((x) => parceiro === undefined || (x.parceiro?.trim() ?? "") === parceiro)
+        .filter((x) => since === undefined || x.recebido >= since)
+        /* Ties by id, as the list without search (the facts) orders them. */
+        .sort((x, y) => y.recebido - x.recebido || (x.id < y.id ? 1 : x.id > y.id ? -1 : 0));
+      total = filtrados.length;
+      paginas = Math.max(1, Math.ceil(total / porPagina));
+      pagina = Math.min(Math.max(0, Math.floor(a.pagina)), paginas - 1);
+      linhas = filtrados.slice(pagina * porPagina, (pagina + 1) * porPagina);
+    } else {
+      const lists = tipos.flatMap((t) => grupos.map((g) => (parceiro === undefined ? ["req", t, g] : ["req", t, g, "p", parceiro])));
+      const counts = await facts.countBatch(ctx, lists.map((namespace) => ({ namespace, bounds })));
+      total = counts.reduce((x, y) => x + y, 0);
+      paginas = Math.max(1, Math.ceil(total / porPagina));
+      pagina = Math.min(Math.max(0, Math.floor(a.pagina)), paginas - 1);
+      const ids = total ? await mergedPage(ctx, lists, counts, bounds ?? {}, "desc", pagina * porPagina, porPagina) : [];
+      linhas = [];
+      for (const id of ids) {
+        const t = tipoDoId(ctx, id);
+        const d = t ? ((await ctx.db.get(ctx.db.normalizeId(TABELA[t], id)!)) as Qualquer | null) : null;
+        if (t && d) linhas.push(linhaDe(t, d));
+      }
+    }
+
+    const parceiros = (await ctx.db.query("orderFacetValues").withIndex("by_view_dim", (x) => x.eq("view", "pedidos").eq("dim", "partner")).take(500))
+      .map((r) => r.value)
+      .sort((x, y) => x.localeCompare(y, "pt"));
     return {
-      linhas: filtrados.slice(pagina * porPagina, (pagina + 1) * porPagina),
-      total: filtrados.length,
+      linhas,
+      total,
       pagina,
       paginas,
       porPagina,
       porTipo,
       porGrupo,
       parceiros,
-      newsletter: (await ctx.db.query("newsletterSubscriptions").collect()).length,
+      newsletter: await facts.count(ctx, { namespace: ["newsletter"] }),
     };
   },
 });
