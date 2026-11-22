@@ -1831,6 +1831,8 @@ export default defineSchema({
   colaboradores: defineTable({
     /* Em minúsculas: é o que se compara com o email verificado do Clerk. */
     email: v.string(),
+    // An owner: everything, whatever the role says. Set and removed by another owner (equipa.setOwner).
+    owner: v.optional(v.boolean()),
     nome: v.string(),
     cargoId: v.id("cargos"),
     /* Suspenso: deixa de entrar já, sem perder o cargo nem o histórico. */

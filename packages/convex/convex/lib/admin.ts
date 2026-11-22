@@ -45,6 +45,9 @@ export type Acesso = {
   nome: string | null;
   cargo: string | null;
   dono: boolean;
+  /* The recovery account (ADMIN_EMAILS): an owner who always gets in, even
+     if every other owner is blocked by mistake. Not managed in the app. */
+  recovery: boolean;
   permissoes: Permissoes;
   capacidades: Capacidade[];
   /* "Ver como" um cargo (tabela simulacoes): as permissões acima são as do
@@ -82,6 +85,7 @@ export async function lerAcesso(ctx: CtxLeitura, opcoes: { semSimulacao?: boolea
     ...real,
     cargo: cargo.nome,
     dono: false,
+    recovery: false,
     permissoes,
     capacidades: (cargo.capacidades ?? []).filter(eCapacidade),
     simulacao: { cargoId: cargo._id, cargo: cargo.nome, ate: sim.ate },
@@ -97,6 +101,7 @@ async function lerAcessoReal(ctx: CtxLeitura): Promise<Acesso> {
     nome: null,
     cargo: null,
     dono: false,
+    recovery: false,
     permissoes: {},
     capacidades: [],
     simulacao: null,
@@ -119,6 +124,7 @@ async function lerAcessoReal(ctx: CtxLeitura): Promise<Acesso> {
       nome: colaborador?.nome ?? identidade.name ?? null,
       cargo: "Dono",
       dono: true,
+      recovery: true,
       permissoes: TUDO,
       capacidades: [...CHAVES_CAPACIDADE],
       simulacao: null,
@@ -134,6 +140,21 @@ async function lerAcessoReal(ctx: CtxLeitura): Promise<Acesso> {
     if (estado === "recusado") return fora("conviteRecusado");
     if (estado !== "pendente") return fora("conviteExpirado");
   }
+  /* An owner member: everything, like the recovery account, but managed in
+     the app; blocking them (estado "suspenso") cuts it above. */
+  if (colaborador.owner) {
+    return {
+      estado: "admin",
+      email,
+      nome: colaborador.nome,
+      cargo: "Dono",
+      dono: true,
+      recovery: false,
+      permissoes: TUDO,
+      capacidades: [...CHAVES_CAPACIDADE],
+      simulacao: null,
+    };
+  }
   const cargo = await ctx.db.get(colaborador.cargoId);
   if (!cargo) return fora("semAcesso");
 
@@ -145,6 +166,7 @@ async function lerAcessoReal(ctx: CtxLeitura): Promise<Acesso> {
     nome: colaborador.nome,
     cargo: cargo.nome,
     dono: false,
+    recovery: false,
     permissoes,
     capacidades: (cargo.capacidades ?? []).filter(eCapacidade),
     simulacao: null,

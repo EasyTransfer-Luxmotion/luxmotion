@@ -227,8 +227,9 @@ async function loadTeam(ctx: QueryCtx) {
         estado: p.estado,
         situacao: situacao(p),
         convite: resumoConvite(convitesPor.get(p._id)?.[0], convitesPor.get(p._id)?.length ?? 0, agora),
-        /* Também nos donos: o cargo não conta enquanto o email lá estiver. */
-        dono: listaDonos.includes(p.email),
+        /* Owner by the member flag, or by being the recovery account (ADMIN_EMAILS). */
+        dono: Boolean(p.owner) || listaDonos.includes(p.email),
+        recovery: listaDonos.includes(p.email),
         criadoEm: p.criadoEm,
         actualizadoEm: p.actualizadoEm,
         ultimaEntradaEm: p.ultimaEntradaEm ?? null,
@@ -400,7 +401,9 @@ export const membro = query({
         envio: c.envio,
         por: c.por,
       })),
-      dono: donos().includes(p.email),
+      dono: Boolean(p.owner) || donos().includes(p.email),
+      owner: Boolean(p.owner),
+      recovery: donos().includes(p.email),
       versao: p.actualizadoEm,
       criadoEm: p.criadoEm,
       ultimaEntradaEm: p.ultimaEntradaEm ?? null,
@@ -713,6 +716,101 @@ export const guardarColaborador = mutation({
 });
 
 /* Não se apaga ninguém: suspender corta o acesso já e guarda o histórico. */
+/* Owners who can still get in, not counting `excluding`: the recovery
+   accounts (ADMIN_EMAILS) and active owner members. Blocking or demoting is
+   refused when it would leave none. */
+async function activeOwnerCount(ctx: MutationCtx, excluding: Id<"colaboradores">): Promise<number> {
+  const recovery = donos();
+  const members = (await ctx.db.query("colaboradores").collect()).filter(
+    (c) => c._id !== excluding && c.owner && c.estado === "activo" && !recovery.includes(c.email),
+  );
+  return recovery.length + members.length;
+}
+
+/*
+ * Make someone an owner, or take it away. Only owners decide this, never for
+ * themselves, and never leaving the back-office without an owner. It goes to
+ * the team log and to every owner's bell.
+ */
+export const setOwner = mutation({
+  args: { id: v.id("colaboradores"), owner: v.boolean() },
+  handler: async (ctx, { id, owner }) => {
+    const acesso = await lerAcesso(ctx);
+    verificar(acesso, "equipa", "editar");
+    if (!acesso.dono) throw new ConvexError("Só os donos podem dar ou tirar o acesso de dono.");
+    const p = await ctx.db.get(id);
+    if (!p) throw new ConvexError("Esta pessoa já não está na equipa. Recarregue a página.");
+    if (p.email === acesso.email) throw new ConvexError("Não pode mudar o seu próprio acesso de dono. Peça a outro dono.");
+    if (donos().includes(p.email)) {
+      throw new ConvexError("É a conta de recuperação (ADMIN_EMAILS): é sempre dona. Para a mudar, altere essa variável no Convex.");
+    }
+    if (Boolean(p.owner) === owner) return null;
+    if (owner && (p.estado !== "activo" || !p.ultimaEntradaEm)) {
+      throw new ConvexError("Só quem já entrou e está ativo pode ser dono.");
+    }
+    if (!owner && (await activeOwnerCount(ctx, id)) < 1) {
+      throw new ConvexError("É o último dono ativo: o back-office ficava sem dono.");
+    }
+    const agora = Date.now();
+    await ctx.db.patch(id, { owner: owner || undefined, actualizadoEm: agora });
+    await registar(ctx, {
+      ator: acesso.email!,
+      accao: owner ? "Tornou dono" : "Tirou o acesso de dono a",
+      alvo: `${p.nome} (${p.email})`,
+      colaboradorId: id,
+    });
+    await notificar(ctx, {
+      chave: `dono:${owner ? "dado" : "tirado"}:${id}:${agora}`,
+      tipo: "equipa",
+      titulo: owner ? `${p.nome} passou a dono` : `${p.nome} deixou de ser dono`,
+      detalhe: `por ${acesso.email}`,
+      href: `/equipa/membros/${id}`,
+      tom: owner ? "normal" : "aviso",
+    });
+    return null;
+  },
+});
+
+/*
+ * One-off, per environment: the owners listed in ADMIN_EMAILS (except the one
+ * kept as recovery) become owner members, already in and already welcomed,
+ * so ADMIN_EMAILS can then shrink to the recovery account.
+ *   npx convex run equipa:migrateOwnersToMembers '{"keep":"…","roleName":"Administração"}'
+ */
+export const migrateOwnersToMembers = internalMutation({
+  args: { keep: v.string(), roleName: v.string() },
+  handler: async (ctx, { keep, roleName }) => {
+    const role = (await ctx.db.query("cargos").collect()).find((c) => c.nome === roleName);
+    if (!role) throw new ConvexError(`Não há cargo «${roleName}».`);
+    const now = Date.now();
+    const done: string[] = [];
+    for (const email of donos().filter((e) => e !== keep.trim().toLowerCase())) {
+      const row = await ctx.db
+        .query("colaboradores")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .first();
+      if (row) {
+        await ctx.db.patch(row._id, { owner: true, estado: "activo", ultimaEntradaEm: row.ultimaEntradaEm ?? now, boasVindasEm: row.boasVindasEm ?? now });
+      } else {
+        const id = await ctx.db.insert("colaboradores", {
+          email,
+          nome: email.split("@")[0]!,
+          cargoId: role._id,
+          estado: "activo",
+          owner: true,
+          criadoEm: now,
+          actualizadoEm: now,
+          ultimaEntradaEm: now,
+          boasVindasEm: now,
+        });
+        await registar(ctx, { ator: "sistema", accao: "Passou a dono na equipa", alvo: email, colaboradorId: id });
+      }
+      done.push(email);
+    }
+    return done;
+  },
+});
+
 export const mudarEstadoColaborador = mutation({
   args: { id: v.id("colaboradores"), estado: v.union(v.literal("activo"), v.literal("suspenso")) },
   handler: async (ctx, { id, estado }) => {
@@ -726,14 +824,31 @@ export const mudarEstadoColaborador = mutation({
     if (estado === "suspenso" && p.email === acesso.email) {
       throw new ConvexError("Não se pode bloquear a si próprio.");
     }
+    if (estado === "suspenso" && donos().includes(p.email)) {
+      throw new ConvexError("É a conta de recuperação (ADMIN_EMAILS): entra sempre. Para a mudar, altere essa variável no Convex.");
+    }
+    if (estado === "suspenso" && p.owner && (await activeOwnerCount(ctx, id)) < 1) {
+      throw new ConvexError("É o último dono ativo: bloqueá-lo deixava o back-office sem dono.");
+    }
     const agora = Date.now();
     await ctx.db.patch(id, { estado, actualizadoEm: agora });
     await registar(ctx, {
       ator: acesso.email!,
       accao: estado === "suspenso" ? "Bloqueou" : "Desbloqueou",
-      alvo: `${p.nome} (${p.email})`,
+      alvo: `${p.nome} (${p.email})${p.owner ? " · dono" : ""}`,
       colaboradorId: id,
     });
+    // Changes to who holds full power reach every owner live.
+    if (p.owner) {
+      await notificar(ctx, {
+        chave: `dono:${estado}:${id}:${agora}`,
+        tipo: "equipa",
+        titulo: estado === "suspenso" ? `${p.nome} (dono) foi bloqueado` : `${p.nome} (dono) foi desbloqueado`,
+        detalhe: `por ${acesso.email}`,
+        href: `/equipa/membros/${id}`,
+        tom: estado === "suspenso" ? "aviso" : "normal",
+      });
+    }
     return { versao: agora };
   },
 });
