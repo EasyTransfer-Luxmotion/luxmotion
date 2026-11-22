@@ -215,9 +215,20 @@ Até 2026-11-07 nenhuma verificava quem chamava — dava para apagar tours, ler
 encomendas com dados pessoais e marcar uma encomenda como paga.
 
 - **Funções do admin** começam por `await exigirAdmin(ctx)` (`lib/admin.ts`):
-  sessão + email **verificado** em `ADMIN_EMAILS` (variável de cada deployment,
-  separada por vírgulas). Ter sessão não chega — o registo no Clerk de produção
-  está aberto ao público. Sem a variável ninguém entra.
+  sessão + email **verificado** de um dono ou de um membro ativo da equipa.
+  Ter sessão não chega — o registo no Clerk de produção está aberto ao
+  público.
+- **Donos** (desde 2026-11-22): um membro com `owner` tem tudo, seja qual for
+  o cargo. Dá-se e tira-se na ficha da pessoa, só por outro dono
+  (`equipa.setOwner`), nunca a si próprio e nunca deixando o back-office sem
+  dono; bloquear e apagar um dono seguem as mesmas regras e avisam os donos.
+  `ADMIN_EMAILS` (variável de cada deployment) ficou **só para a conta de
+  recuperação**: entra sempre, mesmo com todos os outros donos bloqueados, e
+  não se gere no back-office. Num ambiente onde ainda lá estejam vários
+  donos: `npx convex run equipa:migrateOwnersToMembers
+  '{"keep":"<recuperação>","roleName":"Administração"}'` e só depois reduzir
+  a variável a esse email. Feito em development; staging e produção só com
+  ordem.
 - **Funções que só o próprio Convex chama** (de actions, crons, `http.ts`) são
   `internalQuery`/`internalMutation`/`internalAction`, chamadas por `internal.*`.
   Uma action agendada não tem sessão: se precisa de algo que o admin também usa,
