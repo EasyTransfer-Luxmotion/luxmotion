@@ -144,7 +144,7 @@ export async function syncContactList(ctx: Writer, kind: Kind, oldDoc: Contact |
    the first time they appear. */
 export const CONTACT_FACETS = ["segmento", "responsavel", "idioma", "localidade", "etiqueta", "origem", "carteira", "col"] as const;
 
-export async function recordContactFacets(ctx: Writer, kind: Kind, d: Contact | Org, values: Partial<Record<(typeof CONTACT_FACETS)[number], (string | null | undefined)[]>>) {
+export async function recordContactFacets(ctx: Writer, kind: string, d: Contact | Org, values: Partial<Record<(typeof CONTACT_FACETS)[number], (string | null | undefined)[]>>) {
   for (const [dim, list] of Object.entries(values)) {
     for (const value of list ?? []) {
       if (!value) continue;
@@ -201,7 +201,13 @@ export async function onContactChange(ctx: Writer & { innerDb: GenericDatabaseWr
       etiqueta: c.etiquetas,
       origem: [rotuloDaOrigem(c.primeiraOrigem)],
       carteira: [org?.carteira?.estado],
-      col: [
+    });
+  /* Which columns have data, per relation: the list shows only those of the
+     relation open (a column for every relation squeezed the name away). */
+  if (c) {
+    const fresh = (await ctx.db.get(c._id)) ?? c;
+    const rels = ["all", ...(fresh.relacoes ?? ["clientes"])].filter((r) => !(r === "motoristas" && (fresh as Contact).organizacaoId));
+    const cols = [
         c.email || c.telefone ? "contacto" : null,
         c.nReservas ? "reservas" : null,
         c.gasto ? "gasto" : null,
@@ -213,8 +219,9 @@ export async function onContactChange(ctx: Writer & { innerDb: GenericDatabaseWr
         c.responsavel ? "responsavel" : null,
         org?.carteira?.estado ? "carteira" : null,
         "desde",
-      ],
-    });
+      ];
+    for (const rel of rels) await recordContactFacets(ctx, `contactos|${rel}`, fresh, { col: cols });
+  }
 }
 
 export async function onOrgChange(ctx: Writer & { innerDb: GenericDatabaseWriter<DataModel> }, oldDoc: Org | null, newDoc: Org | null): Promise<void> {
@@ -247,7 +254,13 @@ export async function onOrgChange(ctx: Writer & { innerDb: GenericDatabaseWriter
       localidade: [o.localidade],
       etiqueta: o.etiquetas,
       carteira: [o.carteira?.estado],
-      col: [
+    });
+  /* Which columns have data, per relation: the list shows only those of the
+     relation open (a column for every relation squeezed the name away). */
+  if (o) {
+    const fresh = (await ctx.db.get(o._id)) ?? o;
+    const rels = ["all", ...(fresh.relacoes ?? ["clientes"])];
+    const cols = [
         o.email || o.telefone ? "contacto" : null,
         o.nPessoas ? "pessoas" : null,
         o.carteira?.partnershipId ? "vendas" : null,
@@ -260,8 +273,9 @@ export async function onOrgChange(ctx: Writer & { innerDb: GenericDatabaseWriter
         o.responsavel ? "responsavel" : null,
         o.carteira?.estado ? "carteira" : null,
         "desde",
-      ],
-    });
+      ];
+    for (const rel of rels) await recordContactFacets(ctx, `organizacoes|${rel}`, fresh, { col: cols });
+  }
 }
 
 export async function onCardChange(ctx: Writer, oldDoc: Doc<"negocios"> | null, newDoc: Doc<"negocios"> | null): Promise<void> {

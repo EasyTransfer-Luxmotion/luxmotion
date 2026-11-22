@@ -209,7 +209,8 @@ export const lista = query({
       origens: de("origem"),
       carteiras: de("carteira"),
     };
-    const comDados = new Set(de("col"));
+    const colunasVistas = await ctx.db.query("orderFacetValues").withIndex("by_view_dim", (q) => q.eq("view", `${tipo}|${rel}`).eq("dim", "col")).take(50);
+    const comDados = new Set(colunasVistas.map((f) => f.value));
     const colunas = COLUNAS_CONTACTOS.filter((c) => comDados.has(c));
     const totalSemFiltros = await facts.count(ctx, { namespace: ["ct", tipo, rel, "recentes"] });
 
