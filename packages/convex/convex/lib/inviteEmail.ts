@@ -20,6 +20,8 @@ export type InviteEmailInput = {
   lang: "pt" | "en";
   // The environment's CDN (BUNNY_CDN_URL): public/ is mirrored there.
   cdnUrl: string | null;
+  // The day-5 reminder: other subject and a line saying it is about to expire.
+  reminder?: boolean;
 };
 
 const GOLD = "#8a6a2c";
@@ -43,7 +45,8 @@ export function inviteEmail(d: InviteEmailInput): { subject: string; html: strin
 
   const t = en
     ? {
-        subject: "Your invitation to the LuxMotion back-office",
+        subject: d.reminder ? "Reminder: your invitation to the LuxMotion back-office" : "Your invitation to the LuxMotion back-office",
+        reminderLine: `Your invitation expires on ${until}. Accept it before then, or ask for a new one.`,
         preheader: `${d.inviter} added you to the LuxMotion team.`,
         hello: "Hello",
         who: `${inviter} invited you to the LuxMotion team${role ? ` as <strong style="color:${INK}">${role}</strong>` : ""}.`,
@@ -53,7 +56,8 @@ export function inviteEmail(d: InviteEmailInput): { subject: string; html: strin
         ignore: "If you weren't expecting this email, you can ignore it: nothing happens unless you sign in with this address.",
       }
     : {
-        subject: "Convite para o back-office da LuxMotion",
+        subject: d.reminder ? "Lembrete: o seu convite para o back-office da LuxMotion" : "Convite para o back-office da LuxMotion",
+        reminderLine: `O seu convite expira a ${until}. Aceite-o até lá, ou peça um novo.`,
         // Same words as the invitation page, which avoid "acrescentou-o" (wrong for half the team).
         preheader: `${d.inviter} quer contar consigo na equipa LuxMotion.`,
         hello: "Olá",
@@ -103,6 +107,7 @@ export function inviteEmail(d: InviteEmailInput): { subject: string; html: strin
       <tr><td style="padding:34px 32px 8px">
         <div style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-style:italic;font-size:40px;line-height:1.1;color:${GOLD_DARK}">${t.hello}, <span style="font-style:normal;font-family:Arial,Helvetica,sans-serif;font-size:26px;font-weight:300;color:${INK}">${first}</span></div>
       </td></tr>
+      ${d.reminder ? `<tr><td style="padding:14px 32px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#fbf3e2" style="background:#fbf3e2;border-radius:10px;padding:10px 14px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#7a5512">${esc(t.reminderLine)}</td></tr></table></td></tr>` : ""}
       <tr><td style="padding:12px 32px 18px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:${MUTED}">${t.who}</td></tr>
       ${quote}
       <tr><td style="padding:0 32px 26px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:${MUTED}">${t.how}</td></tr>
@@ -128,6 +133,7 @@ export function inviteEmail(d: InviteEmailInput): { subject: string; html: strin
   const text = [
     `${t.hello}, ${d.firstName}`,
     "",
+    d.reminder ? `${t.reminderLine}\n` : null,
     plain(t.who),
     d.message ? `\n"${d.message}"\n— ${d.inviter}` : null,
     "",

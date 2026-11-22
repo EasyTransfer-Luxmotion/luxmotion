@@ -52,6 +52,18 @@ export const porToken = query({
   },
 });
 
+/* The invitation page calls this once it shows a pending invitation, so the
+   member page can say the email was opened. Only the first time counts. */
+export const markOpened = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    const c = await porTokenDe(ctx, token);
+    if (!c || c.openedAt || estadoDoConvite(c) !== "pendente") return null;
+    await ctx.db.patch(c._id, { openedAt: Date.now() });
+    return null;
+  },
+});
+
 export const recusar = mutation({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {

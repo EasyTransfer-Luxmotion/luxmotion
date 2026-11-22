@@ -120,7 +120,7 @@ export const boasVindas = query({
       .withIndex("by_email", (q) => q.eq("email", acesso.email!))
       .first();
     if (!c || c.estado !== "activo" || c.boasVindasEm) return null;
-    return { nome: c.nome, cargo: acesso.cargo, idioma: c.idioma ?? "pt", photoUrl: c.photo ? await urlDaImagem(ctx, c.photo) : null };
+    return { nome: c.nome, cargo: acesso.cargo, idioma: c.idioma ?? "pt", photoUrl: c.photo ? await urlDaImagem(ctx, c.photo) : null, phone: c.telefone ?? null };
   },
 });
 
@@ -185,6 +185,23 @@ export const setMyPhoto = mutation({
     } else {
       await ctx.db.insert("ownerProfiles", { email: t.email, photo: photo ?? undefined, updatedAt: Date.now() });
     }
+    return null;
+  },
+});
+
+/* The member's own mobile number, from the onboarding panel. Same rule as the
+   team form (equipa.guardarColaborador). Owners have no member row to keep it. */
+export const setMyPhone = mutation({
+  args: { phone: v.union(v.string(), v.null()) },
+  handler: async (ctx, { phone }) => {
+    const t = await myPhotoTarget(ctx);
+    if (!t || t.kind !== "member") throw new ConvexError("Só os membros da equipa guardam aqui o telemóvel.");
+    const clean = phone === null ? "" : phone.trim().replace(/\s+/g, " ");
+    if (clean && !/^\+?[\d ()-]{6,20}$/.test(clean)) {
+      // Same shape as the team form's errors (equipa.ts → invalido), so avisarErro reads it.
+      throw new ConvexError({ tipo: "invalido", mensagem: "O telemóvel só leva algarismos, espaços e o + do indicativo.", erros: { telefone: "O telemóvel só leva algarismos, espaços e o + do indicativo." } });
+    }
+    await ctx.db.patch(t.member._id, { telefone: clean || undefined });
     return null;
   },
 });

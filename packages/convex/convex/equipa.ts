@@ -140,6 +140,8 @@ function resumoConvite(c: Doc<"convites"> | null | undefined, total: number, ago
   };
 }
 
+const REMINDER_BEFORE_MS = 2 * 24 * 60 * 60 * 1000;
+
 /*
  * Um convite novo para este colaborador: o pendente anterior deixa de valer
  * (substituido), sai o email e fica agendado o fim do prazo. Usado ao
@@ -162,6 +164,8 @@ async function criarConvite(ctx: MutationCtx, p: Doc<"colaboradores">, por: stri
   });
   await ctx.scheduler.runAfter(0, internal.equipa.enviarConvite, { conviteId: id });
   await ctx.scheduler.runAt(agora + VALIDADE_CONVITE, internal.equipa.expirarConvite, { conviteId: id });
+  // Two days before the end: invitations died quietly when nobody opened the email.
+  await ctx.scheduler.runAt(agora + VALIDADE_CONVITE - REMINDER_BEFORE_MS, internal.equipa.sendInviteReminder, { conviteId: id });
   return id;
 }
 
@@ -404,6 +408,21 @@ export const membro = query({
       idioma: p.idioma ?? "pt",
       mensagemConvite: p.mensagemConvite ?? null,
       photoUrl: await urlDaImagem(ctx, p.photo),
+      /* Where this person is in joining the team, step by step, for the
+         member page. "Por aceitar" or "Ativo" said nothing in between. */
+      onboarding: {
+        invitedAt: ultimo?.criadoEm ?? null,
+        emailStatus: ultimo?.envio ?? null,
+        emailSentAt: ultimo?.enviadoEm ?? null,
+        openedAt: ultimo?.openedAt ?? null,
+        reminderSentAt: ultimo?.reminderSentAt ?? null,
+        reminderStatus: ultimo?.reminderStatus ?? null,
+        // The first entry accepts the invitation (acesso.registarEntrada); ultimaEntradaEm is the latest one.
+        acceptedAt: convites.find((c) => c.estado === "aceite")?.respondidoEm ?? (p.ultimaEntradaEm ? p.ultimaEntradaEm : null),
+        hasPhoto: Boolean(p.photo),
+        hasPhone: Boolean(p.telefone),
+        welcomedAt: p.boasVindasEm ?? null,
+      },
       historico: await historico(ctx, { colaboradorId: p._id }),
     };
   },
@@ -877,27 +896,29 @@ export const reenviarConvite = mutation({
   },
 });
 
+async function dadosDoConviteHandler(ctx: QueryCtx, { conviteId }: { conviteId: Id<"convites"> }) {
+  const c = await ctx.db.get(conviteId);
+  if (!c) return null;
+  const p = await ctx.db.get(c.colaboradorId);
+  if (!p) return null;
+  const cargo = await ctx.db.get(p.cargoId);
+  return {
+    nome: p.nome,
+    email: p.email,
+    cargo: cargo?.nome ?? null,
+    idioma: p.idioma ?? "pt",
+    mensagem: p.mensagemConvite ?? null,
+    token: c.token,
+    expiraEm: c.expiraEm,
+    por: c.por,
+    /* Já não vale (substituído por um reenvio, recusado, aceite): não sai. */
+    valido: estadoDoConvite(c) === "pendente" && !p.ultimaEntradaEm,
+  };
+}
+
 export const dadosDoConvite = internalQuery({
   args: { conviteId: v.id("convites") },
-  handler: async (ctx, { conviteId }) => {
-    const c = await ctx.db.get(conviteId);
-    if (!c) return null;
-    const p = await ctx.db.get(c.colaboradorId);
-    if (!p) return null;
-    const cargo = await ctx.db.get(p.cargoId);
-    return {
-      nome: p.nome,
-      email: p.email,
-      cargo: cargo?.nome ?? null,
-      idioma: p.idioma ?? "pt",
-      mensagem: p.mensagemConvite ?? null,
-      token: c.token,
-      expiraEm: c.expiraEm,
-      por: c.por,
-      /* Já não vale (substituído por um reenvio, recusado, aceite): não sai. */
-      valido: estadoDoConvite(c) === "pendente" && !p.ultimaEntradaEm,
-    };
-  },
+  handler: dadosDoConviteHandler,
 });
 
 export const marcarConvite = internalMutation({
@@ -924,6 +945,15 @@ export const expirarConvite = internalMutation({
     await ctx.db.patch(conviteId, { estado: "expirado" });
     if (p) {
       await registar(ctx, { ator: "sistema", accao: "Expirou o convite de", alvo: `${p.nome} (${p.email})`, colaboradorId: p._id });
+      // An expired invitation used to end in silence: now it reaches the bell, with the way out.
+      await notificar(ctx, {
+        chave: `convite:expirou:${conviteId}`,
+        tipo: "equipa",
+        titulo: `O convite de ${p.nome} expirou`,
+        detalhe: "Reenviar dá mais 7 dias.",
+        href: `/equipa/membros/${p._id}`,
+        tom: "aviso",
+      });
     }
   },
 });
@@ -979,53 +1009,83 @@ export const migrarConvites = internalMutation({
 });
 
 
+type InviteData = NonNullable<Awaited<ReturnType<typeof dadosDoConviteHandler>>>;
+
+/* Builds and sends the invitation (or the reminder) through Resend. Returns
+   how it went; without RESEND_API_KEY (development and staging, on purpose)
+   nothing goes out. */
+async function sendInviteMail(d: InviteData, reminder: boolean): Promise<"sent" | "failed" | "noEmail"> {
+  const base = (process.env.ADMIN_BASE_URL ?? "https://dashboard.easytransferportugal.com").replace(/\/$/, "");
+  /* A página do convite (aceitar ou recusar), não a entrada directa:
+     quem não o quer tem de poder dizê-lo. */
+  const link = `${base}/convite/${d.token}`;
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    /* Sem o link no log: é o que dá para recusar o convite de alguém. O
+       back-office mostra-o a quem gere a equipa. */
+    console.log(`[Convite] ${reminder ? "Lembrete não" : "Não"} enviado (sem RESEND_API_KEY): ${d.email}`);
+    return "noEmail";
+  }
+  const mail = inviteEmail({
+    firstName: d.nome.split(" ")[0] ?? d.nome,
+    inviter: d.por,
+    role: d.cargo,
+    email: d.email,
+    message: d.mensagem ?? null,
+    link,
+    expiresAt: d.expiraEm,
+    lang: d.idioma === "en" ? "en" : "pt",
+    cdnUrl: process.env.BUNNY_CDN_URL ?? null,
+    reminder,
+  });
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM ?? "LuxMotion <onboarding@resend.dev>",
+        to: [d.email],
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!r.ok) throw new Error(`Resend ${r.status}: ${(await r.text().catch(() => "")).slice(0, 200)}`);
+    return "sent";
+  } catch (e) {
+    console.error(`[Convite] ${reminder ? "lembrete " : ""}${d.email} falhou: ${e instanceof Error ? e.message : String(e)}`);
+    return "failed";
+  }
+}
+
 export const enviarConvite = internalAction({
   args: { conviteId: v.id("convites") },
   handler: async (ctx, { conviteId }) => {
     const d = await ctx.runQuery(internal.equipa.dadosDoConvite, { conviteId });
     if (!d || !d.valido) return;
-    const por = d.por;
-    const base = (process.env.ADMIN_BASE_URL ?? "https://dashboard.easytransferportugal.com").replace(/\/$/, "");
-    /* A página do convite (aceitar ou recusar), não a entrada directa:
-       quem não o quer tem de poder dizê-lo. */
-    const link = `${base}/convite/${d.token}`;
-    const chave = process.env.RESEND_API_KEY;
-    if (!chave) {
-      /* Sem o link no log: é o que dá para recusar o convite de alguém. O
-         back-office mostra-o a quem gere a equipa. */
-      console.log(`[Convite] Não enviado (sem RESEND_API_KEY): ${d.email}`);
-      await ctx.runMutation(internal.equipa.marcarConvite, { conviteId, envio: "semEmail" });
-      return;
-    }
-    const mail = inviteEmail({
-      firstName: d.nome.split(" ")[0] ?? d.nome,
-      inviter: por,
-      role: d.cargo,
-      email: d.email,
-      message: d.mensagem ?? null,
-      link,
-      expiresAt: d.expiraEm,
-      lang: d.idioma === "en" ? "en" : "pt",
-      cdnUrl: process.env.BUNNY_CDN_URL ?? null,
-    });
-    try {
-      const r = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${chave}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM ?? "LuxMotion <onboarding@resend.dev>",
-          to: [d.email],
-          subject: mail.subject,
-          html: mail.html,
-          text: mail.text,
-        }),
-        signal: AbortSignal.timeout(20_000),
-      });
-      if (!r.ok) throw new Error(`Resend ${r.status}: ${(await r.text().catch(() => "")).slice(0, 200)}`);
-      await ctx.runMutation(internal.equipa.marcarConvite, { conviteId, envio: "enviado" });
-    } catch (e) {
-      console.error(`[Convite] ${d.email} falhou: ${e instanceof Error ? e.message : String(e)}`);
-      await ctx.runMutation(internal.equipa.marcarConvite, { conviteId, envio: "falhou" });
-    }
+    const result = await sendInviteMail(d, false);
+    await ctx.runMutation(internal.equipa.marcarConvite, { conviteId, envio: result === "sent" ? "enviado" : result === "failed" ? "falhou" : "semEmail" });
+  },
+});
+
+/* Scheduled two days before the invitation ends (criarConvite). Nothing goes
+   out if it was accepted, declined or replaced by a resend meanwhile. */
+export const sendInviteReminder = internalAction({
+  args: { conviteId: v.id("convites") },
+  handler: async (ctx, { conviteId }) => {
+    const d = await ctx.runQuery(internal.equipa.dadosDoConvite, { conviteId });
+    if (!d || !d.valido) return;
+    const status = await sendInviteMail(d, true);
+    await ctx.runMutation(internal.equipa.markReminder, { conviteId, status });
+  },
+});
+
+export const markReminder = internalMutation({
+  args: { conviteId: v.id("convites"), status: v.union(v.literal("sent"), v.literal("failed"), v.literal("noEmail")) },
+  handler: async (ctx, { conviteId, status }) => {
+    const c = await ctx.db.get(conviteId);
+    if (!c) return;
+    await ctx.db.patch(conviteId, { reminderSentAt: Date.now(), reminderStatus: status });
   },
 });

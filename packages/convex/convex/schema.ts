@@ -1880,6 +1880,11 @@ export default defineSchema({
     enviadoEm: v.optional(v.number()),
     /* Quem convidou: o nome, para o email e a página do convite. */
     por: v.string(),
+    // First time the invitation page was opened (convites.markOpened), for the onboarding progress.
+    openedAt: v.optional(v.number()),
+    // The day-5 reminder (equipa.sendInviteReminder): when it went out and how.
+    reminderSentAt: v.optional(v.number()),
+    reminderStatus: v.optional(v.union(v.literal("sent"), v.literal("failed"), v.literal("noEmail"))),
   })
     .index("by_colaborador", ["colaboradorId", "criadoEm"])
     .index("by_token", ["token"])
