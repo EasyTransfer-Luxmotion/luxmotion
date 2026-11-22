@@ -1,4 +1,5 @@
 import { Triggers } from "convex-helpers/server/triggers";
+import { onCardChange, onContactChange, onOrderForContacts, onOrgChange } from "./contactFacts";
 import type { DataModel } from "../_generated/dataModel";
 import { LEAD_TABLES, requestSearchText, searchTextOf, syncLeadFacts, syncNewsletterFacts, syncOrderFacts } from "./orderFacts";
 
@@ -22,6 +23,18 @@ triggers.register("orders", async (ctx, change) => {
      changes (paid, cancelled, partner fixed), the return follows. */
   const related = o?.relatedOrderId ?? change.oldDoc?.relatedOrderId;
   if (related) await syncOrderFacts(ctx, related);
+  /* The client's and organisation's numbers (lib/contactFacts.ts). */
+  await onOrderForContacts(ctx, [change.oldDoc, o, related ? await ctx.db.get(related) : null]);
+});
+
+triggers.register("contactos", async (ctx, change) => {
+  await onContactChange(ctx, change.oldDoc, change.newDoc);
+});
+triggers.register("organizacoes", async (ctx, change) => {
+  await onOrgChange(ctx, change.oldDoc, change.newDoc);
+});
+triggers.register("negocios", async (ctx, change) => {
+  await onCardChange(ctx, change.oldDoc, change.newDoc);
 });
 
 for (const table of LEAD_TABLES) {

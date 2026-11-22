@@ -2134,9 +2134,21 @@ export default defineSchema({
     estadoCarteira: v.optional(v.string()),
     primeiraOrigem: v.optional(v.string()),
     notas: v.optional(v.string()),
+    /* Kept by triggers (lib/contactFacts.ts): the list reads these instead
+       of every order and card. */
+    nReservas: v.optional(v.number()),
+    gasto: v.optional(v.number()),
+    ultimaReserva: v.optional(v.number()),
+    nPedidos: v.optional(v.number()),
+    relProprias: v.optional(v.array(v.string())),
+    relacoes: v.optional(v.array(v.string())),
+    procura: v.optional(v.string()),
+    nPessoas: v.optional(v.number()),
+    nEstabelecimentos: v.optional(v.number()),
     criadoEm: v.number(),
     atualizadoEm: v.number(),
   })
+    .searchIndex("search_procura", { searchField: "procura" })
     .index("by_nome_normalizado", ["nomeNormalizado"])
     .index("by_grupo", ["grupoId"])
     .index("by_email", ["email"])
@@ -2156,9 +2168,19 @@ export default defineSchema({
     organizacaoId: v.optional(v.id("organizacoes")),
     primeiraOrigem: v.optional(v.string()),
     notas: v.optional(v.string()),
+    /* Kept by triggers (lib/contactFacts.ts): the list reads these instead
+       of every order and card. */
+    nReservas: v.optional(v.number()),
+    gasto: v.optional(v.number()),
+    ultimaReserva: v.optional(v.number()),
+    nPedidos: v.optional(v.number()),
+    relProprias: v.optional(v.array(v.string())),
+    relacoes: v.optional(v.array(v.string())),
+    procura: v.optional(v.string()),
     criadoEm: v.number(),
     atualizadoEm: v.number(),
   })
+    .searchIndex("search_procura", { searchField: "procura" })
     .index("by_email", ["email"])
     .index("by_telefone", ["telefone"])
     .index("by_organizacao", ["organizacaoId"]),

@@ -131,6 +131,10 @@ export async function factsOf(ctx: Reader, o: Doc<"orders">): Promise<FactEntry[
     const { isReturn, outbound } = await legOf(ctx, o);
     /* One per service by trip date: a round trip is one trip ("Garantido"). */
     if (!isReturn) out.push({ ns: ["svc", "reservas"], key: o.departureDate, sum: 0 });
+    /* The client's and the organisation's bookings (lib/contactFacts.ts). */
+    const leg = isReturn ? "r" : "o";
+    if (o.contactoId) out.push({ ns: ["contact", o.contactoId, leg], key: o._creationTime, sum: o.totalAmount ?? 0 });
+    if (o.organizacaoId) out.push({ ns: ["org", o.organizacaoId, leg], key: o._creationTime, sum: o.totalAmount ?? 0 });
     /* The partner's numbers (parceiros.lista/detalhe): bookings count the
        outbound legs only, revenue both. Filed by the outbound's creation, the
        moment the partner sold it. */

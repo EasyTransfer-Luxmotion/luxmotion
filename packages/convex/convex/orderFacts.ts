@@ -3,6 +3,7 @@ import { internalMutation } from "./functions";
 import { internal } from "./_generated/api";
 import { LEAD_TABLES, requestSearchText, searchTextOf, slotsOf, syncLeadFacts, syncNewsletterFacts, syncOrderFacts, VIEWS, facts } from "./lib/orderFacts";
 import { internalQuery } from "./_generated/server";
+import { onContactChange, onOrgChange, refreshNumbers } from "./lib/contactFacts";
 import type { Id } from "./_generated/dataModel";
 
 /*
@@ -19,7 +20,7 @@ import type { Id } from "./_generated/dataModel";
 /* Small batches: each order is ~15 writes to the aggregate, and a mutation
    has a second of work. */
 const BATCH = 25;
-const TABLES = ["orders", ...LEAD_TABLES, "newsletterSubscriptions"] as const;
+const TABLES = ["orders", ...LEAD_TABLES, "newsletterSubscriptions", "contactos", "organizacoes"] as const;
 
 export const backfill = internalMutation({
   args: { table: v.optional(v.string()), cursor: v.optional(v.union(v.string(), v.null())), done: v.optional(v.number()) },
@@ -34,6 +35,16 @@ export const backfill = internalMutation({
         const text = searchTextOf(order);
         if (order.searchText !== text) await ctx.db.patch(order._id, { searchText: text });
         else await syncOrderFacts(ctx, order._id);
+      } else if (table === "contactos" || table === "organizacoes") {
+        /* Numbers, relations, search text, list and menus: the same as the
+           trigger does on a change, from nothing. */
+        await refreshNumbers(ctx, table, doc._id as never);
+        const fresh = await ctx.db.get(doc._id as Id<"contactos">);
+        /* No inner writer outside a trigger: the search text goes through the
+           wrapped one (its trigger repeats the same, harmlessly). */
+        const c2 = { ...ctx, innerDb: ctx.db };
+        if (table === "contactos") await onContactChange(c2, null, fresh as never);
+        else await onOrgChange(c2, null, fresh as never);
       } else if (table === "newsletterSubscriptions") {
         await syncNewsletterFacts(ctx, null, doc as Parameters<typeof syncNewsletterFacts>[2]);
       } else {

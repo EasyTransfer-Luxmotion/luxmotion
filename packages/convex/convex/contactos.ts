@@ -6,7 +6,10 @@ import { internal } from "./_generated/api";
 import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
 import { RELACOES, ligarContacto, ligarOrganizacao, normalizarEmail, normalizarNome, normalizarTelefone, relacaoDaOrigem, type Relacao } from "./lib/contactos";
 import { FUNIS, segmentoDaOrigem, tituloDaOrigem, type ChaveFunil } from "./lib/funis";
-import { ESTADOS_DE_SERVICO, local } from "./inicio";
+import { local } from "./inicio";
+import { facts } from "./lib/orderFacts";
+import { mergedPage } from "./lib/orderList";
+import { contactSortKey, rotuloDaOrigem, type ContactSort } from "./lib/contactFacts";
 
 /*
  * Contactos (organizações e pessoas, em Clientes · Parceiros · Motoristas) e Parceiros → Carteira (as
@@ -79,222 +82,91 @@ async function reservasDe(ctx: QueryCtx, filtro: { contactoId?: Id<"contactos">;
 /* ─── Listas ──────────────────────────────────────────────────────────── */
 
 /*
- * Os segmentos de cada contacto e de cada organização (lib/contactos.ts,
- * RELACOES): a origem do primeiro registo, os cartões dos funis
- * (Reservas e Orçamentos fazem cliente; Parcerias faz parceiro ou, vindo de uma
- * candidatura de motorista ou de empresa de transporte, motorista) e a
- * Carteira. Uma
- * pessoa de uma organização parceira é parceira; uma organização é tudo o
- * que as suas pessoas são. Sem nada ligado, é cliente.
+ * Each contact and organisation carries its numbers and relations, kept by
+ * triggers (lib/contactFacts.ts), and is filed in the facts by type,
+ * relation and sort. The list counts in one call and reads only its page;
+ * with filters it reads in order and filters, up to SCAN_LIMIT; a search
+ * goes through the text index. It used to read every contact, organisation,
+ * order and card on each opening: at a new contact per paid booking, that
+ * stops fitting in a query within weeks.
  */
-async function segmentos(ctx: QueryCtx, contactos: Doc<"contactos">[], orgs: Doc<"organizacoes">[]) {
-  const proprios = new Map<string, Set<Relacao>>();
-  const juntar = (id: string | undefined, r: Relacao | null) => {
-    if (!id || !r) return;
-    const s = proprios.get(id) ?? new Set<Relacao>();
-    s.add(r);
-    proprios.set(id, s);
+const SCAN_LIMIT = 1000;
+const SCAN_PAGE = 200;
+const SEARCH_LIMIT = 200;
+type Kind = "organizacoes" | "contactos";
+type Registo = Doc<"contactos"> | Doc<"organizacoes">;
+
+async function linhaDe(ctx: QueryCtx, tipo: Kind, d: Registo, verValores: boolean) {
+  const euros = (x: number | undefined) => (verValores ? Math.round((x ?? 0) * 100) / 100 : null);
+  const comuns = {
+    id: d._id as string,
+    nome: d.nome,
+    email: d.email ?? null,
+    telefone: d.telefone ?? null,
+    etiquetas: d.etiquetas,
+    responsavel: d.responsavel ?? null,
+    idioma: d.idioma ?? null,
+    relacoes: (d.relacoes ?? ["clientes"]) as Relacao[],
+    atualizadoEm: d.atualizadoEm,
+    desde: d.criadoEm,
+    reservas: d.nReservas ?? 0,
+    gasto: euros(d.gasto),
+    ultimaReserva: d.ultimaReserva ?? null,
+    pedidos: d.nPedidos ?? 0,
   };
-  const chaves = new Map((await ctx.db.query("funis").collect()).map((f) => [f._id as string, f.chave]));
-  for (const n of await ctx.db.query("negocios").collect()) {
-    const chave = chaves.get(n.funilId);
-    const r: Relacao | null = chave === "parcerias" ? (relacaoDaOrigem(n.origem) === "motoristas" ? "motoristas" : "parceiros") : chave ? "clientes" : null;
-    juntar(n.contactoId, r);
-    juntar(n.organizacaoId, r);
-  }
-  for (const c of contactos) juntar(c._id, relacaoDaOrigem(c.primeiraOrigem));
-  for (const o of orgs) {
-    juntar(o._id, relacaoDaOrigem(o.primeiraOrigem));
-    if (o.carteira) juntar(o._id, "parceiros");
-  }
-  const deOrg = new Map<string, Set<Relacao>>();
-  for (const o of orgs) deOrg.set(o._id, new Set(proprios.get(o._id) ?? []));
-  for (const c of contactos) {
-    if (c.organizacaoId) for (const r of proprios.get(c._id) ?? []) deOrg.get(c.organizacaoId)?.add(r);
-  }
-  const final = new Map<string, Relacao[]>();
-  for (const c of contactos) {
-    const s = new Set(proprios.get(c._id) ?? []);
-    if (c.organizacaoId && deOrg.get(c.organizacaoId)?.has("parceiros")) s.add("parceiros");
-    final.set(c._id, s.size ? [...s] : ["clientes"]);
-  }
-  for (const o of orgs) {
-    const s = deOrg.get(o._id)!;
-    final.set(o._id, s.size ? [...s] : ["clientes"]);
-  }
-  return final;
-}
-
-/*
- * O que cada contacto e organização já fez, para as colunas da lista:
- * reservas pagas (ida e volta conta uma), o que gastou (as duas pernas; só
- * com «Ver valores»), quando reservou pela última vez e quantos pedidos
- * (cartões que não são reservas) tem. A lista tinha cinco colunas, três
- * delas vazias em todas as linhas.
- */
-type Historia = { reservas: number; gasto: number; ultima: number | null; pedidos: number };
-
-async function historias(ctx: QueryCtx) {
-  const pagas = (await ctx.db.query("orders").collect()).filter((o) => ESTADOS_DE_SERVICO.has(o.status));
-  const criada = new Map(pagas.map((o) => [o._id as string, o._creationTime]));
-  const porContacto = new Map<string, Historia>();
-  const porOrganizacao = new Map<string, Historia>();
-  /* O que se vendeu pela página de cada parceria: é o número de um parceiro
-     (as reservas dele não são da organização, são dos clientes dele). */
-  const porParceria = new Map<string, Historia>();
-  const de = (m: Map<string, Historia>, k: string) => {
-    let h = m.get(k);
-    if (!h) m.set(k, (h = { reservas: 0, gasto: 0, ultima: null, pedidos: 0 }));
-    return h;
-  };
-  const somar = (h: Historia, o: Doc<"orders">) => {
-    const regresso = o.relatedOrderId && (criada.get(o.relatedOrderId) ?? Infinity) < o._creationTime;
-    if (!regresso) h.reservas++;
-    h.gasto += o.totalAmount ?? 0;
-    h.ultima = Math.max(h.ultima ?? 0, o._creationTime);
-  };
-  for (const o of pagas) {
-    if (o.contactoId) somar(de(porContacto, o.contactoId), o);
-    if (o.organizacaoId) somar(de(porOrganizacao, o.organizacaoId), o);
-    if (o.partnershipId) somar(de(porParceria, o.partnershipId), o);
-  }
-  for (const n of await ctx.db.query("negocios").collect()) {
-    if (n.origem === "orders" || n.arquivadoEm) continue;
-    if (n.contactoId) de(porContacto, n.contactoId).pedidos++;
-    if (n.organizacaoId) de(porOrganizacao, n.organizacaoId).pedidos++;
-  }
-  return { porContacto, porOrganizacao, porParceria };
-}
-
-/* De onde veio, em palavras: a primeira origem guardada no contacto. */
-function rotuloDaOrigem(origem: string | undefined): string | null {
-  if (!origem) return null;
-  if (origem === "orders") return "Reserva no site";
-  if (origem.startsWith("manual")) return "Criado à mão";
-  return tituloDaOrigem(origem);
-}
-
-/* Todas as linhas de um tipo e relação, com o que cada um fez. A lista
-   filtra, ordena e pagina por cima disto, no servidor. */
-async function todasAsLinhas(ctx: QueryCtx, tipo: "organizacoes" | "contactos", relacao?: Relacao) {
-    const verValores = temCapacidade(await lerAcesso(ctx), "valores");
-    const { porContacto, porOrganizacao, porParceria } = await historias(ctx);
-    const colunas = (h: Historia | undefined) => ({
-      reservas: h?.reservas ?? 0,
-      gasto: verValores ? Math.round((h?.gasto ?? 0) * 100) / 100 : null,
-      ultimaReserva: h?.ultima ?? null,
-      pedidos: h?.pedidos ?? 0,
-    });
-    const vendasDa = (h: Historia | undefined) => ({
-      vendasPagina: h?.reservas ?? 0,
-      faturadoPagina: verValores ? Math.round((h?.gasto ?? 0) * 100) / 100 : null,
-    });
-    const q = "";
-    const todosOrgs = await ctx.db.query("organizacoes").collect();
-    const todosContactos = await ctx.db.query("contactos").collect();
-    const rel = await segmentos(ctx, todosContactos, todosOrgs);
-    const doSegmento = (id: string) => !relacao || (rel.get(id) ?? ["clientes"]).includes(relacao);
-    if (tipo === "organizacoes") {
-      const orgs = todosOrgs;
-      const nomes = new Map(orgs.map((o) => [o._id as string, o.nome]));
-      const pessoas = new Map<string, number>();
-      for (const c of todosContactos) {
-        if (c.organizacaoId) pessoas.set(c.organizacaoId, (pessoas.get(c.organizacaoId) ?? 0) + 1);
-      }
-      const estabelecimentos = new Map<string, number>();
-      for (const o of orgs) if (o.grupoId) estabelecimentos.set(o.grupoId, (estabelecimentos.get(o.grupoId) ?? 0) + 1);
-      return {
-        tipo,
-        linhas: orgs
-          .filter((o) => doSegmento(o._id))
-          .filter((o) => !q || semAcentos([o.nome, o.email, o.telefone, o.localidade, o.nif, ...o.etiquetas].filter(Boolean).join(" ")).includes(q))
-          .sort((a, b) => a.nome.localeCompare(b.nome, "pt"))
-          .map((o) => ({
-            id: o._id as string,
-            nome: o.nome,
-            subtitulo: o.grupoId ? `Estabelecimento de ${nomes.get(o.grupoId) ?? "?"}` : (o.localidade ?? null),
-            email: o.email ?? null,
-            telefone: o.telefone ?? null,
-            segmento: o.segmento ?? null,
-            etiquetas: o.etiquetas,
-            responsavel: o.responsavel ?? null,
-            idioma: o.idioma ?? null,
-            localidade: o.localidade ?? null,
-            pessoas: pessoas.get(o._id) ?? 0,
-            estabelecimentos: estabelecimentos.get(o._id) ?? 0,
-            carteira: o.carteira?.estado ?? null,
-            relacoes: rel.get(o._id) ?? ["clientes"],
-            atualizadoEm: o.atualizadoEm,
-            origem: null as string | null,
-            desde: o.criadoEm,
-            ...colunas(porOrganizacao.get(o._id)),
-            ...vendasDa(o.carteira?.partnershipId ? porParceria.get(o.carteira.partnershipId) : undefined),
-          })),
-      };
+  if (tipo === "organizacoes") {
+    const o = d as Doc<"organizacoes">;
+    const grupo = o.grupoId ? await ctx.db.get(o.grupoId) : null;
+    /* O que se vendeu pela página da parceria: os números da página do
+       parceiro (parceiros.lista). */
+    const pid = o.carteira?.partnershipId;
+    let vendas = 0;
+    let faturado = 0;
+    if (pid) {
+      const ns = [["partner", pid, "outbound"], ["partner", pid, "return"]].map((namespace) => ({ namespace }));
+      const [c, s] = [await facts.countBatch(ctx, ns), await facts.sumBatch(ctx, ns)];
+      vendas = c[0]!;
+      faturado = s[0]! + s[1]!;
     }
-    const contactos = todosContactos;
-    const orgs = new Map(todosOrgs.map((o) => [o._id as string, o]));
     return {
-      tipo,
-      linhas: contactos
-        .filter((c) => doSegmento(c._id))
-        /* Nos Motoristas, as Pessoas são os individuais: quem é de uma
-           empresa de motoristas aparece na ficha da empresa. */
-        .filter((c) => relacao !== "motoristas" || !c.organizacaoId)
-        .filter((c) => !q || semAcentos([c.nome, c.email, c.telefone, c.funcao, orgs.get(c.organizacaoId ?? "")?.nome, ...c.etiquetas].filter(Boolean).join(" ")).includes(q))
-        .sort((a, b) => b.atualizadoEm - a.atualizadoEm)
-        .map((c) => {
-          const o = c.organizacaoId ? orgs.get(c.organizacaoId) : undefined;
-          return {
-            id: c._id as string,
-            nome: c.nome,
-            subtitulo: [c.funcao, o?.nome].filter(Boolean).join(" · ") || "Particular",
-            email: c.email ?? null,
-            telefone: c.telefone ?? null,
-            segmento: o?.segmento ?? null,
-            etiquetas: c.etiquetas,
-            responsavel: c.responsavel ?? null,
-            idioma: c.idioma ?? null,
-            localidade: o?.localidade ?? null,
-            pessoas: 0,
-            estabelecimentos: 0,
-            carteira: o?.carteira?.estado ?? null,
-            relacoes: rel.get(c._id) ?? ["clientes"],
-            atualizadoEm: c.atualizadoEm,
-            origem: rotuloDaOrigem(c.primeiraOrigem),
-            desde: c.criadoEm,
-            ...colunas(porContacto.get(c._id)),
-            ...vendasDa(undefined),
-          };
-        }),
+      ...comuns,
+      subtitulo: o.grupoId ? `Estabelecimento de ${grupo?.nome ?? "?"}` : (o.localidade ?? null),
+      segmento: o.segmento ?? null,
+      localidade: o.localidade ?? null,
+      pessoas: o.nPessoas ?? 0,
+      estabelecimentos: o.nEstabelecimentos ?? 0,
+      carteira: o.carteira?.estado ?? null,
+      origem: null as string | null,
+      vendasPagina: vendas,
+      faturadoPagina: euros(faturado),
     };
+  }
+  const c = d as Doc<"contactos">;
+  const o = c.organizacaoId ? await ctx.db.get(c.organizacaoId) : null;
+  return {
+    ...comuns,
+    subtitulo: [c.funcao, o?.nome].filter(Boolean).join(" · ") || "Particular",
+    segmento: o?.segmento ?? null,
+    localidade: o?.localidade ?? null,
+    pessoas: 0,
+    estabelecimentos: 0,
+    carteira: o?.carteira?.estado ?? null,
+    origem: rotuloDaOrigem(c.primeiraOrigem),
+    vendasPagina: 0,
+    faturadoPagina: euros(0),
+  };
 }
 
 const vOrdemContactos = v.union(v.literal("recentes"), v.literal("reservas"), v.literal("gasto"), v.literal("nome"));
-type LinhaContacto = Awaited<ReturnType<typeof todasAsLinhas>>["linhas"][number];
+type LinhaContacto = Awaited<ReturnType<typeof linhaDe>>;
 
 /* As colunas que a lista pode mostrar; vão só as que têm dados em alguma
    linha (Segmento, Responsável e Carteira estavam a «—» em tudo). */
-const COLUNAS_CONTACTOS: [string, (l: LinhaContacto) => unknown][] = [
-  ["contacto", (l) => l.email || l.telefone],
-  ["pessoas", (l) => l.pessoas],
-  ["vendas", (l) => l.vendasPagina],
-  ["reservas", (l) => l.reservas],
-  ["gasto", (l) => l.gasto],
-  ["ultima", (l) => l.ultimaReserva],
-  ["pedidos", (l) => l.pedidos],
-  ["origem", (l) => l.origem],
-  ["localidade", (l) => l.localidade],
-  ["segmento", (l) => l.segmento],
-  ["responsavel", (l) => l.responsavel],
-  ["carteira", (l) => l.carteira],
-  ["desde", (l) => l.desde],
-];
+const COLUNAS_CONTACTOS = ["contacto", "pessoas", "vendas", "reservas", "gasto", "ultima", "pedidos", "origem", "localidade", "segmento", "responsavel", "carteira", "desde"];
 
 /*
  * A lista dos Contactos: filtros, pesquisa, ordem e página vêm do endereço e
- * resolvem-se aqui. O dashboard só mostra a página que recebe (filtrava a
- * lista inteira no browser).
+ * resolvem-se aqui. O dashboard só mostra a página que recebe.
  */
 export const lista = query({
   args: {
@@ -317,28 +189,33 @@ export const lista = query({
   },
   handler: async (ctx, a) => {
     await exigirAdmin(ctx, "contactos", "ver");
-    const { linhas: todas } = await todasAsLinhas(ctx, a.tipo, a.relacao);
-    const verValores = todas.some((l) => l.gasto !== null) || temCapacidade(await lerAcesso(ctx), "valores");
+    const verValores = temCapacidade(await lerAcesso(ctx), "valores");
+    const tipo = a.tipo;
+    const rel = a.relacao ?? "all";
+    /* Ordenar pelo gasto diria a ordem dos valores a quem não os vê. */
+    const ordem: ContactSort = a.ordem === "gasto" && !verValores ? "recentes" : (a.ordem ?? "recentes");
+    const sentido = ordem === "nome" ? "asc" : "desc";
+    const ns = ["ct", tipo, rel, ordem];
 
-    /* As opções vêm da lista inteira, antes dos filtros: escolher uma não
-       pode fazer desaparecer as outras do menu. */
-    const distintos = (de: (l: LinhaContacto) => string | null | string[]) =>
-      [...new Set(todas.flatMap((l) => [de(l)].flat()).filter((x): x is string => Boolean(x)))].sort((x, y) => x.localeCompare(y, "pt"));
+    /* As opções e as colunas: os valores que já apareceram neste tipo. */
+    const facetas = await ctx.db.query("orderFacetValues").withIndex("by_view_dim", (q) => q.eq("view", tipo)).take(2000);
+    const de = (dim: string) => facetas.filter((f) => f.dim === dim).map((f) => f.value).sort((x, y) => x.localeCompare(y, "pt"));
     const opcoes = {
-      segmentos: distintos((l) => l.segmento),
-      responsaveis: distintos((l) => l.responsavel),
-      idiomas: distintos((l) => l.idioma),
-      localidades: distintos((l) => l.localidade),
-      etiquetas: distintos((l) => l.etiquetas),
-      origens: distintos((l) => l.origem),
-      carteiras: distintos((l) => l.carteira),
+      segmentos: de("segmento"),
+      responsaveis: de("responsavel"),
+      idiomas: de("idioma"),
+      localidades: de("localidade"),
+      etiquetas: de("etiqueta"),
+      origens: de("origem"),
+      carteiras: de("carteira"),
     };
-    const colunas = COLUNAS_CONTACTOS.filter(([, de]) => todas.some((l) => { const x = de(l); return x !== null && x !== undefined && x !== "" && x !== 0; })).map(([id]) => id);
+    const comDados = new Set(de("col"));
+    const colunas = COLUNAS_CONTACTOS.filter((c) => comDados.has(c));
+    const totalSemFiltros = await facts.count(ctx, { namespace: ["ct", tipo, rel, "recentes"] });
 
     const termos = semAcentos(a.pesquisa ?? "").split(/\s+/).filter(Boolean);
     const agora = Date.now();
-    let linhas = todas.filter((l) => {
-      if (termos.length && !termos.every((t) => semAcentos([l.nome, l.subtitulo, l.email, l.telefone, ...l.etiquetas].filter(Boolean).join(" ")).includes(t))) return false;
+    const filtra = (l: LinhaContacto) => {
       if (a.segmento && l.segmento !== a.segmento) return false;
       if (a.responsavel && l.responsavel !== a.responsavel) return false;
       if (a.idioma && l.idioma !== a.idioma) return false;
@@ -357,27 +234,86 @@ export const lista = query({
         if (a.ultima === "inactivos" ? dias <= 365 : dias > Number(a.ultima)) return false;
       }
       return true;
-    });
-
-    /* Ordenar pelo gasto diria a ordem dos valores a quem não os vê. */
-    const ordem = a.ordem === "gasto" && !verValores ? "recentes" : (a.ordem ?? "recentes");
-    if (ordem === "reservas") linhas.sort((x, y) => y.reservas - x.reservas || (y.ultimaReserva ?? 0) - (x.ultimaReserva ?? 0));
-    else if (ordem === "gasto") linhas.sort((x, y) => (y.gasto ?? 0) - (x.gasto ?? 0));
-    else if (ordem === "nome") linhas.sort((x, y) => x.nome.localeCompare(y.nome, "pt"));
-    else linhas.sort((x, y) => y.atualizadoEm - x.atualizadoEm);
-
+    };
+    const comFiltros = Boolean(a.segmento || a.responsavel || a.idioma || a.localidade || a.etiqueta || a.origem || a.carteira || a.reservas || a.pedidos || a.ultima);
     const porPagina = Math.min(Math.max(1, Math.floor(a.porPagina)), 100);
-    const total = linhas.length;
+    const naRelacao = (d: Registo) =>
+      rel === "all" || ((d.relacoes ?? ["clientes"]).includes(rel) && !(tipo === "contactos" && rel === "motoristas" && (d as Doc<"contactos">).organizacaoId));
+    const comparar = (x: Registo, y: Registo) => {
+      const vx = contactSortKey(x, ordem);
+      const vy = contactSortKey(y, ordem);
+      const c = Array.isArray(vx) && Array.isArray(vy) ? vx[0]! - vy[0]! || vx[1]! - vy[1]! : vx < vy ? -1 : vx > vy ? 1 : 0;
+      const t = c || (x._id < y._id ? -1 : x._id > y._id ? 1 : 0);
+      return sentido === "asc" ? t : -t;
+    };
+    let docs: Registo[];
+    let total: number;
+    let aproximado = false;
+    let pagina = Math.max(0, Math.floor(a.pagina));
+    if (termos.length) {
+      const selectiva = termos.find((x) => /\d/.test(x)) ?? termos.reduce((x, y) => (y.length > x.length ? y : x));
+      const encontrados = new Map<string, Registo>();
+      for (const texto of [...new Set([termos.join(" "), selectiva])]) {
+        const r = (await ctx.db
+          .query(tipo)
+          .withSearchIndex("search_procura", (q) => q.search("procura", texto))
+          .take(SEARCH_LIMIT)) as Registo[];
+        if (texto === selectiva && r.length === SEARCH_LIMIT) aproximado = true;
+        for (const d of r) if (naRelacao(d) && termos.every((x) => (d.procura ?? "").includes(x))) encontrados.set(d._id, d);
+      }
+      docs = [...encontrados.values()].sort(comparar);
+      const linhas = [];
+      for (const d of docs) {
+        const l = await linhaDe(ctx, tipo, d, verValores);
+        if (filtra(l)) linhas.push(l);
+      }
+      total = linhas.length;
+      const paginas = Math.max(1, Math.ceil(total / porPagina));
+      pagina = Math.min(pagina, paginas - 1);
+      return { tipo, linhas: linhas.slice(pagina * porPagina, (pagina + 1) * porPagina), total, aproximado, totalSemFiltros, pagina, paginas, porPagina, opcoes, colunas, verValores };
+    }
+    if (!comFiltros) {
+      /* Every sort of a relation holds the same rows. */
+      total = totalSemFiltros;
+      const paginas = Math.max(1, Math.ceil(total / porPagina));
+      pagina = Math.min(pagina, paginas - 1);
+      const ids = total ? await mergedPage(ctx, [ns], [total], {}, sentido, pagina * porPagina, porPagina) : [];
+      docs = (await Promise.all(ids.map((id) => ctx.db.get(id as Id<"contactos">)))).filter((d): d is Doc<"contactos"> => d !== null) as Registo[];
+      const linhas = [];
+      for (const d of docs) linhas.push(await linhaDe(ctx, tipo, d, verValores));
+      return { tipo, linhas, total, aproximado, totalSemFiltros, pagina, paginas, porPagina, opcoes, colunas, verValores };
+    }
+    /* Com filtros: pela ordem pedida, a filtrar, até SCAN_LIMIT. */
+    const linhas: LinhaContacto[] = [];
+    let cursor: string | undefined;
+    let lidos = 0;
+    let fim = false;
+    while (lidos < SCAN_LIMIT) {
+      const r = await facts.paginate(ctx, { namespace: ns, cursor, order: sentido, pageSize: SCAN_PAGE });
+      lidos += r.page.length;
+      for (const i of r.page) {
+        const d = (await ctx.db.get(i.id as Id<"contactos">)) as Registo | null;
+        if (!d) continue;
+        const l = await linhaDe(ctx, tipo, d, verValores);
+        if (filtra(l)) linhas.push(l);
+      }
+      cursor = r.cursor;
+      if (r.isDone) {
+        fim = true;
+        break;
+      }
+    }
+    total = linhas.length;
+    aproximado = !fim;
     const paginas = Math.max(1, Math.ceil(total / porPagina));
-    const pagina = Math.min(Math.max(0, Math.floor(a.pagina)), paginas - 1);
-    linhas = linhas.slice(pagina * porPagina, (pagina + 1) * porPagina);
-    return { tipo: a.tipo, linhas, total, totalSemFiltros: todas.length, pagina, paginas, porPagina, opcoes, colunas, verValores };
+    pagina = Math.min(pagina, paginas - 1);
+    return { tipo, linhas: linhas.slice(pagina * porPagina, (pagina + 1) * porPagina), total, aproximado, totalSemFiltros, pagina, paginas, porPagina, opcoes, colunas, verValores };
   },
 });
 
 /* Para escolher um contacto ou organização (passar as ligações ao apagar,
    a organização de uma pessoa): a pesquisa faz-se aqui e vêm só os
-   primeiros. Recebia a lista inteira e procurava no browser. */
+   primeiros, pelo índice de texto e pelos índices de email e telefone. */
 export const escolher = query({
   args: {
     tipo: vTipo,
@@ -395,21 +331,51 @@ export const escolher = query({
     const termos = semAcentos(a.pesquisa ?? "").split(/\s+/).filter(Boolean);
     const limite = Math.min(Math.max(1, a.limite ?? 20), 50);
     const primeiro = semAcentos(a.semelhante?.nome ?? "").split(/\s+/)[0] ?? "";
-    const parecido = (x: { nome: string; email?: string | null; telefone?: string | null }) =>
+    const parecido = (x: Registo) =>
       (a.semelhante?.email && x.email === a.semelhante.email ? 4 : 0) +
       (a.semelhante?.telefone && x.telefone === a.semelhante.telefone ? 4 : 0) +
       (primeiro && semAcentos(x.nome).split(/\s+/)[0] === primeiro ? 1 : 0);
-    const todos =
-      a.tipo === "organizacoes"
-        ? (await ctx.db.query("organizacoes").collect()).map((o) => ({ id: o._id as string, nome: o.nome, subtitulo: o.localidade ?? null, email: o.email ?? null, telefone: o.telefone ?? null, procura: [o.nome, o.email, o.telefone, o.localidade, o.nif], em: o.atualizadoEm }))
-        : (await ctx.db.query("contactos").collect()).map((c) => ({ id: c._id as string, nome: c.nome, subtitulo: c.funcao ?? null, email: c.email ?? null, telefone: c.telefone ?? null, procura: [c.nome, c.email, c.telefone, c.funcao], em: c.atualizadoEm }));
-    const encontrados = todos
-      .filter((x) => x.id !== a.excluir)
-      .filter((x) => termos.every((t) => semAcentos(x.procura.filter(Boolean).join(" ")).includes(t)))
-      .sort((x, y) => parecido(y) - parecido(x) || (a.tipo === "organizacoes" ? x.nome.localeCompare(y.nome, "pt") : y.em - x.em))
+    const cand = new Map<string, Registo>();
+    const juntar = (ds: (Registo | null)[]) => {
+      for (const d of ds) if (d) cand.set(d._id, d);
+    };
+    const procurar = async (texto: string, n: number) =>
+      (await ctx.db
+        .query(a.tipo)
+        .withSearchIndex("search_procura", (q) => q.search("procura", texto))
+        .take(n)) as Registo[];
+    if (termos.length) {
+      const selectiva = termos.find((x) => /\d/.test(x)) ?? termos.reduce((x, y) => (y.length > x.length ? y : x));
+      for (const texto of [...new Set([termos.join(" "), selectiva])]) juntar((await procurar(texto, 100)).filter((d) => termos.every((t) => (d.procura ?? "").includes(t))));
+    } else {
+      const ordem = a.tipo === "organizacoes" ? "nome" : "recentes";
+      const { page } = await facts.paginate(ctx, { namespace: ["ct", a.tipo, "all", ordem], order: ordem === "nome" ? "asc" : "desc", pageSize: 200 });
+      juntar((await Promise.all(page.map((i) => ctx.db.get(i.id as Id<"contactos">)))) as (Registo | null)[]);
+      /* Os parecidos entram sempre, estejam onde estiverem. */
+      const s = a.semelhante;
+      if (s?.email) {
+        juntar((await ctx.db.query(a.tipo).withIndex("by_email", (q) => q.eq("email", s.email)).take(20)) as Registo[]);
+      }
+      if (s?.telefone && a.tipo === "contactos") juntar(await ctx.db.query("contactos").withIndex("by_telefone", (q) => q.eq("telefone", s.telefone)).take(20));
+      if (primeiro) juntar((await procurar(primeiro, 50)).filter((d) => semAcentos(d.nome).split(/\s+/)[0] === primeiro));
+    }
+    const encontrados = [...cand.values()]
+      .filter((x) => x._id !== a.excluir)
+      .sort((x, y) => parecido(y) - parecido(x) || (a.tipo === "organizacoes" ? x.nome.localeCompare(y.nome, "pt") : y.atualizadoEm - x.atualizadoEm))
       .slice(0, limite);
-    const extra = a.incluir && !encontrados.some((x) => x.id === a.incluir) ? todos.filter((x) => x.id === a.incluir) : [];
-    return [...extra, ...encontrados].map(({ id, nome, subtitulo, email, telefone }) => ({ id, nome, subtitulo, email, telefone }));
+    const extra: Registo[] = [];
+    if (a.incluir && !encontrados.some((x) => x._id === a.incluir)) {
+      const nid = ctx.db.normalizeId(a.tipo, a.incluir);
+      const d = nid ? ((await ctx.db.get(nid)) as Registo | null) : null;
+      if (d) extra.push(d);
+    }
+    return [...extra, ...encontrados].map((d) => ({
+      id: d._id as string,
+      nome: d.nome,
+      subtitulo: a.tipo === "organizacoes" ? ((d as Doc<"organizacoes">).localidade ?? null) : ((d as Doc<"contactos">).funcao ?? null),
+      email: d.email ?? null,
+      telefone: d.telefone ?? null,
+    }));
   },
 });
 
@@ -455,10 +421,10 @@ export const ficha = query({
 async function primeiraReserva(ctx: QueryCtx, o: Doc<"organizacoes">): Promise<{ numero: string | null; em: number } | null> {
   const pid = o.carteira?.partnershipId;
   if (!pid) return null;
-  const pagas = (await ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "paid")).collect())
-    .concat(await ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "completed")).collect())
-    .filter((x) => x.partnershipId === pid);
-  const p = pagas.sort((a, b) => a._creationTime - b._creationTime)[0];
+  /* A mais antiga paga com a sua página: o primeiro dos agregados do
+     parceiro, não as encomendas pagas todas. */
+  const first = await facts.min(ctx, { namespace: ["partner", pid, "outbound"] });
+  const p = first ? await ctx.db.get(first.id as Id<"orders">) : null;
   return p ? { numero: p.orderNumber ?? null, em: p._creationTime } : null;
 }
 
