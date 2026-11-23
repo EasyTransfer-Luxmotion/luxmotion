@@ -49,6 +49,16 @@ sozinho quando `CONVEX_DEPLOY_KEY` está definido.
 Se mexeres no `schema.ts` ou nos argumentos de uma mutation, **o Convex tem de
 ser publicado** ou o site parte no primeiro pedido.
 
+**Promover: `scripts/promover.sh staging`** (ou `production --sim-producao`).
+Faz tudo pela ordem certa: confirma que os dois repositórios estão limpos e
+iguais ao GitHub, corre tipos e testes, publica o Convex do ambiente (com uma
+simulação antes, que pára se o destino não for o certo), corre a migração dos
+agregados até acabar, avança o branch do site, põe o contrato do ambiente no
+dashboard e avança o dele, e espera pelas duas publicações no Railway. As
+deploy keys ficam fora do repositório, em `~/.config/luxmotion/convex-<ambiente>.env`
+(criam-se com `npx convex@latest deployment token create … --save-env`, ver o
+topo do script). Nunca força um branch: se não avançar sem conflitos, pára.
+
 ## Ambientes
 
 Três, um branch por cada:
