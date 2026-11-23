@@ -83,7 +83,10 @@ export CONVEX_DEPLOY_KEY
 convex() { (cd "$RAIZ/packages/convex" && env -u CONVEX_DEPLOYMENT npx convex "$@"); }
 # Uma simulação primeiro: o CLAUDE.md avisa que a CLI já publicou no sítio
 # errado com o CONVEX_DEPLOYMENT do .env.local. Só avança se for o destino.
-convex deploy -y --dry-run --codegen disable 2>&1 | grep -q "Deploying to https://$DEPLOYMENT\." || falha "a simulação não aponta para $DEPLOYMENT: não publiquei"
+#   (A saída guarda-se primeiro: com pipefail, um grep -q à frente fazia o
+#   npx morrer de SIGPIPE e a guarda parar mesmo com o destino certo.)
+simulacao="$(convex deploy -y --dry-run --codegen disable 2>&1 || true)"
+grep -q "Deploying to https://$DEPLOYMENT\." <<<"$simulacao" || falha "a simulação não aponta para $DEPLOYMENT: não publiquei"
 convex deploy -y --codegen disable
 
 # ── 4. Migração dos agregados ────────────────────────────────────────────
