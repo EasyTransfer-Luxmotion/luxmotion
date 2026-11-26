@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { LEAD_TABLES, requestSearchText, searchTextOf, slotsOf, syncLeadFacts, syncAddonFacts, syncNewsletterFacts, syncOrderFacts, VIEWS, facts } from "./lib/orderFacts";
 import { internalQuery } from "./_generated/server";
 import { onContactChange, onOrgChange, refreshNumbers } from "./lib/contactFacts";
+import { sincronizarCandidatura } from "./lib/candidaturasContactos";
 import type { Id } from "./_generated/dataModel";
 
 /*
@@ -20,7 +21,7 @@ import type { Id } from "./_generated/dataModel";
 /* Small batches: each order is ~15 writes to the aggregate, and a mutation
    has a second of work. */
 const BATCH = 25;
-const TABLES = ["orders", ...LEAD_TABLES, "newsletterSubscriptions", "tourBookings", "contactos", "organizacoes"] as const;
+const TABLES = ["orders", ...LEAD_TABLES, "newsletterSubscriptions", "tourBookings", "driverApplications", "partnerApplications", "contactos", "organizacoes"] as const;
 
 export const backfill = internalMutation({
   args: { table: v.optional(v.string()), cursor: v.optional(v.union(v.string(), v.null())), done: v.optional(v.number()) },
@@ -45,6 +46,10 @@ export const backfill = internalMutation({
         const c2 = { ...ctx, innerDb: ctx.db };
         if (table === "contactos") await onContactChange(c2, null, fresh as never);
         else await onOrgChange(c2, null, fresh as never);
+      } else if (table === "driverApplications" || table === "partnerApplications") {
+        /* Applications before their data reached Contactos: written now, as
+           if they had just arrived. */
+        await sincronizarCandidatura(ctx, table, null, doc as never);
       } else if (table === "tourBookings") {
         await syncAddonFacts(ctx, null, doc as Parameters<typeof syncAddonFacts>[2]);
       } else if (table === "newsletterSubscriptions") {

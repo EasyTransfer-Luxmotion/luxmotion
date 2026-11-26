@@ -3,7 +3,7 @@ import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
+import { exigirAdmin, lerAcesso, permite, temCapacidade } from "./lib/admin";
 import { RELACOES, ligarContacto, ligarOrganizacao, normalizarEmail, normalizarNome, normalizarTelefone, relacaoDaOrigem, type Relacao } from "./lib/contactos";
 import { FUNIS, segmentoDaOrigem, tituloDaOrigem, type ChaveFunil } from "./lib/funis";
 import { local } from "./inicio";
@@ -380,10 +380,20 @@ export const escolher = query({
   },
 });
 
+/* The bank details of a driver's or fleet's profile only for whoever can
+   open Candidaturas: Contactos is open to more of the team. */
+function semFaturacao<T extends { motorista?: { faturacao?: unknown } }>(d: T, ver: boolean): T {
+  if (ver || !d.motorista) return d;
+  const { faturacao: _, ...resto } = d.motorista;
+  void _;
+  return { ...d, motorista: resto };
+}
+
 export const ficha = query({
   args: { tipo: vTipo, id: v.string() },
   handler: async (ctx, { tipo, id }) => {
     await exigirAdmin(ctx, "contactos", "ver");
+    const verFaturacao = permite(await lerAcesso(ctx), "candidaturas");
     if (tipo === "organizacoes") {
       const oid = ctx.db.normalizeId("organizacoes", id);
       const o = oid ? await ctx.db.get(oid) : null;
@@ -394,7 +404,7 @@ export const ficha = query({
       const pagina = o.carteira?.partnershipId ? await ctx.db.get(o.carteira.partnershipId) : null;
       return {
         tipo,
-        organizacao: { ...o, id: o._id as string },
+        organizacao: { ...semFaturacao(o, verFaturacao), id: o._id as string },
         grupo: grupo ? { id: grupo._id as string, nome: grupo.nome } : null,
         estabelecimentos: estabelecimentos.map((e) => ({ id: e._id as string, nome: e.nome, localidade: e.localidade ?? null })),
         pessoas: pessoas.map((p) => ({ id: p._id as string, nome: p.nome, funcao: p.funcao ?? null, email: p.email ?? null, telefone: p.telefone ?? null })),
@@ -410,7 +420,7 @@ export const ficha = query({
     const o = c.organizacaoId ? await ctx.db.get(c.organizacaoId) : null;
     return {
       tipo,
-      contacto: { ...c, id: c._id as string },
+      contacto: { ...semFaturacao(c, verFaturacao), id: c._id as string },
       organizacao: o ? { id: o._id as string, nome: o.nome } : null,
       cartoes: await cartoesDe(ctx, { contactoId: c._id }),
       reservas: await reservasDe(ctx, { contactoId: c._id }),
@@ -782,15 +792,17 @@ function quemE(t: Tabela, d: Record<string, unknown>) {
 
 /*
  * Cria os contactos e as organizações dos registos que já existiam e liga
- * os cartões e as reservas. Corre por partes (200 de cada vez) e agenda-se
- * a si própria até ao fim; pode correr outra vez sem repetir nada.
+ * os cartões e as reservas. Corre por partes (25 de cada vez) e agenda-se
+ * a si própria até ao fim; pode correr outra vez sem repetir nada. Eram 200:
+ * cada contacto novo dispara os gatilhos dos agregados (lib/contactFacts.ts),
+ * e em staging um lote de 200 passou os 16 MB de leitura por execução.
  *   npx convex run contactos:preencher
  */
 export const preencher = internalMutation({
   args: { tabela: v.optional(v.string()), cursor: v.optional(v.union(v.string(), v.null())) },
   handler: async (ctx, { tabela, cursor }) => {
     const t = (tabela ?? TABELAS[0]) as Tabela;
-    const pagina = await ctx.db.query(t).paginate({ cursor: cursor ?? null, numItems: 200 });
+    const pagina = await ctx.db.query(t).paginate({ cursor: cursor ?? null, numItems: 25 });
     let ligados = 0;
     for (const d of pagina.page) {
       if (t === "orders") {

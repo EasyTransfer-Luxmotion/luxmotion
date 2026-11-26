@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { vPerna } from "./lib/vPerna";
+import { vPerfilMotorista } from "./lib/perfilMotorista";
 
 const amadeusFlightInfoValidator = v.object({
   carrier: v.optional(v.string()),
@@ -2136,6 +2137,9 @@ export default defineSchema({
     estadoCarteira: v.optional(v.string()),
     primeiraOrigem: v.optional(v.string()),
     notas: v.optional(v.string()),
+    /* From a fleet's application (lib/candidaturasContactos.ts). */
+    whatsapp: v.optional(v.string()),
+    motorista: v.optional(vPerfilMotorista),
     /* Kept by triggers (lib/contactFacts.ts): the list reads these instead
        of every order and card. */
     nReservas: v.optional(v.number()),
@@ -2170,6 +2174,12 @@ export default defineSchema({
     organizacaoId: v.optional(v.id("organizacoes")),
     primeiraOrigem: v.optional(v.string()),
     notas: v.optional(v.string()),
+    /* From a driver's or a fleet's application (lib/candidaturasContactos.ts). */
+    whatsapp: v.optional(v.string()),
+    localidade: v.optional(v.string()),
+    nif: v.optional(v.string()),
+    morada: v.optional(v.string()),
+    motorista: v.optional(vPerfilMotorista),
     /* Kept by triggers (lib/contactFacts.ts): the list reads these instead
        of every order and card. */
     nReservas: v.optional(v.number()),

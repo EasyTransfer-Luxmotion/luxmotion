@@ -1,5 +1,6 @@
 import { Triggers } from "convex-helpers/server/triggers";
 import { onCardChange, onContactChange, onOrderForContacts, onOrgChange } from "./contactFacts";
+import { sincronizarCandidatura } from "./candidaturasContactos";
 import type { DataModel } from "../_generated/dataModel";
 import { LEAD_TABLES, requestSearchText, searchTextOf, syncLeadFacts, syncAddonFacts, syncNewsletterFacts, syncOrderFacts } from "./orderFacts";
 
@@ -55,3 +56,11 @@ triggers.register("tourBookings", async (ctx, change) => {
 triggers.register("newsletterSubscriptions", async (ctx, change) => {
   await syncNewsletterFacts(ctx, change.oldDoc, change.newDoc);
 });
+
+/* A driver's or a fleet's application written into Contactos, all of it
+   (lib/candidaturasContactos.ts). */
+for (const tabela of ["driverApplications", "partnerApplications"] as const) {
+  triggers.register(tabela, async (ctx, change) => {
+    await sincronizarCandidatura(ctx, tabela, change.oldDoc, change.newDoc);
+  });
+}
