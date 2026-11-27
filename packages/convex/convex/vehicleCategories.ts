@@ -7,7 +7,7 @@ import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { urlDaImagem, vImagem } from "./lib/imagens";
 import { priceTrip, tariffLeg, tariffOf, PRICING_DEFAULTS, type Tariff } from "./lib/pricing";
 import { reachOf } from "./lib/frota";
-import { loadPricing } from "./lib/quote";
+import { classOf, loadPricing } from "./lib/quote";
 
 /*
  * Vehicle categories: what the customer chooses in the checkout ("Minibus",
@@ -59,7 +59,7 @@ export const list = query({
               km,
               price: priceTrip({
                 vehicle: car,
-                vehicleClass: c.vehicleClass,
+                vehicleClass: classOf(car, c),
                 config: pricing.config,
                 partner: null,
                 distance: km,
@@ -99,7 +99,9 @@ const vData = v.object({
   translations: v.optional(catalogTranslationsValidator),
   examples: v.optional(v.string()),
   imageId: v.optional(vImagem),
-  vehicleClass: vClass,
+  /* Ignored: the class is each car's since 2026-11-28 (older dashboards
+     still send it). */
+  vehicleClass: v.optional(vClass),
   status: vStatus,
   upgradeFromCategoryId: v.optional(v.id("vehicleCategories")),
 });
@@ -140,7 +142,8 @@ export const save = mutation({
     }
 
     const now = Date.now();
-    const doc = { ...data, name, examples: data.examples?.trim() || undefined, actualizadoEm: now };
+    const { vehicleClass: _class, ...rest } = data;
+    const doc = { ...rest, name, examples: data.examples?.trim() || undefined, actualizadoEm: now };
     let categoryId = id;
     if (id) await ctx.db.patch(id, doc);
     else categoryId = await ctx.db.insert("vehicleCategories", { ...doc, order: Math.max(0, ...all.map((c) => c.order)) + 1 });

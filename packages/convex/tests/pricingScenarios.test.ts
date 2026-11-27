@@ -614,3 +614,23 @@ describe("migrating the cars saved before 2026-11-27", () => {
     expect((await t.mutation(internal.veiculos.migrarParaTarifas, { executar: true })).carros).toBe(0);
   });
 });
+
+describe("the class is the car's (2026-11-28)", () => {
+  test("a car's own class decides the surge, over its category's", async () => {
+    const s = await fleet();
+    const now = lisbonLocalToEpoch("2030-06-10 08:00")!;
+    const q = async () => (await t.query(api.vehicles.listQuoted, { passengers: 2, distance: 30, departureDate: "2030-06-10 10:00", now })).find((r) => r._id === s.bc)!.price;
+    /* Business Class's category is standard: last minute ×1.12. */
+    expect(await q()).toBeCloseTo(69.175 * 1.12, 2);
+    await t.run((ctx) => ctx.db.patch(s.bc, { vehicleClass: "large" }));
+    expect(await q()).toBeCloseTo(69.175 * 1.2, 2);
+  });
+
+  test("the migration copies the category's class to its cars", async () => {
+    const s = await fleet();
+    await t.mutation(internal.veiculos.migrarParaTarifas, { executar: true });
+    const [bc, mb] = await t.run(async (ctx) => [await ctx.db.get(s.bc), await ctx.db.get(s.mb20)]);
+    expect(bc!.vehicleClass).toBe("standard");
+    expect(mb!.vehicleClass).toBe("large");
+  });
+});

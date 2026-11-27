@@ -51,7 +51,7 @@ async function carro(name: string, ratePerKm: number) {
 
 async function guardar(id: Id<"vehicles">, args: { downgrade?: Id<"vehicles"> | null; upgrade?: Id<"vehicles"> | null }) {
   const doc = (await t.run((ctx) => ctx.db.get(id)))!;
-  const { _id, _creationTime, order, actualizadoEm, tariff, showOnSite, partnerMode, partnerIds, categoryId, ...dados } = doc;
+  const { _id, _creationTime, order, actualizadoEm, tariff, showOnSite, partnerMode, partnerIds, categoryId, vehicleClass, ...dados } = doc;
   return await t.withIdentity(admin).mutation(api.veiculos.guardar, {
     id,
     versao: actualizadoEm ?? _creationTime,
@@ -62,6 +62,7 @@ async function guardar(id: Id<"vehicles">, args: { downgrade?: Id<"vehicles"> | 
       partnerMode: partnerMode ?? "all",
       partnerIds: partnerIds ?? [],
       categoryId: categoryId ?? null,
+      vehicleClass: vehicleClass ?? "standard",
       upgradeFromVehicleId: args.downgrade === undefined ? dados.upgradeFromVehicleId : (args.downgrade ?? undefined) },
     ...(args.upgrade === undefined ? {} : { upgradeVehicleId: args.upgrade }),
   });

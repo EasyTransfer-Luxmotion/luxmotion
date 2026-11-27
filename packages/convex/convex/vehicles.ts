@@ -85,7 +85,7 @@ export const listQuoted = query({
       lines.map(async ({ car, category, cars }) => {
         const quote = priceTrip({
           vehicle: car,
-          vehicleClass: classOf(category),
+          vehicleClass: classOf(car, category),
           config: pricing.config,
           partner: parceria,
           distance: args.distance,

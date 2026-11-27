@@ -518,6 +518,11 @@ export default defineSchema({
     /* The customer-facing category (vehicleCategories). The checkout shows
        one line per category and picks the smallest car of it that fits. */
     categoryId: v.optional(v.id("vehicleCategories")),
+    /* Which lead-time surge applies (siteSettings.pricing.surge): part of
+       the car's price, like in the pricing sheet (one class per row, next
+       to the tariff). Absent: the category's, for cars saved before
+       2026-11-28 (veiculos.migrarParaTarifas copies it). */
+    vehicleClass: v.optional(v.union(v.literal("standard"), v.literal("van"), v.literal("large"))),
     hasWifi: v.boolean(),
     isElectric: v.boolean(),
     status: v.union(
@@ -567,8 +572,10 @@ export default defineSchema({
     translations: v.optional(catalogTranslationsValidator),
     examples: v.optional(v.string()),
     imageId: v.optional(v.string()),
-    /* Which lead-time surge applies (siteSettings.pricing.surge). */
-    vehicleClass: v.union(v.literal("standard"), v.literal("van"), v.literal("large")),
+    /* The class lived here until 2026-11-28; it is now each car's
+       (vehicles.vehicleClass). Kept only as the fallback of cars not
+       migrated yet; the back-office no longer edits it. */
+    vehicleClass: v.optional(v.union(v.literal("standard"), v.literal("van"), v.literal("large"))),
     status: v.union(v.literal("active"), v.literal("inactive")),
     order: v.number(),
     /* THIS (premium) category is offered as the upgrade of the referenced one. */

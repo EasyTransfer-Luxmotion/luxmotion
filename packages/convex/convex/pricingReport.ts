@@ -3,7 +3,7 @@ import { query } from "./_generated/server";
 import { exigirAdmin } from "./lib/admin";
 import { bandedKm, lisbonLocalToEpoch, partnerFactorOf, priceTrip, pricingConfigOf, tariffOf, type PricingConfig } from "./lib/pricing";
 import { offeredTo, reachOf } from "./lib/frota";
-import { loadPricing } from "./lib/quote";
+import { classOf, loadPricing } from "./lib/quote";
 
 /*
  * Configurações → Preços: the simulator. The comparison with the linear
@@ -68,7 +68,7 @@ export const simular = query({
       if (!car) continue;
       const trip = {
         vehicle: car,
-        vehicleClass: cat.vehicleClass,
+        vehicleClass: classOf(car, cat),
         partner,
         distance: km,
         departureDate,

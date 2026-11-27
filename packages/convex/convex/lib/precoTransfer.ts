@@ -79,7 +79,7 @@ export async function minimoDoTransfer(
   const precoEm = (now: number) =>
     priceTrip({
       vehicle: carro,
-      vehicleClass: classOf(categoria),
+      vehicleClass: classOf(carro, categoria),
       config: pricing.config,
       partner: parceria,
       distance: distancia,

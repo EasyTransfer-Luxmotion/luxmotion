@@ -7,7 +7,7 @@ import { pode, exigirAdmin } from "./lib/admin";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { PRICING_DEFAULTS, priceTrip, tariffLeg, tariffOf } from "./lib/pricing";
 import { reachOf } from "./lib/frota";
-import { loadPricing } from "./lib/quote";
+import { classOf, loadPricing } from "./lib/quote";
 import { urlDaImagem, vImagem } from "./lib/imagens";
 
 /*
@@ -115,6 +115,7 @@ export const lista = query({
     const todos = await ctx.db.query("vehicles").withIndex("by_order").collect();
     const parceiros = await nomesDosParceiros(ctx);
     const escondidos = await escondidosPorCarro(ctx);
+    const categorias = new Map((await ctx.db.query("vehicleCategories").collect()).map((c) => [c._id, c]));
     const onde = (x: (typeof todos)[number]) => ondeEmPalavras(reachOf(x), parceiros);
     const upgradeName = (x: (typeof todos)[number]) => (x.upgradeFromVehicleId ? (todos.find((y) => y._id === x.upgradeFromVehicleId)?.name ?? null) : null);
     const place = new Map(todos.map((x, i) => [x._id, i + 1]));
@@ -140,6 +141,7 @@ export const lista = query({
         passageiros: x.passengers,
         malas: x.luggage,
         tarifa: tariffOf(x),
+        classe: classOf(x, x.categoryId ? categorias.get(x.categoryId) : null),
         wifi: x.hasWifi,
         electrico: x.isElectric,
         onde: onde(x),
@@ -179,6 +181,7 @@ export const detalhe = query({
         ...x,
         /* The price and the reach in the new shape, whatever the car had. */
         tariff: tariffOf(x) ?? undefined,
+        vehicleClass: classOf(x, x.categoryId ? await ctx.db.get(x.categoryId) : null),
         alcance: reachOf(x),
         imagem: x.imageId ? await urlDaImagem(ctx, x.imageId) : null,
         versao: versaoDe(x),
@@ -297,6 +300,8 @@ const vDados = v.object({
   status: vEstado,
   upgradeFromVehicleId: v.optional(v.id("vehicles")),
   tariff: vTariff,
+  /* The lead-time surge class, part of the price (as in the pricing sheet). */
+  vehicleClass: v.union(v.literal("standard"), v.literal("van"), v.literal("large")),
   /* null = no category (the car shows on its own). */
   categoryId: v.union(v.id("vehicleCategories"), v.null()),
 });
@@ -499,7 +504,8 @@ export const remover = mutation({
 });
 
 /*
- * The cars saved before 2026-11-27 in the new shape: a tariff from the old
+ * The cars saved before 2026-11-27 in the new shape: the class of their
+ * category (it moved to the car on 2026-11-28), a tariff from the old
  * per-km price and minimum when they had none (no base, +20% at night, as
  * the old model charged), the reach from the old single owner, and the old
  * fields cleared. Can run again: a car already migrated is left alone.
@@ -511,13 +517,15 @@ export const migrarParaTarifas = internalMutation({
     const mudados: { nome: string; tarifa: boolean; semPreco: boolean; alcance: string }[] = [];
     for (const x of await ctx.db.query("vehicles").collect()) {
       const antigo = x.pricePerKm !== undefined || x.minimumPrice !== undefined || x.pricePerKmNight !== undefined || x.partnershipId !== undefined;
-      if (!antigo && x.partnerMode && x.tariff) continue;
+      if (!antigo && x.partnerMode && x.tariff && x.vehicleClass) continue;
       const t = tariffOf(x);
       const r = reachOf(x);
       mudados.push({ nome: x.name, tarifa: !x.tariff && Boolean(t), semPreco: !t, alcance: `${r.site ? "site" : "sem site"} · ${r.mode}${r.partnerIds.length ? ` (${r.partnerIds.length})` : ""}` });
       if (!executar) continue;
       await ctx.db.patch(x._id, {
         tariff: t ?? undefined,
+        /* The class moved from the category to the car (2026-11-28). */
+        vehicleClass: classOf(x, x.categoryId ? await ctx.db.get(x.categoryId) : null),
         showOnSite: r.site,
         partnerMode: r.mode,
         partnerIds: r.mode === "some" ? r.partnerIds : undefined,

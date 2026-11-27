@@ -135,7 +135,13 @@ export async function syncContactList(ctx: Writer, kind: Kind, oldDoc: Contact |
   for (const [k, e] of before) {
     const n = after.get(k);
     if (!n) await facts.deleteIfExists(ctx, { namespace: e.ns, key: e.key, id });
-    else if (JSON.stringify(n.key) !== JSON.stringify(e.key)) await facts.replaceOrInsert(ctx, { namespace: e.ns, key: e.key, id }, { namespace: n.ns, key: n.key });
+    /* Delete then insert, both tolerant: replaceOrInsert threw «key … already
+       exists» when the new entry was already there (the specDashboard tests
+       failed one run in three on it), and a contact could not be saved. */
+    else if (JSON.stringify(n.key) !== JSON.stringify(e.key)) {
+      await facts.deleteIfExists(ctx, { namespace: e.ns, key: e.key, id });
+      await facts.insertIfDoesNotExist(ctx, { namespace: n.ns, key: n.key, id, sumValue: 0 });
+    }
   }
   for (const [k, e] of after) if (!before.has(k)) await facts.insertIfDoesNotExist(ctx, { namespace: e.ns, key: e.key, id, sumValue: 0 });
 }

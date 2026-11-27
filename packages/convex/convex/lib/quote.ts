@@ -22,9 +22,15 @@ export async function loadPricing(ctx: QueryCtx): Promise<PricingContext> {
   };
 }
 
-/** Cars without a category are priced as "standard" (sedans were the default). */
-export function classOf(category: Pick<Doc<"vehicleCategories">, "vehicleClass"> | null | undefined): VehicleClass {
-  return category?.vehicleClass ?? "standard";
+/**
+ * The car's class (its own, as in the pricing sheet); the category's for
+ * a car saved before the class moved to the car; else "standard".
+ */
+export function classOf(
+  car: Pick<Doc<"vehicles">, "vehicleClass">,
+  category: Pick<Doc<"vehicleCategories">, "vehicleClass"> | null | undefined,
+): VehicleClass {
+  return car.vehicleClass ?? category?.vehicleClass ?? "standard";
 }
 
 /**
