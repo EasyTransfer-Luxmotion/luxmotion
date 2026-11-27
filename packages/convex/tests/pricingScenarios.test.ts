@@ -634,3 +634,43 @@ describe("the class is the car's (2026-11-28)", () => {
     expect(mb!.vehicleClass).toBe("large");
   });
 });
+
+describe("classes are configurable (2026-11-28)", () => {
+  const precos = async () => await t.withIdentity(admin).query(api.definicoes.precos, {});
+  const gravar = async (patch: Partial<PricingConfig>) => {
+    const cur = await precos();
+    return await t.withIdentity(admin).mutation(api.definicoes.guardarPrecos, { versao: cur.versao, precos: { ...cur.precos, ...patch }, sobretaxaAeroporto: cur.sobretaxaAeroporto });
+  };
+
+  test("a new class with its multipliers prices the cars that use it", async () => {
+    const s = await fleet();
+    const cur = await precos();
+    await gravar({
+      classes: [...cur.precos.classes, { key: "autocarro", name: "Autocarro" }],
+      surge: { ...cur.precos.surge, autocarro: { sameDay: 1.15, lastMinute: 1.3 } },
+    });
+    expect((await precos()).precos.classes.map((c) => c.name)).toEqual(["Standard", "Van", "Grande", "Autocarro"]);
+    await t.run((ctx) => ctx.db.patch(s.bc, { vehicleClass: "autocarro" }));
+    const now = lisbonLocalToEpoch("2030-06-10 08:00")!;
+    const q = await t.query(api.vehicles.listQuoted, { passengers: 2, distance: 30, departureDate: "2030-06-10 10:00", now });
+    expect(q.find((r) => r._id === s.bc)!.price).toBeCloseTo(69.175 * 1.3, 2);
+  });
+
+  test("a class still used by a car cannot be removed; an unused one can", async () => {
+    await fleet();
+    await t.mutation(internal.veiculos.migrarParaTarifas, { executar: true });
+    const cur = await precos();
+    await expect(gravar({ classes: cur.precos.classes.filter((c) => c.key !== "large") })).rejects.toThrow();
+    await gravar({ classes: cur.precos.classes.filter((c) => c.key !== "van") });
+    const depois = (await precos()).precos;
+    expect(depois.classes.map((c) => c.key)).toEqual(["standard", "large"]);
+    expect(Object.keys(depois.surge).sort()).toEqual(["large", "standard"]);
+  });
+
+  test("a class needs a name, and two can't share one", async () => {
+    await fleet();
+    const cur = await precos();
+    await expect(gravar({ classes: [...cur.precos.classes, { key: "nova", name: " " }], surge: { ...cur.precos.surge, nova: { sameDay: 1, lastMinute: 1 } } })).rejects.toThrow();
+    await expect(gravar({ classes: [...cur.precos.classes, { key: "nova", name: "van" }], surge: { ...cur.precos.surge, nova: { sameDay: 1, lastMinute: 1 } } })).rejects.toThrow();
+  });
+});

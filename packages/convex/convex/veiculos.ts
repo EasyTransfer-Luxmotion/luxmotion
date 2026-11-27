@@ -116,6 +116,8 @@ export const lista = query({
     const parceiros = await nomesDosParceiros(ctx);
     const escondidos = await escondidosPorCarro(ctx);
     const categorias = new Map((await ctx.db.query("vehicleCategories").collect()).map((c) => [c._id, c]));
+    const { config } = await loadPricing(ctx);
+    const nomeDaClasse = (k: string) => config.classes.find((c) => c.key === k)?.name ?? k;
     const onde = (x: (typeof todos)[number]) => ondeEmPalavras(reachOf(x), parceiros);
     const upgradeName = (x: (typeof todos)[number]) => (x.upgradeFromVehicleId ? (todos.find((y) => y._id === x.upgradeFromVehicleId)?.name ?? null) : null);
     const place = new Map(todos.map((x, i) => [x._id, i + 1]));
@@ -141,7 +143,7 @@ export const lista = query({
         passageiros: x.passengers,
         malas: x.luggage,
         tarifa: tariffOf(x),
-        classe: classOf(x, x.categoryId ? categorias.get(x.categoryId) : null),
+        classe: nomeDaClasse(classOf(x, x.categoryId ? categorias.get(x.categoryId) : null)),
         wifi: x.hasWifi,
         electrico: x.isElectric,
         onde: onde(x),
@@ -166,6 +168,7 @@ export const lista = query({
 async function antecedencia(ctx: QueryCtx) {
   const { config } = await loadPricing(ctx);
   return {
+    classes: config.classes,
     surge: config.surge,
     freeAfterHours: config.freeAfterHours,
     lastMinuteHours: config.lastMinuteHours,
@@ -260,7 +263,7 @@ export const simular = query({
   args: {
     /* The tariff being edited, and the class of the car's category. */
     tariff: vTariff,
-    vehicleClass: v.optional(v.union(v.literal("standard"), v.literal("van"), v.literal("large"))),
+    vehicleClass: v.optional(v.string()),
   },
   handler: async (ctx, a) => {
     if (!(await pode(ctx, "veiculos"))) return null;
@@ -316,7 +319,7 @@ const vDados = v.object({
   upgradeFromVehicleId: v.optional(v.id("vehicles")),
   tariff: vTariff,
   /* The lead-time surge class, part of the price (as in the pricing sheet). */
-  vehicleClass: v.union(v.literal("standard"), v.literal("van"), v.literal("large")),
+  vehicleClass: v.string(),
   /* null = no category (the car shows on its own). */
   categoryId: v.union(v.id("vehicleCategories"), v.null()),
 });
@@ -361,6 +364,8 @@ export const guardar = mutation({
     const d = { ...dados, name: dados.name.trim(), examples: dados.examples?.trim() || undefined };
 
     const erros = validar(d);
+    const { config } = await loadPricing(ctx);
+    if (!config.classes.some((c) => c.key === d.vehicleClass)) erros.vehicleClass = "Esta classe já não existe: escolha outra.";
     const todos = await ctx.db.query("vehicles").collect();
     const actual = id ? todos.find((x) => x._id === id) : undefined;
     if (id && !actual) throw new ConvexError({ tipo: "naoExiste", mensagem: "Este veículo já não existe." });

@@ -289,8 +289,10 @@ nunca abaixo da linha recta. Se mudares preços no checkout
 
 **Um só modelo de preço: bandas** (`lib/pricing.ts`, `priceTrip`, desde
 2026-11-27). Cada carro tem uma `tariff` (base, €/km, multiplicador de noite,
-mínimo) e uma **classe** (Standard, Van ou Grande, como na folha: está no
-carro desde 2026-11-28, já não na categoria); as bandas de distância, a
+mínimo) e uma **classe** (como na folha: está no carro desde 2026-11-28, já
+não na categoria). As classes criam-se e apagam-se em Preços →
+Antecedência (`pricing.classes` + `pricing.surge` por chave); a chave não
+muda e uma classe em uso não se apaga; as bandas de distância, a
 subida por antecedência por classe, a janela da noite, a taxa de aeroporto
 e a percentagem por omissão dos parceiros estão em Configurações → Preços. O
 modelo linear (preço por km × distância, +20% à noite) e o «Novo vs atual»

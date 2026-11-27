@@ -522,7 +522,7 @@ export default defineSchema({
        the car's price, like in the pricing sheet (one class per row, next
        to the tariff). Absent: the category's, for cars saved before
        2026-11-28 (veiculos.migrarParaTarifas copies it). */
-    vehicleClass: v.optional(v.union(v.literal("standard"), v.literal("van"), v.literal("large"))),
+    vehicleClass: v.optional(v.string()),
     hasWifi: v.boolean(),
     isElectric: v.boolean(),
     status: v.union(
@@ -653,11 +653,10 @@ export default defineSchema({
       v.object({
         model: v.optional(v.union(v.literal("linear"), v.literal("bands"))),
         bands: v.array(v.object({ upToKm: v.union(v.number(), v.null()), pct: v.number() })),
-        surge: v.object({
-          standard: v.object({ sameDay: v.number(), lastMinute: v.number() }),
-          van: v.object({ sameDay: v.number(), lastMinute: v.number() }),
-          large: v.object({ sameDay: v.number(), lastMinute: v.number() }),
-        }),
+        /* The classes (key + name) and their multipliers by key; the three
+           of the sheet when absent. New ones are created in Preços. */
+        classes: v.optional(v.array(v.object({ key: v.string(), name: v.string() }))),
+        surge: v.record(v.string(), v.object({ sameDay: v.number(), lastMinute: v.number() })),
         freeAfterHours: v.number(),
         lastMinuteHours: v.number(),
         earlyMorningFrom: v.number(),

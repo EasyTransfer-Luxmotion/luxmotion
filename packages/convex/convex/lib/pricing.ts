@@ -52,11 +52,16 @@ export type LegPricing = {
  * migration gives it a tariff.
  */
 
-export type VehicleClass = "standard" | "van" | "large";
+/* A class key: "standard", "van", "large" or one created in Configurações →
+   Preços (2026-11-28; they were these three, fixed). */
+export type VehicleClass = string;
 
 export type PricingConfig = {
   /** Slices of the distance; the last one has upToKm null (no ceiling). */
   bands: { upToKm: number | null; pct: number }[];
+  /** The classes, in order, with the name people read. */
+  classes: { key: string; name: string }[];
+  /** The lead-time multipliers of each class, by key. */
   surge: Record<VehicleClass, { sameDay: number; lastMinute: number }>;
   /** At or beyond this many hours ahead there is no surge. */
   freeAfterHours: number;
@@ -81,6 +86,11 @@ export const PRICING_DEFAULTS: PricingConfig = {
     { upToKm: 50, pct: 0.9 },
     { upToKm: 100, pct: 0.78 },
     { upToKm: null, pct: 0.68 },
+  ],
+  classes: [
+    { key: "standard", name: "Standard" },
+    { key: "van", name: "Van" },
+    { key: "large", name: "Grande" },
   ],
   surge: {
     standard: { sameDay: 1.06, lastMinute: 1.12 },
@@ -151,7 +161,8 @@ export function leadTimeSurge(
   cls: VehicleClass,
   cfg: PricingConfig,
 ): number {
-  const s = cfg.surge[cls] ?? cfg.surge.standard;
+  /* A class that no longer exists pays no surge rather than a wrong one. */
+  const s = cfg.surge[cls] ?? { sameDay: 1, lastMinute: 1 };
   const hm = pickupLocal ? /[ T](\d{2}):/.exec(pickupLocal) : null;
   if (hm) {
     const h = Number(hm[1]);
@@ -259,10 +270,13 @@ export function priceTrip(input: TripInput): TripPricing {
 export function pricingConfigOf(stored: (Partial<PricingConfig> & { model?: string }) | null | undefined): PricingConfig {
   /* `model` was the switch between the linear and the banded model. */
   const { model: _model, ...rest } = stored ?? {};
+  const classes = stored?.classes?.length ? stored.classes : PRICING_DEFAULTS.classes;
   return {
     ...PRICING_DEFAULTS,
     ...rest,
-    surge: { ...PRICING_DEFAULTS.surge, ...(stored?.surge ?? {}) },
+    classes,
+    /* Only the classes that exist: a removed one came back from the defaults. */
+    surge: Object.fromEntries(classes.map((c) => [c.key, stored?.surge?.[c.key] ?? PRICING_DEFAULTS.surge[c.key] ?? { sameDay: 1, lastMinute: 1 }])),
     extras: { ...PRICING_DEFAULTS.extras, ...(stored?.extras ?? {}) },
   };
 }

@@ -4,6 +4,7 @@ import { mutation } from "./functions";
 import { exigirAdmin } from "./lib/admin";
 import { siteSettingsDefaults } from "./siteSettings";
 import { pricingConfigOf, tariffOf } from "./lib/pricing";
+import { classOf } from "./lib/quote";
 import { configAvaliacao } from "./lib/avaliacao";
 import { marketingStatsDefaults } from "./marketingStats";
 import { deIndice, indiceDia } from "./lib/orderLabels";
@@ -180,7 +181,8 @@ export const guardar = mutation({
 const vSurge = v.object({ sameDay: v.number(), lastMinute: v.number() });
 const vPricing = v.object({
   bands: v.array(v.object({ upToKm: v.union(v.number(), v.null()), pct: v.number() })),
-  surge: v.object({ standard: vSurge, van: vSurge, large: vSurge }),
+  classes: v.array(v.object({ key: v.string(), name: v.string() })),
+  surge: v.record(v.string(), vSurge),
   freeAfterHours: v.number(),
   lastMinuteHours: v.number(),
   earlyMorningFrom: v.number(),
@@ -223,10 +225,23 @@ export const guardarPrecos = mutation({
       if (!last && (b.upToKm === null || !(b.upToKm > (p.bands[i - 1]?.upToKm ?? 0)))) erros[`bands.${i}.upToKm`] = "Mais km do que a banda anterior.";
       entre(`bands.${i}.pct`, b.pct, 0.1, 2, "Entre 10% e 200% da taxa.");
     });
-    for (const k of ["standard", "van", "large"] as const) {
-      entre(`surge.${k}.sameDay`, p.surge[k].sameDay, 1, 3, "Entre ×1 e ×3.");
-      entre(`surge.${k}.lastMinute`, p.surge[k].lastMinute, 1, 3, "Entre ×1 e ×3.");
-    }
+    /* The classes: each with a name, a key that never changes (cars point
+       at it) and its two multipliers. */
+    if (p.classes.length === 0) erros.classes = "Pelo menos uma classe.";
+    const nomes = new Set<string>();
+    const chaves = new Set<string>();
+    p.classes.forEach((c, i) => {
+      const nome = c.name.trim();
+      if (!nome) erros[`classes.${i}.name`] = "Dê um nome à classe.";
+      else if (nome.length > 30) erros[`classes.${i}.name`] = "No máximo 30 caracteres.";
+      else if (nomes.has(nome.toLowerCase())) erros[`classes.${i}.name`] = "Já há uma classe com este nome.";
+      nomes.add(nome.toLowerCase());
+      if (!/^[a-z0-9-]{1,40}$/.test(c.key) || chaves.has(c.key)) erros[`classes.${i}.name`] = "Classe inválida: recarregue a página.";
+      chaves.add(c.key);
+      const m = p.surge[c.key];
+      entre(`surge.${c.key}.sameDay`, m?.sameDay ?? Number.NaN, 1, 3, "Entre ×1 e ×3.");
+      entre(`surge.${c.key}.lastMinute`, m?.lastMinute ?? Number.NaN, 1, 3, "Entre ×1 e ×3.");
+    });
     entre("freeAfterHours", p.freeAfterHours, 0, 168, "De 0 a 168 horas.");
     entre("lastMinuteHours", p.lastMinuteHours, 0, p.freeAfterHours, "Menos horas do que o limite sem acréscimo.");
     entre("earlyMorningFrom", p.earlyMorningFrom, 0, 23, "Uma hora de 0 a 23.");
@@ -239,10 +254,33 @@ export const guardarPrecos = mutation({
     entre("sobretaxaAeroporto", sobretaxaAeroporto, 0, 100, "De 0 a 100%.");
     if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
 
+    /* A class still used by a car cannot go: the car would lose its surge. */
+    if (!erros.classes) {
+      const ficam = new Set(p.classes.map((c) => c.key));
+      const categorias = new Map((await ctx.db.query("vehicleCategories").collect()).map((c) => [c._id, c]));
+      const usados = new Map<string, string[]>();
+      for (const car of await ctx.db.query("vehicles").collect()) {
+        const k = classOf(car, car.categoryId ? categorias.get(car.categoryId) : null);
+        if (!ficam.has(k)) usados.set(k, [...(usados.get(k) ?? []), car.name]);
+      }
+      if (usados.size) {
+        const antes = pricingConfigOf((await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", CHAVE)).first())?.pricing).classes;
+        const nome = (k: string) => antes.find((c) => c.key === k)?.name ?? k;
+        erros.classes = [...usados]
+          .map(([k, cs]) => `«${nome(k)}» ainda é a classe de ${cs.length === 1 ? cs[0] : `${cs.length} carros (${cs.slice(0, 3).join(", ")}${cs.length > 3 ? "…" : ""})`}`)
+          .join("; ")
+          .concat(". Mude-os em Catálogo → Veículos antes de a apagar.");
+      }
+    }
+    if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
+
     const site = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", CHAVE)).first();
     if ((site?.updatedAt ?? null) !== versao) {
       throw new ConvexError({ tipo: "conflito", mensagem: "Alguém gravou estas definições depois de abrir o ecrã. Veja a versão atual antes de gravar por cima." });
     }
+    /* Only the multipliers of the classes that exist, names trimmed. */
+    p.classes = p.classes.map((c) => ({ key: c.key, name: c.name.trim() }));
+    p.surge = Object.fromEntries(p.classes.map((c) => [c.key, p.surge[c.key]!]));
     const t = Math.max(Date.now(), (site?.updatedAt ?? 0) + 1);
     if (site) await ctx.db.patch(site._id, { pricing: p, airportSurchargePercent: sobretaxaAeroporto, updatedAt: t });
     else
