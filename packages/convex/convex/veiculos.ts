@@ -319,8 +319,13 @@ export const guardar = mutation({
     /* A versão lida pelo editor (versao do detalhe). Obrigatória ao editar. */
     versao: v.optional(v.number()),
     dados: vDados,
+    /* The other side of the pair: the car this one upgrades to. The link is
+       still one field (the premium points at the standard), so choosing it
+       here writes it on that car. Absent = leave as is (older dashboards);
+       null = this car has no upgrade. */
+    upgradeVehicleId: v.optional(v.union(v.id("vehicles"), v.null())),
   },
-  handler: async (ctx, { id, versao, dados }) => {
+  handler: async (ctx, { id, versao, dados, upgradeVehicleId }) => {
     await exigirAdmin(ctx, "veiculos");
     const d = { ...dados, name: dados.name.trim(), examples: dados.examples?.trim() || undefined };
 
@@ -335,25 +340,58 @@ export const guardar = mutation({
       });
     }
 
+    /* A car has at most one downgrade (its own field) and one upgrade (the
+       car pointing at it): the checkout offers a single upgrade. Choosing
+       either side takes the place over — whoever held it is unlinked in the
+       same write, and the editor says so before saving. */
+    const mesmoSitio = (x: Doc<"vehicles">) => (x.partnershipId ?? null) === (d.partnershipId ?? null);
+    const precoKm = (n: number) => n.toFixed(2).replace(".", ",");
+    const downgradeMudou = d.upgradeFromVehicleId !== actual?.upgradeFromVehicleId;
     if (d.upgradeFromVehicleId) {
       const base = todos.find((x) => x._id === d.upgradeFromVehicleId);
       if (!base) erros.upgradeFromVehicleId = "O veículo escolhido já não existe.";
-      else if (id && base._id === id) erros.upgradeFromVehicleId = "Um veículo não pode ser upgrade de si próprio.";
-      else if ((base.partnershipId ?? null) !== (d.partnershipId ?? null)) {
-        erros.upgradeFromVehicleId = "Só de um veículo associado ao mesmo sítio (site principal ou a mesma parceria).";
-      } else if (id && base.upgradeFromVehicleId === id) {
-        erros.upgradeFromVehicleId = `${base.name} já é upgrade deste: ficavam em círculo.`;
-      } else {
-        const outro = todos.find((x) => x._id !== id && x.upgradeFromVehicleId === base._id && x.status === "active");
-        if (outro && d.status === "active") {
-          erros.upgradeFromVehicleId = `${outro.name} já é o upgrade de ${base.name}; o checkout só mostra um.`;
-        }
+      else if (id && base._id === id) erros.upgradeFromVehicleId = "Um veículo não pode ser downgrade de si próprio.";
+      else if (!mesmoSitio(base)) erros.upgradeFromVehicleId = "Só um veículo associado ao mesmo sítio (site principal ou a mesma parceria).";
+      else if (upgradeVehicleId === base._id || (upgradeVehicleId === undefined && id && base.upgradeFromVehicleId === id)) {
+        erros.upgradeFromVehicleId = `${base.name} não pode ser upgrade e downgrade deste ao mesmo tempo.`;
+      }
+      /* Only a link being made now: the five reversed pairs in production
+         stay visible as warnings (avisosDoUpgrade) without blocking other edits. */
+      else if (downgradeMudou && base.pricePerKm > d.pricePerKm) {
+        erros.upgradeFromVehicleId = `${base.name} é mais caro (${precoKm(base.pricePerKm)} €/km contra ${precoKm(d.pricePerKm)}): é um upgrade, não um downgrade.`;
+      }
+    }
+    const upgradeActual = id ? todos.filter((x) => x.upgradeFromVehicleId === id) : [];
+    if (upgradeVehicleId) {
+      const cima = todos.find((x) => x._id === upgradeVehicleId);
+      if (!cima) erros.upgradeVehicleId = "O veículo escolhido já não existe.";
+      else if (id && cima._id === id) erros.upgradeVehicleId = "Um veículo não pode ser upgrade de si próprio.";
+      else if (!mesmoSitio(cima)) erros.upgradeVehicleId = "Só um veículo associado ao mesmo sítio (site principal ou a mesma parceria).";
+      else if (!upgradeActual.some((x) => x._id === cima._id) && cima.pricePerKm < d.pricePerKm) {
+        erros.upgradeVehicleId = `${cima.name} é mais barato (${precoKm(cima.pricePerKm)} €/km contra ${precoKm(d.pricePerKm)}): é um downgrade, não um upgrade.`;
       }
     }
     if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
 
     const agora = Date.now();
+    /* The other cars of the pair. Done before this one is written so a
+       failed check above never leaves half a pair. */
+    const ligarPar = async (eu: Id<"vehicles">) => {
+      if (downgradeMudou && d.upgradeFromVehicleId) {
+        for (const x of todos) {
+          if (x._id !== eu && x.upgradeFromVehicleId === d.upgradeFromVehicleId) await ctx.db.patch(x._id, { upgradeFromVehicleId: undefined, actualizadoEm: agora });
+        }
+      }
+      if (upgradeVehicleId === undefined) return;
+      for (const x of upgradeActual) {
+        if (x._id !== upgradeVehicleId) await ctx.db.patch(x._id, { upgradeFromVehicleId: undefined, actualizadoEm: agora });
+      }
+      if (upgradeVehicleId && !upgradeActual.some((x) => x._id === upgradeVehicleId)) {
+        await ctx.db.patch(upgradeVehicleId, { upgradeFromVehicleId: eu, actualizadoEm: agora });
+      }
+    };
     if (actual) {
+      await ligarPar(actual._id);
       // A imagem antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
       /* Os opcionais vão sempre com a chave: um campo que o browser manda
          vazio chega cá sem chave nenhuma, e um patch sem a chave não mexe no
@@ -375,6 +413,7 @@ export const guardar = mutation({
     /* pricePerKmNight é obrigatório no schema e não entra em cálculo nenhum:
        fica igual ao de dia, para não parecer uma tarifa diferente. */
     const novo = await ctx.db.insert("vehicles", { ...d, pricePerKmNight: d.pricePerKm, order: ordem, actualizadoEm: agora });
+    await ligarPar(novo);
     return { id: novo, versao: agora };
   },
 });

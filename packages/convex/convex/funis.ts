@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { boardFiltersActive, lisbonToday, matchesBoardFilters, vBoardFilters } from "./lib/boardFilters";
+import { boardFiltersActive, lisbonToday, matchesBoardFilters, periodStart, vBoardFilters } from "./lib/boardFilters";
+import { pageArgs, pageOf } from "./lib/list";
 import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -196,6 +197,81 @@ export const quadro = query({
       colunas,
       verValores: temCapacidade(acesso, "valores"),
       options: { methods: sorted(methods), sources: sorted(sources), partners: sorted(partners) },
+    };
+  },
+});
+
+/* Closed deals read per closed stage, newest first. Quotes and partnerships
+   close a few a day; past this, the period filter narrows it. */
+const CLOSED_READ = 1500;
+
+/*
+ * The closed deals (won and lost) of Por medida and Parcerias, as a list
+ * with its numbers on top: the "Fechados" switch. The board only keeps them
+ * a month; here they are all, with the same filters as the board — except
+ * the period, which counts from the day the deal closed, not the day it
+ * arrived. Bookings have no closed view: a paid trip is not a deal won.
+ */
+export const fechados = query({
+  args: {
+    chave: v.string(),
+    filters: v.optional(vBoardFilters),
+    result: v.optional(v.union(v.literal("won"), v.literal("lost"))),
+    ...pageArgs,
+  },
+  handler: async (ctx, { chave, filters, result, ...page }) => {
+    if (!eChaveFunil(chave) || chave === "reservas") return null;
+    await exigirAdmin(ctx, modulosDoFunil(chave), "ver");
+    const funil = await funilPorChave(ctx, chave);
+    if (!funil) return null;
+    const acesso = await lerAcesso(ctx);
+    const f = filters ?? {};
+    const today = lisbonToday();
+    const since = periodStart(f.period, today) ?? 0;
+    const partners = new Set<string>();
+    let truncated = false;
+    type Row = Awaited<ReturnType<typeof filtraveis>> &
+      ReturnType<typeof cartao> & { etapa: { nome: string; cor: string }; won: boolean; motivoPerda: string | null };
+    const rows: Row[] = [];
+    for (const etapa of funil.etapas) {
+      if (etapa.tipo === "aberta") continue;
+      const read = await ctx.db
+        .query("negocios")
+        .withIndex("by_funil_etapa_fechado", (q) => q.eq("funilId", funil._id).eq("etapaId", etapa.id).gte("fechadoEm", since))
+        .order("desc")
+        .take(CLOSED_READ);
+      if (read.length === CLOSED_READ) truncated = true;
+      for (const n of read) {
+        if (n.arquivadoEm || !permite(acesso, moduloDoCartao(chave, n.origem))) continue;
+        const card = { ...cartao(acesso, n), ...(await filtraveis(ctx, n)) };
+        if (card.parceiro) partners.add(card.parceiro);
+        if (!matchesBoardFilters(chave, { ...f, period: undefined }, today, card)) continue;
+        rows.push({
+          ...card,
+          etapa: { nome: etapa.nome, cor: etapa.cor },
+          won: etapa.tipo === "ganho",
+          motivoPerda: n.motivoPerda ?? null,
+        });
+      }
+    }
+    rows.sort((a, b) => (b.fechadoEm ?? 0) - (a.fechadoEm ?? 0));
+    const sum = (xs: typeof rows) => xs.reduce((s, x) => s + (x.valor ?? 0), 0);
+    const won = rows.filter((x) => x.won);
+    const lost = rows.filter((x) => !x.won);
+    const shown = result === "won" ? won : result === "lost" ? lost : rows;
+    const verValores = temCapacidade(acesso, "valores");
+    return {
+      ...pageOf(shown, page),
+      chave,
+      truncated,
+      verValores,
+      metrics: {
+        won: { count: won.length, value: verValores ? sum(won) : null },
+        lost: { count: lost.length, value: verValores ? sum(lost) : null },
+        // Won over everything closed: the share of deals that ended well.
+        rate: rows.length ? won.length / rows.length : null,
+      },
+      options: { methods: [] as string[], sources: [] as string[], partners: [...partners].sort((a, b) => a.localeCompare(b, "pt")) },
     };
   },
 });

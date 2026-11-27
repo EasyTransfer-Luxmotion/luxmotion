@@ -262,10 +262,14 @@ function CheckoutPageContent({ logoUrl }: { logoUrl?: string | null }) {
       // do par: o rótulo do admin pede que o premium aponte para o standard, mas
       // os dados reais têm o standard a apontar para o premium. Aceitamos as duas
       // direções e, com o guard de delta > 0, oferecemos sempre só o mais caro.
-      const linked =
-        vehicles.find((v) => v.id === selectedVehicle.upgradeFromVehicleId) ??
-        vehicles.find((v) => v.upgradeFromVehicleId === selectedVehicle.id)
-      if (linked && upgradeDelta(selectedVehicle, linked) > 0) {
+      // The real upgrade first: with a chain (economy → business → first), a
+      // `??` found business's downgrade, failed the delta check and never
+      // offered first.
+      const linked = [
+        vehicles.find((v) => v.upgradeFromVehicleId === selectedVehicle.id),
+        vehicles.find((v) => v.id === selectedVehicle.upgradeFromVehicleId),
+      ].find((v) => v && upgradeDelta(selectedVehicle, v) > 0)
+      if (linked) {
         setUpgradeCandidate(linked)
         setUpgradeOfferSeen(true)
         return
