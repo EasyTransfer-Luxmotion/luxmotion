@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation } from "./functions";
 import { query, type MutationCtx } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, pode } from "./lib/admin";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { urlDaImagem, vImagem } from "./lib/imagens";
@@ -136,6 +136,15 @@ export const save = mutation({
     const down = data.upgradeFromCategoryId;
     if (id && (down === id || upgradeCategoryId === id)) throw new ConvexError("Uma categoria não pode ser upgrade de si própria.");
     if (down && upgradeCategoryId && down === upgradeCategoryId) throw new ConvexError("A mesma categoria não pode estar acima e abaixo desta.");
+    /* No circles: the one below can't have this one below it, and the one
+       above can't be below this one already. */
+    const byId = new Map(all.map((c) => [c._id, c]));
+    if (id && down && byId.get(down)?.upgradeFromCategoryId === id) {
+      throw new ConvexError(`${byId.get(down)!.name} já é o upgrade desta categoria: não pode ser também o downgrade.`);
+    }
+    if (id && upgradeCategoryId && (current?.upgradeFromCategoryId === upgradeCategoryId || down === upgradeCategoryId)) {
+      throw new ConvexError(`${byId.get(upgradeCategoryId)?.name ?? "Essa categoria"} já está abaixo desta: não pode ser também o upgrade.`);
+    }
 
     const now = Date.now();
     const doc = { ...data, name, examples: data.examples?.trim() || undefined, actualizadoEm: now };
@@ -251,15 +260,23 @@ export const createFromFleet = internalMutation({
       assigned++;
     }
 
-    /* Upgrade pairs: the premium car points at the standard one. */
+    /* Upgrade pairs: the premium car points at the standard one. Only the
+       direction where the upgrade costs more: in development the minibus and
+       coach sizes pointed at their luxury twins AND back, and a category
+       would end up as the upgrade of its own upgrade. */
     const fresh = await ctx.db.query("vehicles").collect();
     const catOf = new Map(fresh.map((c) => [c._id, c.categoryId]));
+    const at30 = (id: Id<"vehicleCategories">) => {
+      const prices = fresh.filter((c) => c.categoryId === id && c.status === "active").map((c) => Math.max(c.minimumPrice, c.pricePerKm * 30));
+      return prices.length ? Math.min(...prices) : 0;
+    };
     let upgrades = 0;
     for (const car of fresh) {
       if (!car.upgradeFromVehicleId) continue;
       const premium = car.categoryId;
       const standard = catOf.get(car.upgradeFromVehicleId);
       if (!premium || !standard || premium === standard) continue;
+      if (!(at30(premium) > at30(standard))) continue;
       const doc = await ctx.db.get(premium);
       const taken = (await ctx.db.query("vehicleCategories").withIndex("by_upgrade_from", (q) => q.eq("upgradeFromCategoryId", standard)).first()) !== null;
       if (doc && !doc.upgradeFromCategoryId && !taken) {
@@ -267,8 +284,23 @@ export const createFromFleet = internalMutation({
         upgrades++;
       }
     }
+    /* Undo cycles a previous run left (A upgrade of B and B of A): keep the
+       side where the upgrade costs more. */
+    let cyclesUndone = 0;
+    const cats = await ctx.db.query("vehicleCategories").collect();
+    const catById = new Map(cats.map((c) => [c._id, c]));
+    for (const c of cats) {
+      const down = c.upgradeFromCategoryId ? catById.get(c.upgradeFromCategoryId) : undefined;
+      if (!down || down.upgradeFromCategoryId !== c._id) continue;
+      const cheaper = at30(c._id) <= at30(down._id) ? c : down;
+      if (cheaper.upgradeFromCategoryId) {
+        await ctx.db.patch(cheaper._id, { upgradeFromCategoryId: undefined });
+        catById.set(cheaper._id, { ...cheaper, upgradeFromCategoryId: undefined });
+        cyclesUndone++;
+      }
+    }
     const tariffs = await fillSheetTariffs(ctx);
-    return { created, assigned, upgrades, tariffs, loose: fresh.filter((c) => !c.categoryId && !c.partnershipId).map((c) => c.name) };
+    return { created, assigned, upgrades, cyclesUndone, tariffs, loose: fresh.filter((c) => !c.categoryId && !c.partnershipId).map((c) => c.name) };
   },
 });
 

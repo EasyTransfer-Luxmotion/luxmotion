@@ -151,7 +151,7 @@ describe("createFromFleet", () => {
         ctx.db.insert("vehicles", { ...base, name, passengers, order, pricePerKm: 2, minimumPrice: 50 });
       const business = await mk("Business Class", 3, 1);
       const first = await mk("First Class", 3, 2);
-      await ctx.db.patch(first, { upgradeFromVehicleId: business });
+      await ctx.db.patch(first, { upgradeFromVehicleId: business, pricePerKm: 2.5 });
       await mk("Mini Bus (max 15 pax)", 15, 3);
       await mk("Mini Bus (16–20 pax)", 20, 4);
       await mk("Luxury Mini Bus  (15 pax max)", 15, 5);
@@ -183,4 +183,37 @@ describe("createFromFleet", () => {
     expect(again.assigned).toBe(0);
     expect((await t.run((ctx) => ctx.db.get(ids.business)))!.tariff!.baseFare).toBe(30);
   });
+
+  test("twin sizes pointing at each other give one upgrade, the dearer way", async () => {
+    await t.run(async (ctx) => {
+      const mk = (name: string, passengers: number, pricePerKm: number, order: number) =>
+        ctx.db.insert("vehicles", { ...base, name, passengers, order, pricePerKm, minimumPrice: 50 });
+      const mb = await mk("Mini Bus (max 15 pax)", 15, 4.2, 1);
+      const lux = await mk("Luxury Mini Bus  (15 pax max)", 15, 5.3, 2);
+      await ctx.db.patch(mb, { upgradeFromVehicleId: lux });
+      await ctx.db.patch(lux, { upgradeFromVehicleId: mb });
+    });
+    await t.mutation(internal.vehicleCategories.createFromFleet, {});
+    const cats = new Map((await t.run((ctx) => ctx.db.query("vehicleCategories").collect())).map((c) => [c.name, c]));
+    expect(cats.get("Luxury Minibus")!.upgradeFromCategoryId).toBe(cats.get("Minibus")!._id);
+    expect(cats.get("Minibus")!.upgradeFromCategoryId).toBeUndefined();
+  });
+
+  test("saving refuses a circle", async () => {
+    const [a, b] = await t.run(async (ctx) => {
+      const a = await ctx.db.insert("vehicleCategories", { name: "Minibus", vehicleClass: "large", status: "active", order: 1 });
+      const b = await ctx.db.insert("vehicleCategories", { name: "Luxury Minibus", vehicleClass: "large", status: "active", order: 2, upgradeFromCategoryId: a });
+      return [a, b];
+    });
+    const as = t.withIdentity({ subject: "r", issuer: "test", tokenIdentifier: "test|recovery@example.com", email: "recovery@example.com", emailVerified: true });
+    const doc = (await t.run((ctx) => ctx.db.get(a)))!;
+    await expect(
+      as.mutation(api.vehicleCategories.save, {
+        id: a,
+        version: doc._creationTime,
+        data: { name: "Minibus", vehicleClass: "large", status: "active", upgradeFromCategoryId: b },
+      }),
+    ).rejects.toThrow(/já é o upgrade/);
+  });
 });
+
