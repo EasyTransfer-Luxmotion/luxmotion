@@ -292,13 +292,15 @@ export const guardarAvaliacao = mutation({
     }
     if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
     const site = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", CHAVE)).first();
-    if ((site?.updatedAt ?? null) !== versao) {
-      throw new ConvexError({ tipo: "conflito", mensagem: "Alguém gravou estas definições depois de abrir o ecrã. Veja a versão atual antes de gravar por cima." });
-    }
+    /* Its own section of the settings page, saved on its own: it doesn't
+       move the page's version (updatedAt), or saving it made the rest of
+       the page refuse to save («alguém gravou»). `versao` is kept for the
+       callers and not checked: a criteria list edited by two at once is
+       rare and the last one wins. */
+    void versao;
     const limpo = { ...a, criterios: a.criterios.map((c) => ({ ...c, titulo: c.titulo.trim() })) };
-    const t = Math.max(Date.now(), (site?.updatedAt ?? 0) + 1);
-    if (site) await ctx.db.patch(site._id, { avaliacaoCandidaturas: limpo, updatedAt: t });
-    else await ctx.db.insert("siteSettings", { key: CHAVE, minAdvanceBookingHours: siteSettingsDefaults.minAdvanceBookingHours, avaliacaoCandidaturas: limpo, updatedAt: t });
-    return { versao: t };
+    if (site) await ctx.db.patch(site._id, { avaliacaoCandidaturas: limpo });
+    else await ctx.db.insert("siteSettings", { key: CHAVE, minAdvanceBookingHours: siteSettingsDefaults.minAdvanceBookingHours, avaliacaoCandidaturas: limpo });
+    return { versao: site?.updatedAt ?? null };
   },
 });
