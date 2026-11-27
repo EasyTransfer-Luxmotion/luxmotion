@@ -187,7 +187,9 @@ export type Tariff = {
   minimum: number;
 };
 
-const cents = (n: number) => Math.round(n * 100) / 100;
+/* To the cent, half up like the sheet's ROUND: 474.375 is 474.37499999… in
+   floating point and Math.round alone gave 474.37 where the sheet says .38. */
+const cents = (n: number) => Math.round(Number((n * 100).toPrecision(12))) / 100;
 
 /** Distance weighted by the bands: each slice of km pays its % of the rate. */
 export function bandedKm(km: number, bands: PricingConfig["bands"]): number {
@@ -318,9 +320,11 @@ export function priceTrip(input: TripInput): TripPricing {
     const airportFactor = airport ? 1 + (input.airportSurchargePercent ?? 0) / 100 : 1;
     const night = isNightDeparture(pickup, config.nightFrom, config.nightTo) ? tariff.nightMultiplier : 1;
     const surge = leadTimeSurge(pickup, input.now, input.vehicleClass, config);
-    const day = base * airportFactor * surge * channel;
-    const price = cents(day * night);
-    return { base: cents(base), airport: airportFactor, night, surge, channel, price, nightPart: cents(price - cents(day)) };
+    /* In the sheet's order (Calculadora B22: base × period × surge ×
+       channel), so the cents come out the same; the airport last. */
+    const price = cents(base * night * surge * channel * airportFactor);
+    const day = cents(base * surge * channel * airportFactor);
+    return { base: cents(base), airport: airportFactor, night, surge, channel, price, nightPart: cents(price - day) };
   };
   const out = leg(input.departureDate, Boolean(input.isAirportPickup));
   const back = input.bookReturn ? leg(input.returnDate, false) : null;
