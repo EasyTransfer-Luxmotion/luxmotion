@@ -17,10 +17,16 @@ const admin = { subject: ADMIN, issuer: "test", tokenIdentifier: `test|${ADMIN}`
 let t: ReturnType<typeof makeTest>;
 beforeEach(async () => {
   vi.stubEnv("ADMIN_EMAILS", ADMIN);
+  /* Only the timers: the clock stays real (the tests count days from
+     today). The scheduled functions (notifications, webhooks) are run to
+     the end after each test; left pending, they wrote into the next one
+     («Write outside of transaction») and a different test failed each run. */
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
   t = makeTest();
   await t.mutation(internal.funis.criarFunisIniciais, {});
 });
-afterEach(() => {
+afterEach(async () => {
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
   vi.unstubAllEnvs();
   vi.useRealTimers();
 });
