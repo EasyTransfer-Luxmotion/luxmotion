@@ -19,10 +19,6 @@ interface Vehicle {
   luggage: number
   isElectric: boolean
   hasWifi?: boolean
-  originalName?: string
-  /** The car the server picked inside the category, and its seats. */
-  size?: string
-  seats?: number
 }
 
 interface VehicleCardProps {
@@ -53,9 +49,7 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false }: VehicleC
 
   const hasDistance = vehicle.hasDistance ?? vehicle.price > 0
   const displayPrice = priceBreakdown.total.toFixed(2).replace(".", ",")
-  /* See checkout/vehicle-card.tsx: the size inside a category, and no €/km
-     before the route (distance bands make it more than one number). */
-  const sizeLine = vehicle.size && vehicle.seats && vehicle.size !== vehicle.originalName ? t("sizeSeats", { seats: vehicle.seats }) : null
+  const pricePerKm = vehicle.pricePerKm?.toFixed(2).replace(".", ",") ?? "0,00"
 
   return (
     <div 
@@ -100,7 +94,6 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false }: VehicleC
               >
                 {vehicle.name}
               </h3>
-              {sizeLine && <span className="text-xs" style={{ color: "var(--theme-checkout-vehicle-card-price-subtext, #A0A0A0)" }}>{sizeLine}</span>}
             </div>
 
             <div className="flex items-center gap-2">
@@ -176,6 +169,19 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false }: VehicleC
             ) : (
               <>
                 <div 
+className="flex items-baseline justify-end gap-1 text-2xl font-bold leading-none"
+                  style={{ color: "var(--theme-checkout-vehicle-card-price, #000000)" }}
+                >
+                  <span className="leading-none">€</span>
+                  <span className="leading-none">{pricePerKm}</span>
+                  <span
+                    className="text-base font-normal"
+                    style={{ color: "var(--theme-checkout-vehicle-card-price-subtext, #A0A0A0)" }}
+                  >
+                    /km
+                  </span>
+                </div>
+                <div 
                   className="text-sm mt-0.5 mb-1.5"
                   style={{ color: "var(--theme-checkout-vehicle-card-price-subtext, #A0A0A0)" }}
                 >
@@ -229,6 +235,18 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false }: VehicleC
               ) : (
                 <>
                   <div
+                    className="text-lg font-bold leading-none"
+                    style={{ color: "var(--theme-checkout-vehicle-card-price, #000000)" }}
+                  >
+                    € {pricePerKm}
+                    <span
+                      className="text-sm font-normal"
+                      style={{ color: "var(--theme-checkout-vehicle-card-price-subtext, #A0A0A0)" }}
+                    >
+                      /km
+                    </span>
+                  </div>
+                  <div
                     className="text-xs mt-1"
                     style={{ color: "var(--theme-checkout-vehicle-card-price-subtext, #A0A0A0)" }}
                   >
@@ -259,7 +277,6 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false }: VehicleC
               >
                 {vehicle.name}
               </h3>
-              {sizeLine && <span className="text-xs" style={{ color: "var(--theme-checkout-vehicle-card-price-subtext, #A0A0A0)" }}>{sizeLine}</span>}
             </div>
 
             <div className="flex items-center gap-1">

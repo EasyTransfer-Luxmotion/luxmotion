@@ -42,7 +42,7 @@ export default async function Page({
     return (
       <>
         <CaptureReferral slug={referral} />
-        <LuxMotionCheckout logoUrl={partnership.logoUrl} partnershipSlug={partnership.slug} />
+        <LuxMotionCheckout logoUrl={partnership.logoUrl} />
       </>
     )
   }

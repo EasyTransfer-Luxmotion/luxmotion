@@ -155,21 +155,13 @@ function CheckoutPageContent() {
 
   useEffect(() => {
     if (selectedVehicle && vehicles.length > 0) {
-      /* By category: more passengers can swap the car (and its id) for a
-         bigger one of the same category, at its price. */
-      const updatedVehicle =
-        vehicles.find(v => v.id === selectedVehicle.id) ??
-        (selectedVehicle.categoryId ? vehicles.find(v => v.categoryId === selectedVehicle.categoryId) : undefined)
+      const updatedVehicle = vehicles.find(v => v.id === selectedVehicle.id)
       /* Comparava só o total. O que segue para o pagamento é esta fotografia,
          incluindo a taxa noturna que vai na linha do detalhe: se ela mudar sem
          o total mudar, a encomenda ficava a dizer zero. */
       const changed =
         updatedVehicle &&
-        (updatedVehicle.id !== selectedVehicle.id ||
-          updatedVehicle.size !== selectedVehicle.size ||
-          updatedVehicle.passengers !== selectedVehicle.passengers ||
-          updatedVehicle.upgradeFromVehicleId !== selectedVehicle.upgradeFromVehicleId ||
-          updatedVehicle.name !== selectedVehicle.name ||
+        (updatedVehicle.name !== selectedVehicle.name ||
           updatedVehicle.originalName !== selectedVehicle.originalName ||
           updatedVehicle.examples !== selectedVehicle.examples ||
           JSON.stringify(updatedVehicle.translations) !== JSON.stringify(selectedVehicle.translations) ||
@@ -253,13 +245,10 @@ function CheckoutPageContent() {
     // If an admin mapped a premium vehicle to this (standard) one, offer the
     // upgrade once per session before opening the transfer form.
     if (!upgradeOfferSeen) {
-      /* Both directions of the pair, as in the main checkout: the dearer one
-         is the upgrade (the delta check), whichever car holds the link. */
-      const premium = [
-        vehicles.find((v) => v.upgradeFromVehicleId === vehicle.id),
-        vehicles.find((v) => v.id === vehicle.upgradeFromVehicleId),
-      ].find((v) => v && upgradeDelta(vehicle, v) > 0)
-      if (premium) {
+      const premium = vehicles.find(
+        (v) => v.upgradeFromVehicleId === vehicle.id,
+      )
+      if (premium && upgradeDelta(vehicle, premium) > 0) {
         setUpgradeCandidate(premium)
         setUpgradeOfferSeen(true)
         return

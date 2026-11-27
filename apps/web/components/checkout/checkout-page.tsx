@@ -29,27 +29,18 @@ import { useTranslations } from "next-intl"
 import { readAdSourceCookie, readOppref } from "@/lib/ad-source"
 import { MeasureOrderCreated } from "@/components/analytics/measure-order-created"
 
-export function CheckoutPage({ logoUrl, partnershipSlug }: { logoUrl?: string | null; partnershipSlug?: string } = {}) {
+export function CheckoutPage({ logoUrl }: { logoUrl?: string | null } = {}) {
   return (
     <CheckoutThemeProvider>
       <CheckoutProvider>
-        <CheckoutPageContent logoUrl={logoUrl} partnershipSlug={partnershipSlug} />
+        <CheckoutPageContent logoUrl={logoUrl} />
       </CheckoutProvider>
     </CheckoutThemeProvider>
   )
 }
 
-function CheckoutPageContent({ logoUrl, partnershipSlug }: { logoUrl?: string | null; partnershipSlug?: string }) {
+function CheckoutPageContent({ logoUrl }: { logoUrl?: string | null }) {
   const convex = useConvex()
-  /* The partner whose prices apply: the white-label page's own, or the
-     referral cookie of a partner landing visited before. The order is
-     attributed by the same cookie and the payment check applies that
-     partner's factor — quoting without it showed the site's price and then
-     refused the payment once the factor passed the 10% tolerance. */
-  const [referralSlug, setReferralSlug] = useState<string | undefined>(partnershipSlug)
-  useEffect(() => {
-    if (!partnershipSlug) setReferralSlug(readReferralCookie() || undefined)
-  }, [partnershipSlug])
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const router = useRouter()
@@ -150,7 +141,6 @@ function CheckoutPageContent({ logoUrl, partnershipSlug }: { logoUrl?: string | 
       lat: transfer.fromLat,
       lng: transfer.fromLng,
     }),
-    partnershipSlug: referralSlug,
     upgradeMode: upgradeMode,
     currentVehiclePassengers: selectedVehicle?.passengers ?? 0,
     currentVehicleLuggage: selectedVehicle?.luggage ?? 0,
@@ -158,21 +148,13 @@ function CheckoutPageContent({ logoUrl, partnershipSlug }: { logoUrl?: string | 
 
   useEffect(() => {
     if (selectedVehicle && vehicles.length > 0) {
-      /* By category: more passengers can swap the car (and its id) for a
-         bigger one of the same category, at its price. */
-      const updatedVehicle =
-        vehicles.find(v => v.id === selectedVehicle.id) ??
-        (selectedVehicle.categoryId ? vehicles.find(v => v.categoryId === selectedVehicle.categoryId) : undefined)
+      const updatedVehicle = vehicles.find(v => v.id === selectedVehicle.id)
       /* Comparava só o total. O que segue para o pagamento é esta fotografia,
          incluindo a taxa noturna que vai na linha do detalhe: se ela mudar sem
          o total mudar, a encomenda ficava a dizer zero. */
       const changed =
         updatedVehicle &&
-        (updatedVehicle.id !== selectedVehicle.id ||
-          updatedVehicle.size !== selectedVehicle.size ||
-          updatedVehicle.passengers !== selectedVehicle.passengers ||
-          updatedVehicle.upgradeFromVehicleId !== selectedVehicle.upgradeFromVehicleId ||
-          updatedVehicle.name !== selectedVehicle.name ||
+        (updatedVehicle.name !== selectedVehicle.name ||
           updatedVehicle.originalName !== selectedVehicle.originalName ||
           updatedVehicle.examples !== selectedVehicle.examples ||
           JSON.stringify(updatedVehicle.translations) !== JSON.stringify(selectedVehicle.translations) ||
@@ -219,7 +201,7 @@ function CheckoutPageContent({ logoUrl, partnershipSlug }: { logoUrl?: string | 
           returnDate: undefined,
           // Main-site checkout has no on-page partner slug; attribute via the
           // affiliate referral cookie if one was set on a partner landing.
-          partnershipSlug: partnershipSlug || readReferralCookie() || undefined,
+          partnershipSlug: readReferralCookie() || undefined,
           /* A origem vai junto mas fica gravada à parte do parceiro: uma é
              campanha de anúncios, o outro é uma relação comercial nossa. */
           adSource: readAdSourceCookie() ?? undefined,
