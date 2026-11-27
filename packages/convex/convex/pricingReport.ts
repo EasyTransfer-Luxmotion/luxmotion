@@ -4,7 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import { exigirAdmin } from "./lib/admin";
 import { haversineKm } from "./lib/geo";
 import { eAeroporto, type Local } from "./lib/aeroportos";
-import { priceTrip, type PricingConfig } from "./lib/pricing";
+import { bandedKm, lisbonLocalToEpoch, priceTrip, pricingConfigOf, type PricingConfig } from "./lib/pricing";
 import { classOf, loadPricing } from "./lib/quote";
 
 /*
@@ -134,5 +134,76 @@ export const paidBookings = query({
       .slice(0, 15)
       .map((t) => ({ ...t, change: t.now > 0 ? t.next / t.now - 1 : null }));
     return { looked: recent.length, total: summarise(trips), byCategory, byDistance, biggest, withoutTariff: paid.length - trips.length };
+  },
+});
+
+/*
+ * The simulator of Configurações → Preços: one trip, every category, with
+ * the levers being edited (not yet saved), so each number's effect is seen
+ * before saving. Each line has the price with the banded model, step by step
+ * (base by distance, minimum, airport, night, lead time, partner), and
+ * today's (linear) price for the same trip.
+ */
+export const simular = query({
+  args: {
+    /* The levers as on screen; missing keys take the saved/default values. */
+    pricing: v.any(),
+    km: v.number(),
+    hour: v.number(),
+    hoursAhead: v.number(),
+    partner: v.boolean(),
+    airport: v.boolean(),
+  },
+  handler: async (ctx, a) => {
+    await exigirAdmin(ctx, "definicoes", "ver", "valores");
+    const saved = await loadPricing(ctx);
+    const config: PricingConfig = { ...pricingConfigOf({ ...saved.config, ...(a.pricing ?? {}) }), model: "bands" };
+    const km = Math.min(Math.max(a.km, 0.5), 2000);
+    const hour = Math.min(Math.max(Math.round(a.hour), 0), 23);
+    const departureDate = `2030-01-15 ${String(hour).padStart(2, "0")}:00`;
+    const now = lisbonLocalToEpoch(departureDate)! - Math.max(a.hoursAhead, 0) * 3_600_000;
+    const categories = await ctx.db.query("vehicleCategories").withIndex("by_order").collect();
+    const cars = (await ctx.db.query("vehicles").withIndex("by_order").collect()).filter((c) => !c.partnershipId && c.status === "active");
+    const rows = [];
+    for (const cat of categories) {
+      if (cat.status !== "active") continue;
+      const car = cars.filter((c) => c.categoryId === cat._id).sort((x, y) => x.passengers - y.passengers)[0];
+      if (!car) continue;
+      const trip = {
+        vehicle: car,
+        vehicleClass: cat.vehicleClass,
+        partner: a.partner ? {} : null,
+        distance: km,
+        departureDate,
+        isAirportPickup: a.airport,
+        airportSurchargePercent: saved.airportSurchargePercent,
+        now,
+      };
+      const novo = priceTrip({ ...trip, config });
+      const hoje = priceTrip({ ...trip, config: { ...config, model: "linear" } });
+      const leg = novo.legs?.[0];
+      rows.push({
+        category: cat.name,
+        car: car.name,
+        passengers: car.passengers,
+        hasTariff: Boolean(car.tariff),
+        today: hoje.price,
+        next: novo.model === "bands" ? novo.price : null,
+        steps: leg && car.tariff
+          ? {
+              baseFare: car.tariff.baseFare,
+              byDistance: Math.round(car.tariff.ratePerKm * bandedKm(km, config.bands) * 100) / 100,
+              minimum: car.tariff.minimum,
+              minimumApplied: car.tariff.baseFare + car.tariff.ratePerKm * bandedKm(km, config.bands) < car.tariff.minimum,
+              base: leg.base,
+              airport: leg.airport,
+              night: leg.night,
+              surge: leg.surge,
+              channel: leg.channel,
+            }
+          : null,
+      });
+    }
+    return { rows, airportSurchargePercent: saved.airportSurchargePercent };
   },
 });
