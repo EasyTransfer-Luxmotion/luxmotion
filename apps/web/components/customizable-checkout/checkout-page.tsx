@@ -215,6 +215,8 @@ function CheckoutPageContent() {
           isRoundTrip: false,
           returnDate: undefined,
           partnershipSlug: partnershipSlug || readReferralCookie() || undefined,
+          /* This page is the partner's own checkout: its price applies. */
+          partnerCheckout: Boolean(partnershipSlug),
           /* A origem vai junto mas fica gravada à parte do parceiro: uma é
              campanha de anúncios, o outro é uma relação comercial nossa. */
           adSource: readAdSourceCookie() ?? undefined,

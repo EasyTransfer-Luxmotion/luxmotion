@@ -84,7 +84,7 @@ export const paidBookings = query({
       const car = await get(cars, out.vehicleId!, () => ctx.db.get(out.vehicleId!));
       if (!car?.tariff) continue;
       const cat = car.categoryId ? await get(categories, car.categoryId, () => ctx.db.get(car.categoryId!)) : null;
-      const partner = out.partnershipId ? await get(partners, out.partnershipId, () => ctx.db.get(out.partnershipId!)) : null;
+      const partner = out.partnershipId && out.precoDeParceiro ? await get(partners, out.partnershipId, () => ctx.db.get(out.partnershipId!)) : null;
       const hasCoords = (l: Local): l is { location: string; lat: number; lng: number } => typeof l?.lat === "number" && typeof l?.lng === "number";
       const km = Math.max(out.distance ?? 0, hasCoords(out.departure) && hasCoords(out.arrival) ? haversineKm(out.departure, out.arrival) : 0);
       if (!(km > 0)) continue;

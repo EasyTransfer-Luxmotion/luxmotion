@@ -74,7 +74,9 @@ export async function minimoDoTransfer(
     );
     carro = smallestThatFits(irmaos, ida.passengers, 0) ?? carro;
   }
-  const parceria = ida.partnershipId ? await ctx.db.get(ida.partnershipId) : null;
+  /* The partner price only for orders made on the partner's own checkout;
+     a referral cookie on the main site attributes without changing the price. */
+  const parceria = ida.partnershipId && ida.precoDeParceiro ? await ctx.db.get(ida.partnershipId) : null;
 
   const temCoordenadas = (l: Local): l is { location: string; lat: number; lng: number } => typeof l?.lat === "number" && typeof l?.lng === "number";
   const recta = temCoordenadas(ida.departure) && temCoordenadas(ida.arrival) ? haversineKm(ida.departure, ida.arrival) : 0;

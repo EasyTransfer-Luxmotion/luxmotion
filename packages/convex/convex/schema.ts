@@ -116,6 +116,11 @@ export default defineSchema({
     vehicleName: v.optional(v.string()),
     /* The category the customer chose; vehicleId is the size picked in it. */
     categoryId: v.optional(v.id("vehicleCategories")),
+    /* Booked on the partner's own checkout (white-label or customizable
+       page): the partner price applies. A partner set only by the referral
+       cookie (main site, after visiting a partner page) gets the commission
+       but the customer pays the site's price. */
+    precoDeParceiro: v.optional(v.boolean()),
     /* When the car was chosen (epoch ms): the payment check prices the
        lead-time surge as of then, so crossing the 12 h mark while paying
        never refuses the payment. */

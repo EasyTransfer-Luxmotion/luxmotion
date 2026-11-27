@@ -268,6 +268,8 @@ export async function initOrder(
     returnDate?: string
     /** Slug da parceria no URL (ex: "vila-gale"). Omitir = site principal "Easy Transfer". */
     partnershipSlug?: string
+    /** Booked on the partner's own checkout page (the partner price applies). */
+    partnerCheckout?: boolean
     /** De onde veio a visita. Separado do parceiro — ver `lib/ad-source.ts`. */
     adSource?: AdSource
     /** O `__oppref` do Pixel, tal e qual. */
@@ -277,6 +279,7 @@ export async function initOrder(
   const passengers = payload.passengers ?? (payload.adults ?? 0) + (payload.children ?? 0)
   const result = await convex.mutation(api.orders.init, {
     partnershipSlug: payload.partnershipSlug,
+    partnerCheckout: payload.partnerCheckout,
     adSource: payload.adSource,
     opprefId: payload.opprefId,
     departure: {

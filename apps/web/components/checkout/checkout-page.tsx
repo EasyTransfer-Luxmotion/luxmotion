@@ -41,15 +41,12 @@ export function CheckoutPage({ logoUrl, partnershipSlug }: { logoUrl?: string | 
 
 function CheckoutPageContent({ logoUrl, partnershipSlug }: { logoUrl?: string | null; partnershipSlug?: string }) {
   const convex = useConvex()
-  /* The partner whose prices apply: the white-label page's own, or the
-     referral cookie of a partner landing visited before. The order is
-     attributed by the same cookie and the payment check applies that
-     partner's factor — quoting without it showed the site's price and then
-     refused the payment once the factor passed the 10% tolerance. */
-  const [referralSlug, setReferralSlug] = useState<string | undefined>(partnershipSlug)
-  useEffect(() => {
-    if (!partnershipSlug) setReferralSlug(readReferralCookie() || undefined)
-  }, [partnershipSlug])
+  /* The partner price only on the partner's own (white-label) page. A
+     referral cookie from a partner landing visited before only attributes
+     the order (commission); the customer pays the site's price. The order
+     records which of the two it was (partnerCheckout), and the payment check
+     follows it. */
+  const referralSlug = partnershipSlug
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const router = useRouter()
@@ -220,6 +217,7 @@ function CheckoutPageContent({ logoUrl, partnershipSlug }: { logoUrl?: string | 
           // Main-site checkout has no on-page partner slug; attribute via the
           // affiliate referral cookie if one was set on a partner landing.
           partnershipSlug: partnershipSlug || readReferralCookie() || undefined,
+          partnerCheckout: Boolean(partnershipSlug),
           /* A origem vai junto mas fica gravada à parte do parceiro: uma é
              campanha de anúncios, o outro é uma relação comercial nossa. */
           adSource: readAdSourceCookie() ?? undefined,

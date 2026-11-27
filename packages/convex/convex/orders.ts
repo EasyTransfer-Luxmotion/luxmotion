@@ -77,6 +77,9 @@ export const init = mutation({
     returnDate: v.optional(v.string()),
     /** Slug da parceria no URL (ex: "vila-gale"). Se omitido = site principal "Easy Transfer". */
     partnershipSlug: v.optional(v.string()),
+    /* True on the partner's own checkout page; false/absent when the slug
+       came from the referral cookie on the main site. */
+    partnerCheckout: v.optional(v.boolean()),
     /* A origem publicitária e o identificador da OpenAI andam juntos no
        pedido mas separados na gravação — ver o comentário no schema. */
     adSource: v.optional(
@@ -114,6 +117,7 @@ export const init = mutation({
       orderNumber: outboundOrderNumber,
       partnershipName,
       partnershipId,
+      ...(partnershipId && args.partnerCheckout ? { precoDeParceiro: true } : {}),
       departure: {
         location: args.departure.location,
         placeId: args.departure.placeId ?? undefined,
@@ -160,6 +164,7 @@ export const init = mutation({
         relatedOrderId: outboundOrderId, // Link to outbound order
         partnershipName,
         partnershipId,
+        ...(partnershipId && args.partnerCheckout ? { precoDeParceiro: true } : {}),
         departure: {
           location: args.arrival.location, // Swapped: return starts from arrival
           placeId: args.arrival.placeId ?? undefined,
@@ -270,6 +275,7 @@ export const createReturnOrder = mutation({
       relatedOrderId: args.outboundOrderId, // Link to outbound order
       partnershipName: outboundPartnershipName ?? "Easy Transfer",
       partnershipId: outboundPartnershipId,
+      precoDeParceiro: (outboundOrder as { precoDeParceiro?: boolean }).precoDeParceiro,
       departure: {
         location: args.departure.location,
         placeId: args.departure.placeId ?? undefined,

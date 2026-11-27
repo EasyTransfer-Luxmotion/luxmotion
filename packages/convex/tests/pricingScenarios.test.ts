@@ -290,7 +290,7 @@ const LISBOA = { location: "Lisboa", lat: 38.7223, lng: -9.1393 };
 const CASCAIS = { location: "Cascais", lat: 38.6979, lng: -9.4215 };
 const AEROPORTO = { location: "Aeroporto Humberto Delgado", lat: 38.7742, lng: -9.1342 };
 
-async function book(o: { from?: typeof LISBOA; passengers: number; date: string; returnDate?: string; partnershipSlug?: string }) {
+async function book(o: { from?: typeof LISBOA; passengers: number; date: string; returnDate?: string; partnershipSlug?: string; partnerCheckout?: boolean }) {
   const r = await t.mutation(api.orders.init, {
     departure: o.from ?? LISBOA,
     arrival: CASCAIS,
@@ -299,6 +299,7 @@ async function book(o: { from?: typeof LISBOA; passengers: number; date: string;
     isRoundTrip: Boolean(o.returnDate),
     returnDate: o.returnDate,
     partnershipSlug: o.partnershipSlug,
+    partnerCheckout: o.partnerCheckout,
   });
   const ida = (r.order as { _id: Id<"orders"> })._id;
   return ida;
@@ -393,11 +394,37 @@ describe("the checkout on the server", () => {
     const q = await t.query(api.vehicles.listQuoted, { partnershipSlug: "hotel", passengers: 2, distance: 30, departureDate: date, now: Date.now() });
     const bc = q.find((r) => r._id === s.bc)!;
     expect(bc.price).toBeCloseTo(69.175 * 1.15, 2);
-    const id = await book({ passengers: 2, date, partnershipSlug: "hotel" });
+    const id = await book({ passengers: 2, date, partnershipSlug: "hotel", partnerCheckout: true });
     await t.mutation(api.orders.selectCar, { orderId: id, vehicleId: s.bc, vehicleName: "Business Class", price: bc.price, passengerCapacity: 3 });
     await t.mutation(api.orders.registTrip, { orderId: id, departureDate: date, passengers: 2, distance: 30 });
     const m = await t.query(internal.orders.minimoAPagar, { orderId: id, opcoes: [] });
     expect(m.carro).toBe(bc.price);
+  });
+
+  test("a partner from the referral cookie on the main site: attributed, but the site's price", async () => {
+    const s = await fleet();
+    const hotel = await t.run((ctx) => ctx.db.insert("partnerships", { name: "Hotel", slug: "hotel", theme: {} }));
+    const date = "2030-06-10 12:00";
+    const id = await book({ passengers: 2, date, partnershipSlug: "hotel" });
+    await t.mutation(api.orders.selectCar, { orderId: id, vehicleId: s.bc, vehicleName: "Business Class", price: 1, passengerCapacity: 3 });
+    await t.mutation(api.orders.registTrip, { orderId: id, departureDate: date, passengers: 2, distance: 30 });
+    const o = (await t.run((ctx) => ctx.db.get(id)))!;
+    expect(o.partnershipId).toBe(hotel);
+    expect(o.precoDeParceiro).toBeUndefined();
+    const m = await t.query(internal.orders.minimoAPagar, { orderId: id, opcoes: [] });
+    expect(m.carro).toBe(69.18);
+    /* Paying the site's price is accepted with no warning. */
+    await t.action(api.orders.startPaymentAction, payArgs(id, 70));
+    expect((await t.run((ctx) => ctx.db.get(id)))!.pricingWarning).toBeUndefined();
+  });
+
+  test("a round trip on the partner checkout: both legs carry the partner price flag", async () => {
+    await fleet();
+    await t.run((ctx) => ctx.db.insert("partnerships", { name: "Hotel", slug: "hotel", theme: {} }));
+    const id = await book({ passengers: 2, date: "2030-06-10 12:00", returnDate: "2030-06-12 12:00", partnershipSlug: "hotel", partnerCheckout: true });
+    const ida = (await t.run((ctx) => ctx.db.get(id)))!;
+    const volta = (await t.run((ctx) => ctx.db.get(ida.relatedOrderId!)))!;
+    expect([ida.precoDeParceiro, volta.precoDeParceiro]).toEqual([true, true]);
   });
 
   test("round trip from the airport at night: two legs, airport only on the way out", async () => {
