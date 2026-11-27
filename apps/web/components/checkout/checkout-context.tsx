@@ -34,6 +34,12 @@ export interface Vehicle {
   isElectric: boolean
   /** Standard vehicle this one is a premium upgrade of (checkout upsell). */
   upgradeFromVehicleId?: string
+  /** The category this line stands for; the id is the size picked in it. */
+  categoryId?: string
+  /** The car of the category picked for the group, e.g. "Mini Bus (16–20 pax)". */
+  size?: string
+  /** That car's seats (passengers is the category's largest). */
+  seats?: number
 }
 
 export interface TransferState {
