@@ -29,6 +29,7 @@ import { toPendingExperience } from "@/lib/pending-checkout-experiences"
 import { useConvex } from "convex/react"
 import { ConvexError } from "convex/values"
 import { cdn } from "@/lib/cdn"
+import { useExtraPrices } from "@/hooks/use-site-settings"
 
 type UiPaymentMethod = "cartao" | "cash" | "multibanco" | "mbway"
 
@@ -43,6 +44,7 @@ export function PaymentStep({ onContinue }: PaymentStepProps) {
   const tTransfer = useTranslations("transfer")
   const tCommon = useTranslations("common")
   const { state, updatePayment, setTip, submitCheckout, setStep } = useCheckout()
+  const extraPrices = useExtraPrices()
   const { payment, orderId, selectedVehicle, passenger, transfer, currentStep, experiences, order: orderObj, hasNearbyTours } = state
   const confirmationStep = hasNearbyTours ? 5 : 4
   const partnershipSlug = usePartnershipSlug()
@@ -78,7 +80,7 @@ export function PaymentStep({ onContinue }: PaymentStepProps) {
 
   // Luggage extras (child seats / surfboards / pets) — same helper the summary uses, so the
   // charged amount always == the displayed invoice. (Surfboards were shown but never charged.)
-  const extrasTotal = calcExtras(transfer, isRoundTrip).total
+  const extrasTotal = calcExtras(transfer, isRoundTrip, extraPrices).total
 
   // Price breakdown with all fees + extras included in rounding (clean whole-number total).
   const priceBreakdown = useMemo(() => calculatePriceBreakdown({

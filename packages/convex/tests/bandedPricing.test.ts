@@ -117,3 +117,22 @@ describe("the linear model stays exactly as today", () => {
     expect(p.price).toBeCloseTo(220, 6);
   });
 });
+
+describe("everything from the sheet is configurable", () => {
+  test("the night window: 22h–6h instead of 20h–8h", () => {
+    const cfg: PricingConfig = { ...bands, nightFrom: 22, nightTo: 6 };
+    const at = (h: string) => priceTrip({ vehicle: car(business), vehicleClass: "standard", config: cfg, partner: null, distance: 30, departureDate: `2030-03-10 ${h}` }).nightTaxOutbound;
+    expect(at("21:00")).toBe(0);
+    expect(at("23:00")).toBeGreaterThan(0);
+    expect(at("07:00")).toBe(0);
+  });
+
+  test("the sheet's values are the defaults", () => {
+    expect(PRICING_DEFAULTS.bands.map((b) => [b.upToKm, b.pct])).toEqual([[15, 1], [50, 0.9], [100, 0.78], [null, 0.68]]);
+    expect(PRICING_DEFAULTS.surge).toEqual({ standard: { sameDay: 1.06, lastMinute: 1.12 }, van: { sameDay: 1.1, lastMinute: 1.18 }, large: { sameDay: 1.1, lastMinute: 1.2 } });
+    expect([PRICING_DEFAULTS.freeAfterHours, PRICING_DEFAULTS.lastMinuteHours, PRICING_DEFAULTS.earlyMorningFrom, PRICING_DEFAULTS.earlyMorningTo]).toEqual([12, 3, 0, 7]);
+    expect(PRICING_DEFAULTS.partnerFactor).toBe(1.15);
+    expect([PRICING_DEFAULTS.nightFrom, PRICING_DEFAULTS.nightTo]).toEqual([20, 8]);
+    expect(PRICING_DEFAULTS.extras).toEqual({ childSeat: 5, surfboard: 5, pet: 15 });
+  });
+});

@@ -27,6 +27,7 @@ import { formatPrice, formatTime, truncateAddress, extractCity, calculateTotalLu
 import { insurancePrice, calcExtras } from "@/components/checkout/pricing";
 import { cn } from "@workspace/ui/lib/utils";
 import { useMoney } from "@/components/currency-provider";
+import { useExtraPrices } from "@/hooks/use-site-settings"
 
 const SERIF_FONT = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" };
 
@@ -41,6 +42,7 @@ export function OrderSummarySidebar({ collapsible = false }: OrderSummarySidebar
   const { checkoutBookedTodayMin, checkoutBookedTodayMax } = useMarketingStats();
   const { formatDate, formatDateTime } = useDateFormatter();
   const { state, setStep, setShowTransferForm } = useCheckout();
+  const extraPrices = useExtraPrices()
   const { selectedVehicle, transfer, orderId, payment, experiences } = state;
 
   const [isExpanded, setIsExpanded] = useState(!collapsible);
@@ -81,7 +83,7 @@ export function OrderSummarySidebar({ collapsible = false }: OrderSummarySidebar
   const luggage = calculateTotalLuggage(transfer.luggage);
   // Luggage extras — shared with the payment charge so the invoice == the charge. See ./pricing.
   const { childSeats, surfboards, pets, childSeatsCost, surfboardsCost, petsCost, total: extrasTotal } =
-    calcExtras(transfer, isRoundTrip);
+    calcExtras(transfer, isRoundTrip, extraPrices);
 
   const experiencesTotal = experiences.reduce((sum, exp) => sum + exp.totalPrice, 0);
   const tipAmount = state.tipAmount ?? 0;

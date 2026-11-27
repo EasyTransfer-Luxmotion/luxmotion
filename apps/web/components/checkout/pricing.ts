@@ -1,4 +1,5 @@
 import { calculateTotalChildSeats } from "@/lib/format"
+import type { ExtraPrices } from "@/hooks/use-site-settings"
 
 /**
  * Single source of truth for the MAIN checkout add-on prices (mirrors the partnership
@@ -19,8 +20,8 @@ export const INSURANCE_PRICE = {
 
 export type InsuranceKey = keyof typeof INSURANCE_PRICE
 
-/** Per-unit price of each luggage extra (EUR, one-way; ×2 for round trip). */
-export const EXTRA_UNIT_PRICE = { childSeat: 5, surfboard: 5, pet: 10 } as const
+/* The per-unit prices of the luggage extras come from Configurações → Preços
+   (useExtraPrices); the server's payment check uses the same numbers. */
 
 export function insurancePrice(key: InsuranceKey, isRoundTrip: boolean): number {
   return INSURANCE_PRICE[key] * (isRoundTrip ? 2 : 1)
@@ -35,16 +36,16 @@ type ExtrasSelection = {
 }
 
 /** Luggage extras breakdown + total, shared by the summary (line items) and the charge. */
-export function calcExtras(transfer: ExtrasSelection, isRoundTrip: boolean) {
+export function calcExtras(transfer: ExtrasSelection, isRoundTrip: boolean, prices: ExtraPrices) {
   const multiplier = isRoundTrip ? 2 : 1
   const childSeats = calculateTotalChildSeats(transfer.childSeats)
   const surfboards = transfer.surfboardChecked
     ? transfer.surfboard.standard + transfer.surfboard.upgraded
     : 0
   const pets = transfer.petChecked ? transfer.pet.small + transfer.pet.large : 0
-  const childSeatsCost = childSeats * EXTRA_UNIT_PRICE.childSeat * multiplier
-  const surfboardsCost = surfboards * EXTRA_UNIT_PRICE.surfboard * multiplier
-  const petsCost = pets * EXTRA_UNIT_PRICE.pet * multiplier
+  const childSeatsCost = childSeats * prices.childSeat * multiplier
+  const surfboardsCost = surfboards * prices.surfboard * multiplier
+  const petsCost = pets * prices.pet * multiplier
   return {
     childSeats,
     surfboards,

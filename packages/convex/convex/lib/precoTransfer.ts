@@ -37,7 +37,6 @@ const OPCOES_MINIMO: Record<string, number> = {
   priorityPickup: 6,
   comfortConnection: 7,
 };
-const EXTRA = { cadeira: 5, prancha: 5, animal: 10 };
 
 /* Os aeroportos vivem em lib/aeroportos.ts (sem dependências): daqui só se
    reexportam, para quem já os importava deste ficheiro. */
@@ -108,7 +107,9 @@ export async function minimoDoTransfer(
   const cadeiras = (ida.childSeats ?? 0) + (ida.babySeats ?? 0) + (ida.boosterSeats ?? 0);
   const pranchas = (ida.standardSurfboards ?? 0) + (ida.largeSurfboards ?? 0);
   const animais = (ida.smallPets ?? 0) + (ida.largePets ?? 0);
-  const extras = (cadeiras * EXTRA.cadeira + pranchas * EXTRA.prancha + animais * EXTRA.animal) * vezes;
+  /* Per unit and per leg, from Configurações → Preços (the checkout reads the same). */
+  const EXTRA = pricing.config.extras;
+  const extras = (cadeiras * EXTRA.childSeat + pranchas * EXTRA.surfboard + animais * EXTRA.pet) * vezes;
 
   let experiencias = 0;
   for (const x of ida.pendingCheckoutExperiences ?? []) experiencias += await minimoDaExperiencia(ctx, x);

@@ -19,6 +19,7 @@ import { api } from "@workspace/convex/api"
 import { cn } from "@workspace/ui/lib/utils"
 import { readAdSourceCookie, readOppref } from "@/lib/ad-source"
 import { relogioDeLisboa } from "@/lib/hora-lisboa"
+import { useExtraPrices } from "@/hooks/use-site-settings"
 
 interface TransferInfoStepProps {
   onContinue: () => void
@@ -312,6 +313,7 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
   const convex = useConvex()
   const tCommon = useTranslations("common")
   const { state, updateTransfer, setOrder, setStep, setUpgradeMode, setShowTransferForm } = useCheckout()
+  const extraPrices = useExtraPrices()
   // O DateTimePicker "new-widget" força tema escuro; passar o tema real do
   // checkout para o texto da data não ficar branco em light mode.
   const { theme: checkoutTheme } = useCheckoutTheme()
@@ -389,7 +391,7 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
      sítio ficou para trás, e era ele que punha o botão 2% acima da factura. */
   const cardFeeRate = 0
 
-  const { total: extrasTotal } = calcExtras(transfer, isRoundTrip)
+  const { total: extrasTotal } = calcExtras(transfer, isRoundTrip, extraPrices)
 
   const experiencesTotal = experiences.reduce((sum, exp) => sum + exp.totalPrice, 0)
 

@@ -32,6 +32,7 @@ import { useConvex } from "convex/react"
 import { ConvexError } from "convex/values"
 import { cn } from "@workspace/ui/lib/utils"
 import { AnimatedCollapse } from "@/components/checkout/shared"
+import { useExtraPrices } from "@/hooks/use-site-settings"
 
 const SERIF_FONT = { fontFamily: "var(--font-title), 'Cormorant Garamond', serif" } as const
 
@@ -196,6 +197,7 @@ export function PaymentStep({ onContinue, onBack }: PaymentStepProps) {
   const t = useTranslations("payment")
   const tCommon = useTranslations("common")
   const { state, updatePayment, setTip, submitCheckout, setStep } = useCheckout()
+  const extraPrices = useExtraPrices()
   const {
     payment,
     orderId,
@@ -230,7 +232,7 @@ export function PaymentStep({ onContinue, onBack }: PaymentStepProps) {
 
   // Luggage extras (child seats / surfboards / pets) — same helper the summary uses, so the
   // charged amount always == the displayed invoice. (These were shown but never charged.)
-  const extrasTotal = calcExtras(transfer, isRoundTrip).total
+  const extrasTotal = calcExtras(transfer, isRoundTrip, extraPrices).total
 
   // Taxa de cartão removida — o Stripe escolhe o método (não sabemos se é cartão à partida) e
   // cobrar sobretaxa em cartões de consumidor é proibido na UE.

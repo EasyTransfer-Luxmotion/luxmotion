@@ -22,6 +22,7 @@ import {
 import { useCheckout } from "./checkout-context";
 import { formatPrice, formatPriceShort, calculateTotalLuggage, calculatePriceBreakdown, splitInvoiceWithNightTax } from "@/lib/format";
 import { insurancePrice, calcExtras } from "@/components/customizable-checkout/pricing";
+import { useExtraPrices } from "@/hooks/use-site-settings"
 
 export function OrderSummaryMobile() {
   const t = useTranslations("orderSummary");
@@ -143,6 +144,7 @@ function OrderSummaryContent() {
   }, [checkoutBookedTodayMin, checkoutBookedTodayMax]);
   const tCommon = useTranslations("common");
   const { state } = useCheckout();
+  const extraPrices = useExtraPrices();
   const { selectedVehicle, transfer, experiences, payment } = state;
 
   const [isItineraryExpanded, setIsItineraryExpanded] = useState(true);
@@ -163,7 +165,7 @@ function OrderSummaryContent() {
   const luggage = calculateTotalLuggage(transfer.luggage);
   // Luggage extras — shared with the payment charge so the invoice == the charge. See ./pricing.
   const { childSeats, surfboards, pets, childSeatsCost, surfboardsCost, petsCost, total: extrasTotal } =
-    calcExtras(transfer, isRoundTrip);
+    calcExtras(transfer, isRoundTrip, extraPrices);
 
   const experiencesTotal = experiences.reduce(
     (sum, exp) => sum + exp.totalPrice,

@@ -1,11 +1,11 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation } from "./functions";
-import { query } from "./_generated/server";
+import { query, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { exigirAdmin, pode } from "./lib/admin";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { urlDaImagem, vImagem } from "./lib/imagens";
-import { PRICING_DEFAULTS, priceTrip, type Tariff } from "./lib/pricing";
+import { priceTrip, type Tariff } from "./lib/pricing";
 import { loadPricing } from "./lib/quote";
 
 /*
@@ -227,19 +227,24 @@ export const createFromFleet = internalMutation({
       return id;
     };
 
+    /* A category is born active only if one of its cars is: the cars kept
+       inactive in the fleet would otherwise give the back-office categories
+       that sell nothing. */
+    const activeIn = (name: string) =>
+      cars.some((c) => c.status === "active" && (groupOf(c)?.name ?? c.name).toLowerCase() === name.toLowerCase()) ? "active" : "inactive";
     let assigned = 0;
     for (const car of cars) {
       if (car.categoryId) continue;
       const g = groupOf(car);
       const id = g
-        ? await ensure(g.name, () => ({ name: g.name, translations: g.translations, imageId: car.imageId, vehicleClass: g.vehicleClass, status: "active", actualizadoEm: now }))
+        ? await ensure(g.name, () => ({ name: g.name, translations: g.translations, imageId: car.imageId, vehicleClass: g.vehicleClass, status: activeIn(g.name), actualizadoEm: now }))
         : await ensure(car.name, () => ({
             name: car.name,
             translations: car.translations,
             examples: car.examples,
             imageId: car.imageId,
             vehicleClass: /\bvan\b/i.test(car.name) ? "van" : "standard",
-            status: "active",
+            status: activeIn(car.name),
             actualizadoEm: now,
           }));
       await ctx.db.patch(car._id, { categoryId: id });
@@ -262,7 +267,8 @@ export const createFromFleet = internalMutation({
         upgrades++;
       }
     }
-    return { created, assigned, upgrades, loose: fresh.filter((c) => !c.categoryId && !c.partnershipId).map((c) => c.name) };
+    const tariffs = await fillSheetTariffs(ctx);
+    return { created, assigned, upgrades, tariffs, loose: fresh.filter((c) => !c.categoryId && !c.partnershipId).map((c) => c.name) };
   },
 });
 
@@ -292,40 +298,36 @@ const SHEET: { match: RegExp; seats?: number; tariff: Tariff }[] = [
 ];
 
 /**
- * Loads the sheet's values into the cars' tariffs and the pricing levers.
- * Leaves the model as it is: switching to "bands" is a separate, deliberate
- * step in Definições. Refuses to run where the deployment says production.
- *
- * npx convex run vehicleCategories:applySheetValues
+ * The sheet's values are the defaults of the banded model: every car of the
+ * fleet without a tariff gets its row of the sheet. A tariff already there
+ * is never overwritten (it may have been tuned in the back-office), so this
+ * can run again. The model switch is not touched: the checkout keeps today's
+ * prices until it is turned on in Configurações → Preços.
  */
+async function fillSheetTariffs(ctx: MutationCtx) {
+  const categories = new Map((await ctx.db.query("vehicleCategories").collect()).map((c) => [c._id, c]));
+  const filled: string[] = [];
+  const noRow: string[] = [];
+  for (const car of await ctx.db.query("vehicles").collect()) {
+    if (car.tariff) continue;
+    const cat = car.categoryId ? categories.get(car.categoryId) : undefined;
+    const name = cat?.name ?? car.name;
+    const rows = SHEET.filter((s) => s.match.test(name));
+    const row = rows.find((s) => s.seats === car.passengers) ?? (rows.length === 1 ? rows[0] : undefined);
+    if (!row) {
+      noRow.push(car.name);
+      continue;
+    }
+    await ctx.db.patch(car._id, { tariff: row.tariff });
+    filled.push(car.name);
+  }
+  return { filled, noRow };
+}
+
+/* npx convex run vehicleCategories:applySheetValues — the same, on its own. */
 export const applySheetValues = internalMutation({
   args: {},
-  handler: async (ctx) => {
-    if (process.env.EASYTRANSFER_ORDER_WEBHOOK_URL) {
-      throw new ConvexError("Isto parece produção (tem o webhook da operação). Os valores da folha ainda não estão validados.");
-    }
-    const categories = new Map((await ctx.db.query("vehicleCategories").collect()).map((c) => [c._id, c]));
-    const cars = await ctx.db.query("vehicles").collect();
-    const applied: string[] = [];
-    const missing: string[] = [];
-    for (const car of cars) {
-      const cat = car.categoryId ? categories.get(car.categoryId) : undefined;
-      const name = cat?.name ?? car.name;
-      const rows = SHEET.filter((s) => s.match.test(name));
-      const row = rows.find((s) => s.seats === car.passengers) ?? (rows.length === 1 ? rows[0] : undefined);
-      if (!row) {
-        missing.push(car.name);
-        continue;
-      }
-      await ctx.db.patch(car._id, { tariff: row.tariff });
-      applied.push(car.name);
-    }
-    const settings = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", "global")).first();
-    const pricing = { ...PRICING_DEFAULTS, model: settings?.pricing?.model ?? PRICING_DEFAULTS.model };
-    if (settings) await ctx.db.patch(settings._id, { pricing });
-    else await ctx.db.insert("siteSettings", { key: "global", minAdvanceBookingHours: 2, pricing });
-    return { applied, missing, model: pricing.model };
-  },
+  handler: async (ctx) => await fillSheetTariffs(ctx),
 });
 
 /* Which model the checkout uses and the partner factor, for the partnership

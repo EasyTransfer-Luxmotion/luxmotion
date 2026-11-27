@@ -22,6 +22,7 @@ import { calculatePriceBreakdown } from "@/lib/format"
 import { api } from "@workspace/convex/api"
 import { readAdSourceCookie, readOppref } from "@/lib/ad-source"
 import { relogioDeLisboa } from "@/lib/hora-lisboa"
+import { useExtraPrices } from "@/hooks/use-site-settings"
 
 interface TransferInfoStepProps {
   onContinue: () => void
@@ -64,6 +65,7 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
   const tCommon = useTranslations("common")
   const partnershipSlug = usePartnershipSlug()
   const { state, updateTransfer, setOrder, setStep, setUpgradeMode, setShowTransferForm } = useCheckout()
+  const extraPrices = useExtraPrices()
   const { transfer, selectedVehicle, distance, routeDuration, orderId, payment, experiences } = state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
@@ -129,13 +131,15 @@ export function TransferInfoStep({ onContinue }: TransferInfoStepProps) {
   const cardFeeRate = payment.method === "cartao" ? 0.02 : 0
 
   // Calculate extras costs (child seats, surfboards, pets)
+  /* Per-unit prices from Configurações → Preços, as in the summary and the
+     payment (they were written out here: 5, 5 and 10). */
   const multiplier = isRoundTrip ? 2 : 1
   const totalChildSeats = transfer.childSeatChecked ? (transfer.childSeats.baby + transfer.childSeats.child + transfer.childSeats.booster) : 0
   const totalSurfboards = transfer.surfboardChecked ? (transfer.surfboard.standard + transfer.surfboard.upgraded) : 0
   const totalPets = transfer.petChecked ? (transfer.pet.small + transfer.pet.large) : 0
-  const childSeatsCost = totalChildSeats * 5 * multiplier
-  const surfboardsCost = totalSurfboards * 5 * multiplier
-  const petsCost = totalPets * 10 * multiplier
+  const childSeatsCost = totalChildSeats * extraPrices.childSeat * multiplier
+  const surfboardsCost = totalSurfboards * extraPrices.surfboard * multiplier
+  const petsCost = totalPets * extraPrices.pet * multiplier
   const extrasTotal = childSeatsCost + surfboardsCost + petsCost
 
   const experiencesTotal = experiences.reduce((sum, exp) => sum + exp.totalPrice, 0)

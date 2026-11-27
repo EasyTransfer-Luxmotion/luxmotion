@@ -24,11 +24,13 @@ import {
 import { useCheckout } from "./checkout-context";
 import { insurancePrice } from "@/components/checkout/pricing";
 import { formatPrice, formatPriceShort, calculateTotalLuggage, calculateTotalChildSeats, calculatePriceBreakdown, splitInvoiceWithNightTax } from "@/lib/format";
+import { useExtraPrices } from "@/hooks/use-site-settings";
 
 export function OrderSummaryMobile() {
   const t = useTranslations("orderSummary");
   const tCommon = useTranslations("common");
   const { state, setStep, setShowTransferForm } = useCheckout();
+  const extraPrices = useExtraPrices();
   const { selectedVehicle, transfer, payment } = state;
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -57,12 +59,11 @@ export function OrderSummaryMobile() {
   // Se for round trip (bookReturn = true), mostra 2 stops. Se for one way, mostra 1 stop
   const stopsCount = isRoundTrip ? 2 : 1;
 
-  // Calculate extra costs: child seats (5€ each), surfboards (5€ each), pets (10€ each)
-  // If round trip, double the costs (used in both directions)
+  // Extras per unit from Configurações → Preços; a round trip pays both legs.
   const multiplier = isRoundTrip ? 2 : 1;
-  const childSeatsCost = childSeats * 5 * multiplier;
-  const surfboardsCost = surfboards * 5 * multiplier;
-  const petsCost = pets * 10 * multiplier;
+  const childSeatsCost = childSeats * extraPrices.childSeat * multiplier;
+  const surfboardsCost = surfboards * extraPrices.surfboard * multiplier;
+  const petsCost = pets * extraPrices.pet * multiplier;
   const extrasTotal = childSeatsCost + surfboardsCost + petsCost;
 
   // Calculate with card fee and extras included in rounding
@@ -201,6 +202,7 @@ function OrderSummaryContent() {
   }, [checkoutBookedTodayMin, checkoutBookedTodayMax]);
   const tCommon = useTranslations("common");
   const { state } = useCheckout();
+  const extraPrices = useExtraPrices();
   const { selectedVehicle, transfer, experiences, payment } = state;
 
   const [isItineraryExpanded, setIsItineraryExpanded] = useState(true);
@@ -242,12 +244,11 @@ function OrderSummaryContent() {
   // Se for round trip (bookReturn = true), mostra 2 stops. Se for one way, mostra 1 stop
   const stopsCount = isRoundTrip ? 2 : 1;
 
-  // Calculate extra costs: child seats (5€ each), surfboards (5€ each), pets (10€ each)
-  // If round trip, double the costs (used in both directions)
+  // Extras per unit from Configurações → Preços; a round trip pays both legs.
   const multiplier = isRoundTrip ? 2 : 1;
-  const childSeatsCost = childSeats * 5 * multiplier;
-  const surfboardsCost = surfboards * 5 * multiplier;
-  const petsCost = pets * 10 * multiplier;
+  const childSeatsCost = childSeats * extraPrices.childSeat * multiplier;
+  const surfboardsCost = surfboards * extraPrices.surfboard * multiplier;
+  const petsCost = pets * extraPrices.pet * multiplier;
   const extrasTotal = childSeatsCost + surfboardsCost + petsCost;
 
   const experiencesTotal = experiences.reduce(

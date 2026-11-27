@@ -35,7 +35,15 @@ export type SiteSettings = {
   toursSearchRadiusKm: number
   checkoutToursRadiusKm: number
   checkoutUpsellRadiusKm: number
+  /** Luggage extras, euros per unit and per leg (Configurações → Preços). */
+  extraPrices: ExtraPrices
 }
+
+export type ExtraPrices = { childSeat: number; surfboard: number; pet: number }
+
+/* Until the backend answers. Must match PRICING_DEFAULTS.extras in the
+   Convex package (lib/pricing.ts), the defaults of the pricing sheet. */
+export const DEFAULT_EXTRA_PRICES: ExtraPrices = { childSeat: 5, surfboard: 5, pet: 15 }
 
 const DEFAULTS: SiteSettings = {
   minAdvanceBookingHours: 2,
@@ -46,6 +54,7 @@ const DEFAULTS: SiteSettings = {
   toursSearchRadiusKm: DEFAULT_TOURS_SEARCH_RADIUS_KM,
   checkoutToursRadiusKm: DEFAULT_CHECKOUT_TOURS_RADIUS_KM,
   checkoutUpsellRadiusKm: DEFAULT_CHECKOUT_UPSELL_RADIUS_KM,
+  extraPrices: DEFAULT_EXTRA_PRICES,
 }
 
 /**
@@ -88,8 +97,14 @@ export function useSiteSettings(): SiteSettings {
       checkoutUpsellRadiusKm:
         readRadius(r, "checkoutUpsellRadiusKm") ??
         DEFAULTS.checkoutUpsellRadiusKm,
+      extraPrices: r.extraPrices ?? DEFAULT_EXTRA_PRICES,
     }
   }, [raw])
+}
+
+/** The luggage extras' prices; the payment check uses the same ones. */
+export function useExtraPrices(): ExtraPrices {
+  return useSiteSettings().extraPrices
 }
 
 type RadiusKey =

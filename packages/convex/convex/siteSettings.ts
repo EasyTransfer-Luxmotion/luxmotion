@@ -2,6 +2,7 @@ import { v, ConvexError } from "convex/values";
 import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import { exigirAdmin } from "./lib/admin";
+import { pricingConfigOf } from "./lib/pricing";
 
 // Single global settings row, keyed like marketingStats.
 const SETTINGS_KEY = "global";
@@ -37,8 +38,11 @@ export const get = query({
       .withIndex("by_key", (q) => q.eq("key", SETTINGS_KEY))
       .first();
 
+    /* The checkout's luggage extras, per unit and per leg (lib/pricing.ts;
+       the payment check uses the same). */
+    const extraPrices = pricingConfigOf(existing?.pricing).extras;
     if (!existing) {
-      return siteSettingsDefaults;
+      return { ...siteSettingsDefaults, extraPrices };
     }
 
     return {
@@ -61,6 +65,7 @@ export const get = query({
       checkoutUpsellRadiusKm:
         existing.checkoutUpsellRadiusKm ??
         siteSettingsDefaults.checkoutUpsellRadiusKm,
+      extraPrices,
     };
   },
 });

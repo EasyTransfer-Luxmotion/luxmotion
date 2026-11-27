@@ -22,13 +22,14 @@ export const NIGHT_TAX_MIN_EUR = 9;
  * fuso. Uma data sem hora não é noite: mais vale não cobrar do que cobrar por
  * causa de um campo em branco.
  */
-export function isNightDeparture(departureDate: string | undefined | null): boolean {
+export function isNightDeparture(departureDate: string | undefined | null, from = 20, to = 8): boolean {
   if (!departureDate) return false;
   const match = /^\d{4}-\d{2}-\d{2}[ T](\d{2}):/.exec(departureDate);
   if (!match) return false;
   const hour = Number(match[1]);
   if (!Number.isFinite(hour)) return false;
-  return hour >= 20 || hour < 8;
+  /* A window that crosses midnight (20→8) or not (0→6). */
+  return from > to ? hour >= from || hour < to : hour >= from && hour < to;
 }
 
 export type LegPricingInput = {
@@ -149,6 +150,11 @@ export type PricingConfig = {
   earlyMorningTo: number;
   /** Partner (hotel, white-label) checkouts, e.g. 1.15 = 15% commission built in. */
   partnerFactor: number;
+  /** The night window of the banded model, local hours [from, to). */
+  nightFrom: number;
+  nightTo: number;
+  /** Luggage extras, euros per unit and per leg (both models). */
+  extras: { childSeat: number; surfboard: number; pet: number };
 };
 
 export const PRICING_DEFAULTS: PricingConfig = {
@@ -169,6 +175,9 @@ export const PRICING_DEFAULTS: PricingConfig = {
   earlyMorningFrom: 0,
   earlyMorningTo: 7,
   partnerFactor: 1.15,
+  nightFrom: 20,
+  nightTo: 8,
+  extras: { childSeat: 5, surfboard: 5, pet: 15 },
 };
 
 export type Tariff = {
@@ -307,7 +316,7 @@ export function priceTrip(input: TripInput): TripPricing {
   const base = tariffLeg(tariff, km, config.bands);
   const leg = (pickup: string | null | undefined, airport: boolean): LegSnapshot & { nightPart: number } => {
     const airportFactor = airport ? 1 + (input.airportSurchargePercent ?? 0) / 100 : 1;
-    const night = isNightDeparture(pickup) ? tariff.nightMultiplier : 1;
+    const night = isNightDeparture(pickup, config.nightFrom, config.nightTo) ? tariff.nightMultiplier : 1;
     const surge = leadTimeSurge(pickup, input.now, input.vehicleClass, config);
     const day = base * airportFactor * surge * channel;
     const price = cents(day * night);
@@ -336,5 +345,6 @@ export function pricingConfigOf(stored: Partial<PricingConfig> | null | undefine
     ...PRICING_DEFAULTS,
     ...(stored ?? {}),
     surge: { ...PRICING_DEFAULTS.surge, ...(stored?.surge ?? {}) },
+    extras: { ...PRICING_DEFAULTS.extras, ...(stored?.extras ?? {}) },
   };
 }

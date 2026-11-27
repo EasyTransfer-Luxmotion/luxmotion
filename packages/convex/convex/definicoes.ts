@@ -190,6 +190,9 @@ const vPricing = v.object({
   earlyMorningFrom: v.number(),
   earlyMorningTo: v.number(),
   partnerFactor: v.number(),
+  nightFrom: v.number(),
+  nightTo: v.number(),
+  extras: v.object({ childSeat: v.number(), surfboard: v.number(), pet: v.number() }),
 });
 
 export const precos = query({
@@ -235,6 +238,10 @@ export const guardarPrecos = mutation({
     entre("earlyMorningFrom", p.earlyMorningFrom, 0, 23, "Uma hora de 0 a 23.");
     entre("earlyMorningTo", p.earlyMorningTo, p.earlyMorningFrom, 24, "Depois da hora de início.");
     entre("partnerFactor", p.partnerFactor, 0.5, 2, "Entre ×0,5 e ×2.");
+    entre("nightFrom", p.nightFrom, 0, 23, "Uma hora de 0 a 23.");
+    entre("nightTo", p.nightTo, 0, 23, "Uma hora de 0 a 23.");
+    if (p.nightFrom === p.nightTo) erros.nightTo = "Diferente da hora de início.";
+    for (const k of ["childSeat", "surfboard", "pet"] as const) entre(`extras.${k}`, p.extras[k], 0, 500, "De 0 a 500 €.");
     if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
 
     const site = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", CHAVE)).first();

@@ -158,19 +158,29 @@ describe("createFromFleet", () => {
       await mk("Bus (30 pax)", 30, 6);
       await mk("Luxury Bus (30 pax)", 30, 7);
       await mk("Business Class Van", 7, 8);
+      const old = await mk("Economy", 3, 9);
+      await ctx.db.patch(old, { status: "inactive" });
       return { business, first };
     });
     const r = await t.mutation(internal.vehicleCategories.createFromFleet, {});
-    expect(r.created).toEqual(["Business Class", "First Class", "Minibus", "Luxury Minibus", "Coach", "Luxury Coach", "Business Class Van"]);
+    expect(r.created).toEqual(["Business Class", "First Class", "Minibus", "Luxury Minibus", "Coach", "Luxury Coach", "Business Class Van", "Economy"]);
     expect(r.loose).toEqual([]);
     const cats = await t.run((ctx) => ctx.db.query("vehicleCategories").collect());
     const byName = new Map(cats.map((c) => [c.name, c]));
     expect(byName.get("Business Class Van")!.vehicleClass).toBe("van");
     expect(byName.get("Minibus")!.vehicleClass).toBe("large");
+    /* Only inactive cars: the category is born inactive. */
+    expect(byName.get("Economy")!.status).toBe("inactive");
+    expect(byName.get("Minibus")!.status).toBe("active");
     expect(byName.get("First Class")!.upgradeFromCategoryId).toBe(byName.get("Business Class")!._id);
-    /* Again: nothing new. */
+    /* The sheet's tariffs came in as defaults. */
+    const bc = await t.run((ctx) => ctx.db.get(ids.business));
+    expect(bc!.tariff).toEqual({ baseFare: 25, ratePerKm: 1.55, nightMultiplier: 1.097, minimum: 50 });
+    /* Again: nothing new, and a tuned tariff is not overwritten. */
+    await t.run((ctx) => ctx.db.patch(ids.business, { tariff: { baseFare: 30, ratePerKm: 1.6, nightMultiplier: 1.1, minimum: 55 } }));
     const again = await t.mutation(internal.vehicleCategories.createFromFleet, {});
     expect(again.created).toEqual([]);
     expect(again.assigned).toBe(0);
+    expect((await t.run((ctx) => ctx.db.get(ids.business)))!.tariff!.baseFare).toBe(30);
   });
 });
