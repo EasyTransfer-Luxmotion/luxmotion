@@ -118,3 +118,223 @@ export function priceVehicle(input: LegPricingInput): LegPricing {
     hasDistance: true,
   };
 }
+
+/* ───────────────────────────── Banded model ─────────────────────────────
+ *
+ * The model from the pricing sheet (EasyTransfer_Precificacao_Dinamica.xlsx,
+ * Nov 2026): a fixed base fare plus a per-km rate that tapers by distance
+ * band, so the average €/km falls on long trips; then a night multiplier per
+ * car, a lead-time surge per vehicle class and a channel factor for partner
+ * checkouts. Every lever lives in siteSettings.pricing and in each car's
+ * `tariff`, so the numbers can be tuned without a deploy.
+ *
+ * It runs next to the linear model until siteSettings.pricing.model says
+ * "bands": production keeps today's prices while the values are calibrated.
+ * A car without a `tariff` keeps the linear price even in "bands" mode.
+ */
+
+export type VehicleClass = "standard" | "van" | "large";
+
+export type PricingConfig = {
+  model: "linear" | "bands";
+  /** Slices of the distance; the last one has upToKm null (no ceiling). */
+  bands: { upToKm: number | null; pct: number }[];
+  surge: Record<VehicleClass, { sameDay: number; lastMinute: number }>;
+  /** At or beyond this many hours ahead there is no surge. */
+  freeAfterHours: number;
+  /** Below this many hours ahead it is last minute. */
+  lastMinuteHours: number;
+  /** Pickups in [from, to) local hours always pay the last-minute surge. */
+  earlyMorningFrom: number;
+  earlyMorningTo: number;
+  /** Partner (hotel, white-label) checkouts, e.g. 1.15 = 15% commission built in. */
+  partnerFactor: number;
+};
+
+export const PRICING_DEFAULTS: PricingConfig = {
+  model: "linear",
+  bands: [
+    { upToKm: 15, pct: 1 },
+    { upToKm: 50, pct: 0.9 },
+    { upToKm: 100, pct: 0.78 },
+    { upToKm: null, pct: 0.68 },
+  ],
+  surge: {
+    standard: { sameDay: 1.06, lastMinute: 1.12 },
+    van: { sameDay: 1.1, lastMinute: 1.18 },
+    large: { sameDay: 1.1, lastMinute: 1.2 },
+  },
+  freeAfterHours: 12,
+  lastMinuteHours: 3,
+  earlyMorningFrom: 0,
+  earlyMorningTo: 7,
+  partnerFactor: 1.15,
+};
+
+export type Tariff = {
+  baseFare: number;
+  ratePerKm: number;
+  nightMultiplier: number;
+  minimum: number;
+};
+
+const cents = (n: number) => Math.round(n * 100) / 100;
+
+/** Distance weighted by the bands: each slice of km pays its % of the rate. */
+export function bandedKm(km: number, bands: PricingConfig["bands"]): number {
+  let from = 0;
+  let total = 0;
+  for (const b of bands) {
+    const to = b.upToKm ?? Infinity;
+    if (km <= from) break;
+    total += (Math.min(km, to) - from) * b.pct;
+    from = to;
+  }
+  return total;
+}
+
+/** Base price of one leg, before night, surge and channel. */
+export function tariffLeg(t: Tariff, km: number, bands: PricingConfig["bands"]): number {
+  return Math.max(t.minimum, t.baseFare + t.ratePerKm * bandedKm(km, bands));
+}
+
+const LISBON_HOUR_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Lisbon", hour: "2-digit", hourCycle: "h23" });
+
+/**
+ * "YYYY-MM-DD HH:mm" in Lisbon time (how departureDate is stored) to epoch ms.
+ * The server runs in UTC; Lisbon is UTC or UTC+1.
+ */
+export function lisbonLocalToEpoch(local: string | undefined | null): number | null {
+  const m = local ? /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/.exec(local) : null;
+  if (!m) return null;
+  const asUtc = Date.parse(`${m[1]}T${m[2]}:${m[3]}:00Z`);
+  if (!Number.isFinite(asUtc)) return null;
+  const offset = (Number(LISBON_HOUR_FMT.format(asUtc)) - new Date(asUtc).getUTCHours() + 24) % 24;
+  return asUtc - offset * 3_600_000;
+}
+
+/**
+ * The lead-time surge for one pickup. Without a clock (`now`) there is no
+ * surge: a quote never charges more because a field went missing.
+ */
+export function leadTimeSurge(
+  pickupLocal: string | undefined | null,
+  now: number | undefined,
+  cls: VehicleClass,
+  cfg: PricingConfig,
+): number {
+  const s = cfg.surge[cls] ?? cfg.surge.standard;
+  const hm = pickupLocal ? /[ T](\d{2}):/.exec(pickupLocal) : null;
+  if (hm) {
+    const h = Number(hm[1]);
+    if (h >= cfg.earlyMorningFrom && h < cfg.earlyMorningTo) return s.lastMinute;
+  }
+  if (now === undefined) return 1;
+  const pickup = lisbonLocalToEpoch(pickupLocal);
+  if (pickup === null) return 1;
+  const hours = (pickup - now) / 3_600_000;
+  if (hours >= cfg.freeAfterHours) return 1;
+  if (hours > cfg.lastMinuteHours) return s.sameDay;
+  return s.lastMinute;
+}
+
+export type TripInput = {
+  /** Linear fields (today's model) and, optionally, the banded tariff. */
+  vehicle: { pricePerKm: number; minimumPrice: number; tariff?: Tariff | null };
+  vehicleClass: VehicleClass;
+  config: PricingConfig;
+  /** null on the main site. ajustePreco only counts in the linear model. */
+  partner: { ajustePreco?: number | null } | null;
+  distance?: number | null;
+  departureDate?: string | null;
+  returnDate?: string | null;
+  bookReturn?: boolean;
+  isAirportPickup?: boolean;
+  airportSurchargePercent?: number;
+  /** Epoch ms of the quote (the browser's clock, or the time the car was chosen). */
+  now?: number;
+};
+
+export type LegSnapshot = { base: number; airport: number; night: number; surge: number; channel: number; price: number };
+
+export type TripPricing = LegPricing & {
+  model: "linear" | "bands";
+  legs?: LegSnapshot[];
+};
+
+/** Partner adjustment of the linear model (partnerships.ajustePreco, in %). */
+export function linearPartnerFactor(p: { ajustePreco?: number | null } | null | undefined): number {
+  const a = p?.ajustePreco ?? 0;
+  return Number.isFinite(a) ? 1 + a / 100 : 1;
+}
+
+/* To the cent: 57 × 1.1 gave 62.699999… in the checkout. */
+export function withFactor(value: number, f: number): number {
+  return f === 1 ? value : Math.round(value * f * 100) / 100;
+}
+
+/**
+ * The price of a trip with whichever model is switched on. The single entry
+ * point for the checkout (vehicles.listQuoted), the payment check
+ * (lib/precoTransfer.ts) and the back-office simulator: if they disagree the
+ * customer sees one price and the payment is refused.
+ */
+export function priceTrip(input: TripInput): TripPricing {
+  const { vehicle, config, partner } = input;
+  const tariff = vehicle.tariff;
+  if (config.model !== "bands" || !tariff) {
+    const f = linearPartnerFactor(partner);
+    return {
+      model: "linear",
+      ...priceVehicle({
+        pricePerKm: withFactor(vehicle.pricePerKm, f),
+        minimumPrice: withFactor(vehicle.minimumPrice, f),
+        distance: input.distance,
+        isNight: isNightDeparture(input.departureDate),
+        isNightReturn: input.bookReturn ? isNightDeparture(input.returnDate) : false,
+        bookReturn: input.bookReturn,
+        isAirportPickup: input.isAirportPickup,
+        airportSurchargePercent: input.airportSurchargePercent,
+      }),
+    };
+  }
+
+  const km = input.distance ?? 0;
+  if (!(km > 0)) {
+    return { model: "bands", price: 0, dayPrice: 0, nightTaxOutbound: 0, nightTaxReturn: 0, hasDistance: false, legs: [] };
+  }
+  const channel = partner ? config.partnerFactor : 1;
+  const base = tariffLeg(tariff, km, config.bands);
+  const leg = (pickup: string | null | undefined, airport: boolean): LegSnapshot & { nightPart: number } => {
+    const airportFactor = airport ? 1 + (input.airportSurchargePercent ?? 0) / 100 : 1;
+    const night = isNightDeparture(pickup) ? tariff.nightMultiplier : 1;
+    const surge = leadTimeSurge(pickup, input.now, input.vehicleClass, config);
+    const day = base * airportFactor * surge * channel;
+    const price = cents(day * night);
+    return { base: cents(base), airport: airportFactor, night, surge, channel, price, nightPart: cents(price - cents(day)) };
+  };
+  const out = leg(input.departureDate, Boolean(input.isAirportPickup));
+  const back = input.bookReturn ? leg(input.returnDate, false) : null;
+  const price = cents(out.price + (back?.price ?? 0));
+  const nightTaxOutbound = out.nightPart;
+  const nightTaxReturn = back?.nightPart ?? 0;
+  const strip = ({ nightPart: _n, ...l }: LegSnapshot & { nightPart: number }) => l;
+  return {
+    model: "bands",
+    price,
+    dayPrice: cents(price - nightTaxOutbound - nightTaxReturn),
+    nightTaxOutbound,
+    nightTaxReturn,
+    hasDistance: true,
+    legs: back ? [strip(out), strip(back)] : [strip(out)],
+  };
+}
+
+/** siteSettings.pricing with the defaults filled in. */
+export function pricingConfigOf(stored: Partial<PricingConfig> | null | undefined): PricingConfig {
+  return {
+    ...PRICING_DEFAULTS,
+    ...(stored ?? {}),
+    surge: { ...PRICING_DEFAULTS.surge, ...(stored?.surge ?? {}) },
+  };
+}

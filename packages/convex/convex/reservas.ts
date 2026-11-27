@@ -243,7 +243,7 @@ const ROTULO: Record<Estado, string> = {
  * preço de cada um). Pela forma do nome e não por uma lista, para um campo
  * de preço novo não escapar.
  */
-const DE_VALOR = /^(price|prices|amount|total|subtotal|fee|fees|cost|surcharge|discount|tip|tax|commission|valor|preco|pricingWarning)|(Price|Amount|Total|Fee|Fees|Cost|Surcharge|Discount|Tip|Tax|Commission)/;
+const DE_VALOR = /^(price|prices|amount|total|subtotal|fee|fees|cost|surcharge|discount|tip|tax|commission|valor|preco|pricingWarning|pricingSnapshot)|(Price|Amount|Total|Fee|Fees|Cost|Surcharge|Discount|Tip|Tax|Commission)/;
 function semValores<T>(x: T): T {
   if (Array.isArray(x)) return x.map(semValores) as T;
   if (x && typeof x === "object") {

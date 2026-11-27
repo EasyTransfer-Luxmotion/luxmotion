@@ -1,5 +1,6 @@
 import { minimoDoTransfer } from "./lib/precoTransfer";
 import { ConvexError, v } from "convex/values";
+import { vPricingSnapshot } from "./lib/pricingSnapshot";
 import { isNightDeparture } from "./lib/pricing";
 import { query, action, internalQuery } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
@@ -330,11 +331,17 @@ export const selectCar = mutation({
   handler: async (ctx, args) => {
     const order = exigirAlteravel(await ctx.db.get(args.orderId));
 
-     await ctx.db.patch(args.orderId, {
+    /* A car in a category: the operation needs the size, not the category
+       name the customer saw ("Minibus (16–20 pax)", not "Minibus"). */
+    const car = await ctx.db.get(args.vehicleId);
+    const now = Date.now();
+    await ctx.db.patch(args.orderId, {
       vehicleId: args.vehicleId,
-      vehicleName: args.vehicleName,
+      vehicleName: car?.categoryId ? car.name : args.vehicleName,
+      categoryId: car?.categoryId,
+      quotedAt: now,
       basePrice: args.price, // Preço base do veículo
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
 
     const updatedOrder = await ctx.db.get(args.orderId);
@@ -624,6 +631,7 @@ export const startPayment = internalMutation({
     ),
     /* Diferença pequena para o mínimo do servidor (ver startPaymentAction). */
     avisoPreco: v.optional(v.string()),
+    pricingSnapshot: v.optional(vPricingSnapshot),
   },
   handler: async (ctx, args) => {
     // Cash payments are automatically marked as paid
@@ -653,6 +661,7 @@ export const startPayment = internalMutation({
       discountAmount: args.discountAmount,
       additionalFees: args.additionalFees,
       nightTax: args.nightTax,
+      ...(args.pricingSnapshot ? { pricingSnapshot: args.pricingSnapshot } : {}),
       ...(pricingWarning || args.avisoPreco ? { pricingWarning: [pricingWarning, args.avisoPreco].filter(Boolean).join(" ") } : {}),
       airportServiceFee: args.airportServiceFee,
       cancellationFee: args.cancellationFee,
@@ -1067,6 +1076,7 @@ export const startPaymentAction = action({
       driverNotes: args.driverNotes,
       selectedCheckoutAddons: args.selectedCheckoutAddons,
       ...(avisoPreco && { avisoPreco }),
+      pricingSnapshot: calculado.snapshot,
     };
 
     console.log("[Orders] startPaymentAction - Updating outbound order with:", {

@@ -5,9 +5,9 @@ import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { pode, exigirAdmin } from "./lib/admin";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
-import { NIGHT_TAX_MIN_EUR, NIGHT_TAX_PERCENT, priceVehicle } from "./lib/pricing";
+import { NIGHT_TAX_MIN_EUR, NIGHT_TAX_PERCENT, priceTrip } from "./lib/pricing";
+import { loadPricing } from "./lib/quote";
 import { urlDaImagem, vImagem } from "./lib/imagens";
-import { siteSettingsDefaults } from "./siteSettings";
 
 /*
  * Veículos no dashboard (E3 do plano de reconstrução). Substitui, para o ecrã
@@ -131,6 +131,12 @@ export const lista = query({
   },
 });
 
+/* The categories a car can belong to, for the editor's picker. */
+async function categoriasParaEditor(ctx: QueryCtx) {
+  const all = await ctx.db.query("vehicleCategories").withIndex("by_order").collect();
+  return all.map((c) => ({ _id: c._id, nome: c.name, classe: c.vehicleClass, estado: c.status }));
+}
+
 export const detalhe = query({
   args: { id: v.id("vehicles") },
   handler: async (ctx, { id }) => {
@@ -140,6 +146,7 @@ export const detalhe = query({
     const todos = await ctx.db.query("vehicles").withIndex("by_order").collect();
     return {
       encontrado: true as const,
+      categorias: await categoriasParaEditor(ctx),
       veiculo: { ...x, imagem: x.imageId ? await urlDaImagem(ctx, x.imageId) : null, versao: versaoDe(x) },
       usos: await usos(ctx, id, todos),
       avisos: avisosDoUpgrade(x, todos),
@@ -166,6 +173,7 @@ export const paraNovo = query({
     if (!(await pode(ctx, "veiculos"))) return null;
     const todos = await ctx.db.query("vehicles").withIndex("by_order").collect();
     return {
+      categorias: await categoriasParaEditor(ctx),
       ordem: todos.length ? Math.max(...todos.map((y) => y.order)) + 1 : 0,
       outros: todos.map((y) => ({
         _id: y._id,
@@ -245,29 +253,49 @@ export const mostrarEmParceiro = mutation({
 
 /* Distâncias típicas: aeroporto → centro, → Cascais, → Sintra, Lisboa →
    Évora, Lisboa → Porto. */
+const vTariff = v.object({ baseFare: v.number(), ratePerKm: v.number(), nightMultiplier: v.number(), minimum: v.number() });
+
 const DISTANCIAS = [15, 30, 50, 130, 315];
 
 export const simular = query({
-  args: { precoKm: v.number(), minimo: v.number() },
+  args: {
+    precoKm: v.number(),
+    minimo: v.number(),
+    /* The banded tariff being edited, and the class of the car's category. */
+    tariff: v.optional(vTariff),
+    vehicleClass: v.optional(v.union(v.literal("standard"), v.literal("van"), v.literal("large"))),
+  },
   handler: async (ctx, a) => {
     if (!(await pode(ctx, "veiculos"))) return null;
     if (!(a.precoKm > 0) || !(a.minimo >= 0)) return null;
-    const definicoes = await ctx.db
-      .query("siteSettings")
-      .withIndex("by_key", (q) => q.eq("key", "global"))
-      .first();
-    const aeroporto = definicoes?.airportSurchargePercent ?? siteSettingsDefaults.airportSurchargePercent;
-    const base = { pricePerKm: a.precoKm, minimumPrice: a.minimo, airportSurchargePercent: aeroporto };
+    const { config, airportSurchargePercent: aeroporto } = await loadPricing(ctx);
+    const vehicle = { pricePerKm: a.precoKm, minimumPrice: a.minimo, tariff: a.tariff };
+    const at = (model: "linear" | "bands", km: number, extra: { departureDate?: string; isAirportPickup?: boolean }) =>
+      priceTrip({
+        vehicle,
+        vehicleClass: a.vehicleClass ?? "standard",
+        config: { ...config, model },
+        partner: null,
+        distance: km,
+        departureDate: extra.departureDate ?? "2030-01-01 12:00",
+        isAirportPickup: extra.isAirportPickup,
+        airportSurchargePercent: aeroporto,
+      }).price;
+    const NOITE = "2030-01-01 22:00";
     return {
       aeroporto,
       noitePct: NIGHT_TAX_PERCENT,
       noiteMin: NIGHT_TAX_MIN_EUR,
+      modelo: config.model,
       linhas: DISTANCIAS.map((km) => ({
         km,
-        dia: priceVehicle({ ...base, distance: km, isNight: false }).price,
-        noite: priceVehicle({ ...base, distance: km, isNight: true }).price,
-        aeroporto: priceVehicle({ ...base, distance: km, isNight: false, isAirportPickup: true }).price,
+        dia: at("linear", km, {}),
+        noite: at("linear", km, { departureDate: NOITE }),
+        aeroporto: at("linear", km, { isAirportPickup: true }),
         minimoAplicado: a.precoKm * km < a.minimo,
+        bandas: a.tariff
+          ? { dia: at("bands", km, {}), noite: at("bands", km, { departureDate: NOITE }), aeroporto: at("bands", km, { isAirportPickup: true }) }
+          : null,
       })),
     };
   },
@@ -293,6 +321,10 @@ const vDados = v.object({
   isElectric: v.boolean(),
   status: vEstado,
   upgradeFromVehicleId: v.optional(v.id("vehicles")),
+  /* Absent = leave as is (dashboards from before the categories would
+     otherwise wipe them on save); null = clear. */
+  tariff: v.optional(v.union(vTariff, v.null())),
+  categoryId: v.optional(v.union(v.id("vehicleCategories"), v.null())),
 });
 
 type Erros = Partial<Record<string, string>>;
@@ -310,6 +342,14 @@ function validar(d: typeof vDados.type): Erros {
   }
   if (!Number.isFinite(d.pricePerKm) || d.pricePerKm <= 0 || d.pricePerKm > 100) e.pricePerKm = "Um preço por km acima de 0.";
   if (!Number.isFinite(d.minimumPrice) || d.minimumPrice < 0 || d.minimumPrice > 10_000) e.minimumPrice = "Um mínimo de 0 € ou mais.";
+  const t = d.tariff;
+  if (t) {
+    const ok = (x: number, min: number, max: number) => Number.isFinite(x) && x >= min && x <= max;
+    if (!ok(t.baseFare, 0, 10_000)) e.baseFare = "Uma base de 0 € ou mais.";
+    if (!ok(t.ratePerKm, 0.01, 100)) e.ratePerKm = "Uma taxa por km acima de 0.";
+    if (!ok(t.nightMultiplier, 1, 3)) e.nightMultiplier = "Entre ×1 (sem taxa) e ×3.";
+    if (!ok(t.minimum, 0, 10_000)) e.minimum = "Um mínimo de 0 € ou mais.";
+  }
   return e;
 }
 
@@ -398,8 +438,11 @@ export const guardar = mutation({
          campo. Era assim que "Nenhum" no upgrade (e tirar o dono ou a foto)
          gravava sem efeito — no vehicles.update antigo também. Com a chave
          e o valor undefined, o patch apaga-o. */
+      const { tariff, categoryId, ...resto } = d;
       await ctx.db.patch(actual._id, {
-        ...d,
+        ...resto,
+        ...(tariff !== undefined ? { tariff: tariff ?? undefined } : {}),
+        ...(categoryId !== undefined ? { categoryId: categoryId ?? undefined } : {}),
         examples: d.examples,
         translations: d.translations,
         imageId: d.imageId,
@@ -412,7 +455,14 @@ export const guardar = mutation({
     const ordem = todos.length ? Math.max(...todos.map((x) => x.order)) + 1 : 0;
     /* pricePerKmNight é obrigatório no schema e não entra em cálculo nenhum:
        fica igual ao de dia, para não parecer uma tarifa diferente. */
-    const novo = await ctx.db.insert("vehicles", { ...d, pricePerKmNight: d.pricePerKm, order: ordem, actualizadoEm: agora });
+    const novo = await ctx.db.insert("vehicles", {
+      ...d,
+      tariff: d.tariff ?? undefined,
+      categoryId: d.categoryId ?? undefined,
+      pricePerKmNight: d.pricePerKm,
+      order: ordem,
+      actualizadoEm: agora,
+    });
     await ligarPar(novo);
     return { id: novo, versao: agora };
   },

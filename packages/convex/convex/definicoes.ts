@@ -3,6 +3,7 @@ import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import { exigirAdmin } from "./lib/admin";
 import { siteSettingsDefaults } from "./siteSettings";
+import { pricingConfigOf } from "./lib/pricing";
 import { marketingStatsDefaults } from "./marketingStats";
 import { deIndice, indiceDia } from "./lib/orderLabels";
 import { SEGS, rowsIn, total } from "./lib/orderStats";
@@ -170,5 +171,79 @@ export const guardar = mutation({
     if (mkt) await ctx.db.patch(mkt._id, registoMkt);
     else await ctx.db.insert("marketingStats", registoMkt);
     return { versao: { site: tSite, marketing: tMkt } };
+  },
+});
+
+/* ─────────────────────── Preços (transfer pricing levers) ─────────────────
+ *
+ * Saved apart from the rest of the screen: it carries the switch between
+ * today's linear prices and the banded model (lib/pricing.ts), and a mistake
+ * here changes what every customer pays. */
+
+const vSurge = v.object({ sameDay: v.number(), lastMinute: v.number() });
+const vPricing = v.object({
+  model: v.union(v.literal("linear"), v.literal("bands")),
+  bands: v.array(v.object({ upToKm: v.union(v.number(), v.null()), pct: v.number() })),
+  surge: v.object({ standard: vSurge, van: vSurge, large: vSurge }),
+  freeAfterHours: v.number(),
+  lastMinuteHours: v.number(),
+  earlyMorningFrom: v.number(),
+  earlyMorningTo: v.number(),
+  partnerFactor: v.number(),
+});
+
+export const precos = query({
+  args: {},
+  handler: async (ctx) => {
+    await exigirAdmin(ctx, "definicoes", "ver");
+    const site = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", CHAVE)).first();
+    return {
+      versao: site?.updatedAt ?? null,
+      precos: pricingConfigOf(site?.pricing),
+      sobretaxaAeroporto: site?.airportSurchargePercent ?? siteSettingsDefaults.airportSurchargePercent,
+      /* How many active cars already have a banded tariff: switching to
+         "bands" leaves the others on today's price. */
+      comTarifa: (await ctx.db.query("vehicles").withIndex("by_status", (q) => q.eq("status", "active")).collect()).reduce(
+        (n, c) => ({ com: n.com + (c.tariff ? 1 : 0), total: n.total + 1 }),
+        { com: 0, total: 0 },
+      ),
+    };
+  },
+});
+
+export const guardarPrecos = mutation({
+  args: { versao: v.union(v.number(), v.null()), precos: vPricing },
+  handler: async (ctx, { versao, precos: p }) => {
+    await exigirAdmin(ctx, "definicoes");
+    const erros: Record<string, string> = {};
+    const entre = (campo: string, n: number, min: number, max: number, msg: string) => {
+      if (!Number.isFinite(n) || n < min || n > max) erros[campo] = msg;
+    };
+    if (p.bands.length === 0) erros.bands = "Pelo menos uma banda.";
+    p.bands.forEach((b, i) => {
+      const last = i === p.bands.length - 1;
+      if (last && b.upToKm !== null) erros[`bands.${i}.upToKm`] = "A última banda não tem fim.";
+      if (!last && (b.upToKm === null || !(b.upToKm > (p.bands[i - 1]?.upToKm ?? 0)))) erros[`bands.${i}.upToKm`] = "Mais km do que a banda anterior.";
+      entre(`bands.${i}.pct`, b.pct, 0.1, 2, "Entre 10% e 200% da taxa.");
+    });
+    for (const k of ["standard", "van", "large"] as const) {
+      entre(`surge.${k}.sameDay`, p.surge[k].sameDay, 1, 3, "Entre ×1 e ×3.");
+      entre(`surge.${k}.lastMinute`, p.surge[k].lastMinute, 1, 3, "Entre ×1 e ×3.");
+    }
+    entre("freeAfterHours", p.freeAfterHours, 0, 168, "De 0 a 168 horas.");
+    entre("lastMinuteHours", p.lastMinuteHours, 0, p.freeAfterHours, "Menos horas do que o limite sem acréscimo.");
+    entre("earlyMorningFrom", p.earlyMorningFrom, 0, 23, "Uma hora de 0 a 23.");
+    entre("earlyMorningTo", p.earlyMorningTo, p.earlyMorningFrom, 24, "Depois da hora de início.");
+    entre("partnerFactor", p.partnerFactor, 0.5, 2, "Entre ×0,5 e ×2.");
+    if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
+
+    const site = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", CHAVE)).first();
+    if ((site?.updatedAt ?? null) !== versao) {
+      throw new ConvexError({ tipo: "conflito", mensagem: "Alguém gravou estas definições depois de abrir o ecrã. Veja a versão atual antes de gravar por cima." });
+    }
+    const t = Math.max(Date.now(), (site?.updatedAt ?? 0) + 1);
+    if (site) await ctx.db.patch(site._id, { pricing: p, updatedAt: t });
+    else await ctx.db.insert("siteSettings", { key: CHAVE, minAdvanceBookingHours: siteSettingsDefaults.minAdvanceBookingHours, pricing: p, updatedAt: t });
+    return { versao: t };
   },
 });

@@ -3,9 +3,9 @@ import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { haversineKm } from "./geo";
 import { eAeroporto, type Local } from "./aeroportos";
-import { isNightDeparture, priceVehicle } from "./pricing";
+import { linearPartnerFactor, priceTrip, withFactor } from "./pricing";
 import { precoDaReserva } from "./precoTours";
-import { siteSettingsDefaults } from "../siteSettings";
+import { classOf, loadPricing, smallestThatFits } from "./quote";
 
 /*
  * O mínimo que uma reserva de transfer tem de pagar, calculado no servidor.
@@ -43,16 +43,18 @@ const EXTRA = { cadeira: 5, prancha: 5, animal: 10 };
    reexportam, para quem já os importava deste ficheiro. */
 export { codigoDoAeroporto, eAeroporto } from "./aeroportos";
 
-/** O ajuste de preço de um parceiro sobre a frota (partnerships.ajustePreco, em %). */
-export function factorDoParceiro(p: Pick<Doc<"partnerships">, "ajustePreco"> | null | undefined): number {
-  const a = p?.ajustePreco ?? 0;
-  return Number.isFinite(a) ? 1 + a / 100 : 1;
-}
+/** O ajuste de preço de um parceiro sobre a frota (partnerships.ajustePreco, em %).
+    Only the linear model uses it; the banded one has one channel factor for
+    every partner (siteSettings.pricing.partnerFactor). */
+export const factorDoParceiro = (p: Pick<Doc<"partnerships">, "ajustePreco"> | null | undefined) => linearPartnerFactor(p);
 
 /* Ao cêntimo: 57 × 1,1 dava 62,699999… no checkout. */
-export function comAjuste(valor: number, f: number): number {
-  return f === 1 ? valor : Math.round(valor * f * 100) / 100;
-}
+export const comAjuste = withFactor;
+
+/* How long a quote keeps its lead-time surge: someone who chose the car an
+   hour ago and pays now is priced as of then. Longer than that, the clock of
+   the payment counts. */
+const QUOTE_HOLD_MS = 2 * 3_600_000;
 
 export async function minimoDoTransfer(
   ctx: QueryCtx,
@@ -62,26 +64,44 @@ export async function minimoDoTransfer(
   opcoesEscolhidas: { code: string }[],
 ) {
   if (!ida.vehicleId) throw new ConvexError("Escolha um carro antes de pagar.");
-  const carro = await ctx.db.get(ida.vehicleId);
+  let carro = await ctx.db.get(ida.vehicleId);
   if (!carro) throw new ConvexError("O carro escolhido já não existe. Volte atrás e escolha outro.");
+  const categoria = carro.categoryId ? await ctx.db.get(carro.categoryId) : null;
+  /* A category's car must take the group: a request edited to keep the
+     15-seat minibus for 20 people is priced with the car that fits. */
+  if (categoria && ida.passengers > carro.passengers) {
+    const irmaos = (await ctx.db.query("vehicles").withIndex("by_category", (q) => q.eq("categoryId", categoria._id)).collect()).filter(
+      (c) => c.status === "active",
+    );
+    carro = smallestThatFits(irmaos, ida.passengers, 0) ?? carro;
+  }
   const parceria = ida.partnershipId ? await ctx.db.get(ida.partnershipId) : null;
-  const f = factorDoParceiro(parceria);
 
   const temCoordenadas = (l: Local): l is { location: string; lat: number; lng: number } => typeof l?.lat === "number" && typeof l?.lng === "number";
   const recta = temCoordenadas(ida.departure) && temCoordenadas(ida.arrival) ? haversineKm(ida.departure, ida.arrival) : 0;
   const distancia = Math.max(ida.distance ?? 0, recta);
 
-  const definicoes = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", "global")).first();
-  const preco = priceVehicle({
-    pricePerKm: comAjuste(carro.pricePerKm, f),
-    minimumPrice: comAjuste(carro.minimumPrice, f),
-    distance: distancia,
-    isNight: isNightDeparture(ida.departureDate),
-    isNightReturn: volta ? isNightDeparture(volta.departureDate) : false,
-    bookReturn: Boolean(volta),
-    isAirportPickup: eAeroporto(ida.departure),
-    airportSurchargePercent: definicoes?.airportSurchargePercent ?? siteSettingsDefaults.airportSurchargePercent,
-  });
+  const pricing = await loadPricing(ctx);
+  const precoEm = (now: number) =>
+    priceTrip({
+      vehicle: carro,
+      vehicleClass: classOf(categoria),
+      config: pricing.config,
+      partner: parceria,
+      distance: distancia,
+      departureDate: ida.departureDate,
+      returnDate: volta?.departureDate,
+      bookReturn: Boolean(volta),
+      isAirportPickup: eAeroporto(ida.departure),
+      airportSurchargePercent: pricing.airportSurchargePercent,
+      now,
+    });
+  const agora = Date.now();
+  const cotado = ida.quotedAt && agora - ida.quotedAt <= QUOTE_HOLD_MS ? precoEm(ida.quotedAt) : null;
+  const actual = precoEm(agora);
+  /* The cheaper of the two for the customer: the surge only grows as the
+     pickup gets closer. */
+  const preco = cotado && cotado.price < actual.price ? cotado : actual;
 
   const vezes = volta ? 2 : 1;
   const opcoes = opcoesEscolhidas.reduce((t, o) => t + (OPCOES_MINIMO[o.code] ?? 0) * vezes, 0);
@@ -94,7 +114,15 @@ export async function minimoDoTransfer(
   for (const x of ida.pendingCheckoutExperiences ?? []) experiencias += await minimoDaExperiencia(ctx, x);
 
   const transfer = Math.ceil(preco.price + opcoes + extras);
-  return { minimo: transfer + experiencias, carro: preco.price, opcoes, extras, experiencias, distancia };
+  return {
+    minimo: transfer + experiencias,
+    carro: preco.price,
+    opcoes,
+    extras,
+    experiencias,
+    distancia,
+    snapshot: { model: preco.model, distance: Math.round(distancia * 10) / 10, car: preco.price, ...(preco.legs ? { legs: preco.legs } : {}) },
+  };
 }
 
 type Experiencia = NonNullable<Doc<"orders">["pendingCheckoutExperiences"]>[number];

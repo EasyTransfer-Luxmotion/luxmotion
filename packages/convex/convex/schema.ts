@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { vPricingSnapshot } from "./lib/pricingSnapshot";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { vPerna } from "./lib/vPerna";
 import { vPerfilMotorista } from "./lib/perfilMotorista";
@@ -113,6 +114,16 @@ export default defineSchema({
     // Vehicle
     vehicleId: v.optional(v.id("vehicles")),
     vehicleName: v.optional(v.string()),
+    /* The category the customer chose; vehicleId is the size picked in it. */
+    categoryId: v.optional(v.id("vehicleCategories")),
+    /* When the car was chosen (epoch ms): the payment check prices the
+       lead-time surge as of then, so crossing the 12 h mark while paying
+       never refuses the payment. */
+    quotedAt: v.optional(v.number()),
+    /* How the server priced the car at payment (lib/pricing.ts, priceTrip):
+       the model, the distance and each leg's factors. Old orders don't have
+       it; their amounts are what was charged. */
+    pricingSnapshot: v.optional(vPricingSnapshot),
 
     // Flight info
     flightNumber: v.optional(v.string()),
@@ -466,8 +477,24 @@ export default defineSchema({
     maxBabySeats: v.optional(v.number()),
     maxBoosterSeats: v.optional(v.number()),
     pricePerKm: v.number(),
-    pricePerKmNight: v.number(),
+    /* Never used in any price (the night fee was a flat 20%); optional since
+       the banded model brought tariff.nightMultiplier. */
+    pricePerKmNight: v.optional(v.number()),
     minimumPrice: v.number(),
+    /* The banded model (lib/pricing.ts, priceTrip). pricePerKm/minimumPrice
+       stay as the linear model, so production keeps its prices until
+       siteSettings.pricing.model is switched to "bands". */
+    tariff: v.optional(
+      v.object({
+        baseFare: v.number(),
+        ratePerKm: v.number(),
+        nightMultiplier: v.number(),
+        minimum: v.number(),
+      }),
+    ),
+    /* The customer-facing category (vehicleCategories). The checkout shows
+       one line per category and picks the smallest car of it that fits. */
+    categoryId: v.optional(v.id("vehicleCategories")),
     hasWifi: v.boolean(),
     isElectric: v.boolean(),
     status: v.union(
@@ -487,7 +514,27 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_order", ["order"])
     .index("by_partnership", ["partnershipId"])
-    .index("by_upgrade_from", ["upgradeFromVehicleId"]),
+    .index("by_upgrade_from", ["upgradeFromVehicleId"])
+    .index("by_category", ["categoryId"]),
+
+  /* What the customer chooses: "Minibus", "Business Class"... Each car
+     belongs to one; a category with several sizes (minibus of 15, 20 and 22
+     seats) shows once, priced with the smallest car that takes the group. */
+  vehicleCategories: defineTable({
+    name: v.string(),
+    translations: v.optional(catalogTranslationsValidator),
+    examples: v.optional(v.string()),
+    imageId: v.optional(v.string()),
+    /* Which lead-time surge applies (siteSettings.pricing.surge). */
+    vehicleClass: v.union(v.literal("standard"), v.literal("van"), v.literal("large")),
+    status: v.union(v.literal("active"), v.literal("inactive")),
+    order: v.number(),
+    /* THIS (premium) category is offered as the upgrade of the referenced one. */
+    upgradeFromCategoryId: v.optional(v.id("vehicleCategories")),
+    actualizadoEm: v.optional(v.number()),
+  })
+    .index("by_order", ["order"])
+    .index("by_upgrade_from", ["upgradeFromCategoryId"]),
 
   partnerships: defineTable({
     name: v.string(),
@@ -548,6 +595,24 @@ export default defineSchema({
     // local results, someone already driving somewhere will happily add a stop
     // half an hour away.
     checkoutUpsellRadiusKm: v.optional(v.number()),
+    /* The transfer pricing levers (lib/pricing.ts, PricingConfig). Missing
+       keys take PRICING_DEFAULTS; model "linear" is today's pricing. */
+    pricing: v.optional(
+      v.object({
+        model: v.union(v.literal("linear"), v.literal("bands")),
+        bands: v.array(v.object({ upToKm: v.union(v.number(), v.null()), pct: v.number() })),
+        surge: v.object({
+          standard: v.object({ sameDay: v.number(), lastMinute: v.number() }),
+          van: v.object({ sameDay: v.number(), lastMinute: v.number() }),
+          large: v.object({ sameDay: v.number(), lastMinute: v.number() }),
+        }),
+        freeAfterHours: v.number(),
+        lastMinuteHours: v.number(),
+        earlyMorningFrom: v.number(),
+        earlyMorningTo: v.number(),
+        partnerFactor: v.number(),
+      }),
+    ),
     updatedAt: v.optional(v.number()),
   }).index("by_key", ["key"]),
 
