@@ -185,7 +185,9 @@ export const SEGMENTOS: Record<ChaveFunil, string[]> = {
   /* Bookings and quotes: the type of service (lib/tipoServico.ts). */
   reservas: ["Transfer", "Tour", "Casamento", "Corporate", "Escolas", "Ultra Luxo", "Eventos"],
   medida: ["Transfer", "Tour", "Casamento", "Corporate", "Escolas", "Ultra Luxo", "Eventos"],
-  parcerias: ["Hotelaria", "Weddings", "Agências e operadores", "Restauração", "Motoristas", "Empresas de motoristas", "Outro"],
+  /* Without the drivers: applications have their own funnel since the
+     dashboard spec, and the filter offered two segments that were always empty. */
+  parcerias: ["Hotelaria", "Weddings", "Agências e operadores", "Restauração", "Outro"],
   candidaturas: ["Motoristas", "Empresas de motoristas"],
 };
 
