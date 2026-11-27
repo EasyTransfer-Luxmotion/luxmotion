@@ -119,6 +119,7 @@ export function useVehicles({
         /* The size inside the category ("Mini Bus (16–20 pax)") and its seats. */
         size: v.categoryId ? v.vehicleName : undefined,
         seats: v.passengers,
+        bags: v.luggage,
         isElectric: v.isElectric,
         hasWifi: v.hasWifi,
         order: v.order,

@@ -37,8 +37,9 @@ export interface Vehicle {
   categoryId?: string
   /** The car of the category picked for the group, e.g. "Mini Bus (16–20 pax)". */
   size?: string
-  /** That car's seats (passengers is the category's largest). */
+  /** That car's seats and bags (passengers/luggage are the category's largest). */
   seats?: number
+  bags?: number
 }
 
 export interface TransferState {

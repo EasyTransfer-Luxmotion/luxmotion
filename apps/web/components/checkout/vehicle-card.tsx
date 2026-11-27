@@ -23,6 +23,7 @@ interface Vehicle {
   /** The car the server picked inside the category, and its seats. */
   size?: string
   seats?: number
+  bags?: number
 }
 
 interface VehicleCardProps {
@@ -133,9 +134,9 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false, selected =
 
       <div className="flex items-center gap-[8px] w-full">
         <Users className="size-[18px] text-[var(--ck-text-muted,#999999)]" strokeWidth={1.5} />
-        <span className="text-[14px] text-[var(--ck-text-muted,#999999)] leading-none">{vehicle.passengers}</span>
+        <span className="text-[14px] text-[var(--ck-text-muted,#999999)] leading-none">{vehicle.seats ?? vehicle.passengers}</span>
         <Briefcase className="size-[18px] text-[var(--ck-text-muted,#999999)] ml-1" strokeWidth={1.5} />
-        <span className="text-[14px] text-[var(--ck-text-muted,#999999)] leading-none">{vehicle.luggage}</span>
+        <span className="text-[14px] text-[var(--ck-text-muted,#999999)] leading-none">{vehicle.bags ?? vehicle.luggage}</span>
         <Wifi className="size-[18px] text-[var(--ck-text-muted,#999999)] ml-1" strokeWidth={1.5} />
         <span className="text-[14px] text-[var(--ck-text-muted,#999999)] leading-none">{tCommon("yes")}</span>
       </div>

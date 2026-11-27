@@ -23,6 +23,7 @@ interface Vehicle {
   /** The car the server picked inside the category, and its seats. */
   size?: string
   seats?: number
+  bags?: number
 }
 
 interface VehicleCardProps {
@@ -116,7 +117,7 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false }: VehicleC
                   className="text-sm font-semibold"
                   style={{ color: "var(--theme-checkout-vehicle-card-badge-text, #0E4659)" }}
                 >
-                  {vehicle.passengers}
+                  {vehicle.seats ?? vehicle.passengers}
                 </span>
               </div>
               <div 
@@ -131,7 +132,7 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false }: VehicleC
                   className="text-sm font-semibold"
                   style={{ color: "var(--theme-checkout-vehicle-card-badge-text, #0E4659)" }}
                 >
-                  {vehicle.luggage}
+                  {vehicle.bags ?? vehicle.luggage}
                 </span>
               </div>
               {vehicle.hasWifi && (
@@ -275,7 +276,7 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false }: VehicleC
                   className="text-sm font-medium"
                   style={{ color: "var(--theme-checkout-vehicle-card-badge-text, #0E4659)" }}
                 >
-                  {vehicle.passengers}
+                  {vehicle.seats ?? vehicle.passengers}
                 </span>
               </div>
               <div 
@@ -290,7 +291,7 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false }: VehicleC
                   className="text-sm font-medium"
                   style={{ color: "var(--theme-checkout-vehicle-card-badge-text, #0E4659)" }}
                 >
-                  {vehicle.luggage}
+                  {vehicle.bags ?? vehicle.luggage}
                 </span>
               </div>
               {vehicle.hasWifi && (
