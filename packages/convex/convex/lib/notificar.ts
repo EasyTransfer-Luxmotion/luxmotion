@@ -130,7 +130,13 @@ export function construirReserva(
         ? "Nova reserva · paga em dinheiro"
         : tour
           ? "Nova reserva · tour ou evento"
-          : "Nova reserva paga",
+          : /* A won quote turned into bookings (funis.converterEmReservas):
+               it said «Nova reserva paga» even when left to pay. */
+            ida.origemOrcamento
+            ? ida.paymentStatus === "completed"
+              ? "Nova reserva de orçamento · paga"
+              : "Nova reserva de orçamento · por pagar"
+            : "Nova reserva paga",
     detalhe: [ida.orderNumber, nome, rota].filter(Boolean).join(" · "),
     href: `/orders/${encodeURIComponent(ida.orderNumber ?? ida._id)}`,
     valor: valor || undefined,

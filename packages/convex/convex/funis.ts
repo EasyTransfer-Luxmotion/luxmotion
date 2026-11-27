@@ -125,6 +125,9 @@ async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
     categorias: [] as string[],
     registo: null as "site" | "manual" | null,
     documentacao: null as Documentacao | null,
+    /* A booking created from a quote and not yet paid (spec 3.2: it must
+       stand out in Operação). Cash is paid on the day: not flagged. */
+    porPagar: false,
   };
   if (!n.origemId) return { ...base, ...vazio, tipoServico: tipoDoPedido(n) };
   if (n.origem === "orders") {
@@ -141,6 +144,7 @@ async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
       parceiro: o?.partnershipName ?? null,
       tipoServico: o ? await tipoDaEncomenda(ctx, o) : null,
       atraso: n.fechadoEm ? 0 : diasDeAtraso(viagem, lisbonToday()),
+      porPagar: Boolean(o && o.paymentStatus !== "completed" && o.paymentMethod !== "cash" && o.status !== "cancelled"),
     };
   }
   /* Pedidos e candidaturas: o parceiro por onde chegou e, nas candidaturas,
