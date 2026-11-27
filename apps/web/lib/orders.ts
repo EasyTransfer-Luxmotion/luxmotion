@@ -74,6 +74,9 @@ export interface SelectFlightResponse {
 export type PaymentMethod = "mbway" | "mb" | "ccard" | "cash"
 
 export interface StartPaymentRequest {
+  /** The route the customer saw priced; the server checks the price with it. */
+  distance?: number
+  routeDurationMinutes?: number
   amount: number
   amountReturn?: number // Opcional para compatibilidade
   basePrice: number

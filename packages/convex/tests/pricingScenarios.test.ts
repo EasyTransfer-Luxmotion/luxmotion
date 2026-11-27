@@ -340,6 +340,32 @@ describe("the checkout on the server", () => {
     expect(o.pricingWarning).toBeUndefined();
   });
 
+  test("the route recomputed after the trip step: the payment is checked against the route paid", async () => {
+    const s = await fleet();
+    const date = "2030-06-10 12:00";
+    const id = await book({ passengers: 2, date });
+    await t.mutation(api.orders.selectCar, { orderId: id, vehicleId: s.bc, vehicleName: "Business Class", price: 1, passengerCapacity: 3 });
+    /* Saved at 60 km, then Google gave 30 km and the customer saw that price. */
+    await t.mutation(api.orders.registTrip, { orderId: id, departureDate: date, passengers: 2, distance: 60 });
+    const q = await t.query(api.vehicles.listQuoted, { passengers: 2, distance: 30, departureDate: date, now: Date.now() });
+    const price = Math.ceil(q.find((r) => r._id === s.bc)!.price);
+    await t.action(api.orders.startPaymentAction, { ...payArgs(id, price), distance: 30, routeDurationMinutes: 35 });
+    const o = (await t.run((ctx) => ctx.db.get(id)))!;
+    expect(o.distance).toBe(30);
+    expect(o.pricingSnapshot?.distance).toBe(30);
+    expect(o.pricingWarning).toBeUndefined();
+  });
+
+  test("a route shorter than the straight line is not believed", async () => {
+    const s = await fleet();
+    const date = "2030-06-10 12:00";
+    const id = await book({ passengers: 2, date });
+    await t.mutation(api.orders.selectCar, { orderId: id, vehicleId: s.bc, vehicleName: "Business Class", price: 1, passengerCapacity: 3 });
+    await t.mutation(api.orders.registTrip, { orderId: id, departureDate: date, passengers: 2, distance: 30 });
+    /* Lisboa–Cascais is ~25 km in a straight line: 1 km is a lie. */
+    await expect(t.action(api.orders.startPaymentAction, { ...payArgs(id, 50), distance: 1 })).rejects.toThrow(/pelo menos/);
+  });
+
   test("paying well below the price is refused", async () => {
     const s = await fleet();
     const date = "2030-06-10 12:00";

@@ -907,6 +907,18 @@ export const subscribeToOrderStatus = query({
   },
 });
 
+/* The route the payment is for (startPaymentAction). Only on an order not
+   yet paid; the check never goes below the straight line anyway
+   (lib/precoTransfer.ts). */
+export const setRouteDistance = internalMutation({
+  args: { orderId: v.id("orders"), distance: v.number(), routeDurationMinutes: v.optional(v.number()) },
+  handler: async (ctx, { orderId, distance, routeDurationMinutes }) => {
+    const order = exigirAlteravel(await ctx.db.get(orderId));
+    if (!(distance > 0) || distance > 5000) return;
+    await ctx.db.patch(order._id, { distance, ...(routeDurationMinutes ? { routeDurationMinutes } : {}), updatedAt: Date.now() });
+  },
+});
+
 /* O mínimo a pagar por esta reserva (ida e, se houver, volta), calculado no
    servidor — ver lib/precoTransfer.ts. */
 export const minimoAPagar = internalQuery({
@@ -985,6 +997,11 @@ export const startPaymentAction = action({
       ),
     ),
     // URLs para cartão de crédito
+    /* The route the customer saw priced (Google, in the browser). The trip
+       step saves it, but the route can be computed again afterwards (the
+       pickup re-geocoded): the payment check must price the same route. */
+    distance: v.optional(v.number()),
+    routeDurationMinutes: v.optional(v.number()),
     successUrl: v.optional(v.string()),
     errorUrl: v.optional(v.string()),
     cancelUrl: v.optional(v.string()),
@@ -1039,6 +1056,13 @@ export const startPaymentAction = action({
        existem. Recusar por 2 € um cliente legítimo era pior do que o que se
        evita; quem paga 1 € por um transfer fica de fora. Entre 1 € e 10%
        abaixo, aceita-se e fica um aviso na reserva para a Operação ver. */
+    if (args.distance !== undefined && args.distance > 0) {
+      await ctx.runMutation(internal.orders.setRouteDistance, {
+        orderId: args.orderId,
+        distance: args.distance,
+        routeDurationMinutes: args.routeDurationMinutes,
+      });
+    }
     const calculado = await ctx.runQuery(internal.orders.minimoAPagar, {
       orderId: args.orderId,
       opcoes: (args.selectedCheckoutAddons ?? []).map((o) => ({ code: o.code })),

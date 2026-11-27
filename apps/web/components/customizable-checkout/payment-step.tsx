@@ -217,6 +217,9 @@ export function PaymentStep({ onContinue }: PaymentStepProps) {
     const returnTax = isRoundTrip ? taxAmount / 2 : 0
 
     const payload: StartPaymentRequest = {
+      /* The route priced on screen: it can change after the trip step. */
+      distance: state.distance ?? undefined,
+      routeDurationMinutes: state.routeDuration ?? undefined,
       amount: outboundAmount,
       amountReturn: returnAmount,
       basePrice: outboundBasePrice,
