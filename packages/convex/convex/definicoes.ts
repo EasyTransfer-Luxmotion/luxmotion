@@ -4,6 +4,7 @@ import { mutation } from "./functions";
 import { exigirAdmin } from "./lib/admin";
 import { siteSettingsDefaults } from "./siteSettings";
 import { pricingConfigOf } from "./lib/pricing";
+import { configAvaliacao } from "./lib/avaliacao";
 import { marketingStatsDefaults } from "./marketingStats";
 import { deIndice, indiceDia } from "./lib/orderLabels";
 import { SEGS, rowsIn, total } from "./lib/orderStats";
@@ -251,6 +252,53 @@ export const guardarPrecos = mutation({
     const t = Math.max(Date.now(), (site?.updatedAt ?? 0) + 1);
     if (site) await ctx.db.patch(site._id, { pricing: p, updatedAt: t });
     else await ctx.db.insert("siteSettings", { key: CHAVE, minAdvanceBookingHours: siteSettingsDefaults.minAdvanceBookingHours, pricing: p, updatedAt: t });
+    return { versao: t };
+  },
+});
+
+/* ─────────────── Avaliação de candidaturas (spec v1.0, 5.5) ─────────────── */
+
+export const avaliacao = query({
+  args: {},
+  handler: async (ctx) => {
+    await exigirAdmin(ctx, "definicoes", "ver");
+    const site = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", CHAVE)).first();
+    return { versao: site?.updatedAt ?? null, avaliacao: configAvaliacao(site?.avaliacaoCandidaturas) };
+  },
+});
+
+export const guardarAvaliacao = mutation({
+  args: {
+    versao: v.union(v.number(), v.null()),
+    avaliacao: v.object({
+      criterios: v.array(v.object({ chave: v.string(), titulo: v.string(), peso: v.number() })),
+      limiteAprovar: v.number(),
+      limiteRever: v.number(),
+    }),
+  },
+  handler: async (ctx, { versao, avaliacao: a }) => {
+    await exigirAdmin(ctx, "definicoes");
+    const erros: Record<string, string> = {};
+    if (a.criterios.length === 0) erros.criterios = "Pelo menos um critério.";
+    const chaves = new Set<string>();
+    a.criterios.forEach((c, i) => {
+      if (!c.titulo.trim()) erros[`criterios.${i}.titulo`] = "Dê um nome ao critério.";
+      if (!Number.isFinite(c.peso) || c.peso <= 0 || c.peso > 100) erros[`criterios.${i}.peso`] = "Um peso de 1 a 100.";
+      if (chaves.has(c.chave)) erros[`criterios.${i}.titulo`] = "Critério repetido.";
+      chaves.add(c.chave);
+    });
+    if (!(a.limiteRever >= 0 && a.limiteRever < a.limiteAprovar && a.limiteAprovar <= 100)) {
+      erros.limites = "O limite para aprovar tem de ser maior do que o de rever, e no máximo 100.";
+    }
+    if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
+    const site = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", CHAVE)).first();
+    if ((site?.updatedAt ?? null) !== versao) {
+      throw new ConvexError({ tipo: "conflito", mensagem: "Alguém gravou estas definições depois de abrir o ecrã. Veja a versão atual antes de gravar por cima." });
+    }
+    const limpo = { ...a, criterios: a.criterios.map((c) => ({ ...c, titulo: c.titulo.trim() })) };
+    const t = Math.max(Date.now(), (site?.updatedAt ?? 0) + 1);
+    if (site) await ctx.db.patch(site._id, { avaliacaoCandidaturas: limpo, updatedAt: t });
+    else await ctx.db.insert("siteSettings", { key: CHAVE, minAdvanceBookingHours: siteSettingsDefaults.minAdvanceBookingHours, avaliacaoCandidaturas: limpo, updatedAt: t });
     return { versao: t };
   },
 });

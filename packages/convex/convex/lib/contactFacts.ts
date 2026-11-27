@@ -67,7 +67,7 @@ async function ownRelations(ctx: Writer, kind: Kind, doc: Contact | Org): Promis
   for (const n of cards) {
     if (!keys.has(n.funilId)) keys.set(n.funilId, (await ctx.db.get(n.funilId))?.chave);
     const chave = keys.get(n.funilId);
-    if (chave === "parcerias") own.add(relacaoDaOrigem(n.origem) === "motoristas" ? "motoristas" : "parceiros");
+    if (chave === "parcerias" || chave === "candidaturas") own.add(relacaoDaOrigem(n.origem) === "motoristas" ? "motoristas" : "parceiros");
     else if (chave) own.add("clientes");
   }
   const r = relacaoDaOrigem(doc.primeiraOrigem);

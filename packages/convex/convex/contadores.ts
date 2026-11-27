@@ -134,9 +134,12 @@ export const porTratar = query({
       ve("reservas") ? naPrimeiraEtapa(ctx, "reservas") : Promise.resolve(0),
     ]);
 
+    /* Applications have their own CRM: the cards in its first stage. */
+    const candidaturasQuadro = ve("candidaturas") ? await naPrimeiraEtapa(ctx, "candidaturas") : null;
+
     return {
       pedidos: pedidosQuadro ?? pedidos,
-      candidaturas,
+      candidaturas: candidaturasQuadro ?? candidaturas,
       avaliacoes,
       leads: leadsQuadro ?? leads,
       /* O nome ficou (o dashboard lê esta chave); conta os serviços por

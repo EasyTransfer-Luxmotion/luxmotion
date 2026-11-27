@@ -1,10 +1,22 @@
 import { ConvexError, v } from "convex/values";
-import { query, type QueryCtx } from "./_generated/server";
+import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
 import { acertarCartaoDaOrigem } from "./lib/funilEstado";
 import { safeStorageDelete } from "./lib/storage";
+import { enfileirarLead } from "./lib/pipedriveFila";
+import { avisarPedido } from "./lib/avisoPedido";
+import {
+  DOCUMENTOS,
+  configAvaliacao,
+  documentosPorValidar,
+  estadoDaDocumentacao,
+  pontuacao,
+  recomendacao,
+  type ConfigAvaliacao,
+  type Tabela,
+} from "./lib/avaliacao";
 
 /*
  * Operação → Candidaturas no dashboard (E4): motoristas e parceiros (empresas
@@ -221,6 +233,7 @@ export const mudarEstado = mutation({
     const quem = await exigirAdmin(ctx, "candidaturas");
     const nid = ctx.db.normalizeId(TABELA[tipo], id);
     if (!nid || !(await ctx.db.get(nid))) throw new ConvexError({ tipo: "naoExiste", mensagem: "Esta candidatura já não existe." });
+    if (estado === "approved") await exigirDocumentosValidados(ctx, TABELA[tipo], id);
     await ctx.db.patch(nid, { status: estado, reviewedAt: Date.now() });
     /* O cartão no quadro das Candidaturas acompanha (lib/funilEstado.ts). */
     await acertarCartaoDaOrigem(ctx, TABELA[tipo], id, estado, quem.email ?? "");
@@ -256,5 +269,208 @@ export const remover = mutation({
     for (const f of docs) await safeStorageDelete(ctx, f.id);
     await ctx.db.delete(nid);
     return { documentos: docs.length };
+  },
+});
+
+/* ───────────────────────── Avaliação (dashboard spec v1.0, 5) ───────────── */
+
+async function lerAvaliacao(ctx: QueryCtx, tabela: Tabela, id: string) {
+  return await ctx.db
+    .query("avaliacoesCandidatura")
+    .withIndex("by_candidatura", (q) => q.eq("tabela", tabela).eq("candidaturaId", id))
+    .first();
+}
+
+async function configDaAvaliacao(ctx: QueryCtx): Promise<ConfigAvaliacao> {
+  const s = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", "global")).first();
+  return configAvaliacao(s?.avaliacaoCandidaturas);
+}
+
+/* Approving is manual, and only with every required document validated:
+   the score helps, the documents decide (spec 5.5). Used by the board's
+   move to «Ativo» and by the application's own status buttons. */
+export async function exigirDocumentosValidados(ctx: QueryCtx, tabela: Tabela, id: string) {
+  const av = await lerAvaliacao(ctx, tabela, id);
+  const falta = documentosPorValidar(tabela, av?.documentos);
+  if (falta.length) {
+    throw new ConvexError(`Falta validar: ${falta.join(", ")}. Valide os documentos na ficha antes de aprovar.`);
+  }
+}
+
+/* The evaluation of one application: its documents with their state, the
+   score per criterion, the overall and the recommendation. */
+export const avaliacao = query({
+  args: { tipo: vTipo, id: v.string() },
+  handler: async (ctx, { tipo, id }) => {
+    await exigirAdmin(ctx, "candidaturas", "ver");
+    const tabela = TABELA[tipo];
+    const nid = ctx.db.normalizeId(tabela, id);
+    const app = nid ? await ctx.db.get(nid) : null;
+    if (!app) return null;
+    const av = await lerAvaliacao(ctx, tabela, id);
+    const cfg = await configDaAvaliacao(ctx);
+    const estados = new Map((av?.documentos ?? []).map((d) => [d.chave, d]));
+    const nota = pontuacao(cfg, av?.notas ?? []);
+    return {
+      documentos: DOCUMENTOS[tabela].map((d) => ({
+        chave: d.chave,
+        titulo: d.titulo,
+        obrigatorio: d.obrigatorio,
+        recebido: Boolean((app as Record<string, unknown>)[d.chave]),
+        estado: estados.get(d.chave)?.estado ?? null,
+        por: estados.get(d.chave)?.por ?? null,
+        em: estados.get(d.chave)?.em ?? null,
+      })),
+      documentacao: estadoDaDocumentacao(tabela, app as Record<string, unknown>, av?.documentos),
+      criterios: cfg.criterios.map((c) => ({ ...c, nota: av?.notas.find((n) => n.chave === c.chave)?.nota ?? null })),
+      pontuacao: nota,
+      recomendacao: recomendacao(cfg, nota),
+      limites: { aprovar: cfg.limiteAprovar, rever: cfg.limiteRever },
+    };
+  },
+});
+
+async function gravarAvaliacao(
+  ctx: MutationCtx,
+  tabela: Tabela,
+  id: string,
+  por: string,
+  mudar: (a: { documentos: Doc<"avaliacoesCandidatura">["documentos"]; notas: Doc<"avaliacoesCandidatura">["notas"] }) => void,
+) {
+  const nid = ctx.db.normalizeId(tabela, id);
+  if (!nid || !(await ctx.db.get(nid))) throw new ConvexError("Esta candidatura já não existe.");
+  const atual = await lerAvaliacao(ctx, tabela, id);
+  const dados = { documentos: [...(atual?.documentos ?? [])], notas: [...(atual?.notas ?? [])] };
+  mudar(dados);
+  const agora = Date.now();
+  if (atual) await ctx.db.patch(atual._id, { ...dados, atualizadoEm: agora, por });
+  else await ctx.db.insert("avaliacoesCandidatura", { tabela, candidaturaId: id, ...dados, atualizadoEm: agora, por });
+}
+
+/* A document's state. Seeing documents needs «documentos»; so does judging them. */
+export const validarDocumento = mutation({
+  args: {
+    tipo: vTipo,
+    id: v.string(),
+    chave: v.string(),
+    estado: v.union(v.literal("recebido"), v.literal("validado"), v.literal("recusado")),
+  },
+  handler: async (ctx, { tipo, id, chave, estado }) => {
+    const quem = await exigirAdmin(ctx, "candidaturas", "editar", "documentos");
+    const tabela = TABELA[tipo];
+    if (!DOCUMENTOS[tabela].some((d) => d.chave === chave)) throw new ConvexError("Esse documento não existe nesta candidatura.");
+    await gravarAvaliacao(ctx, tabela, id, quem.email ?? "", (a) => {
+      a.documentos = [...a.documentos.filter((d) => d.chave !== chave), { chave, estado, por: quem.email ?? undefined, em: Date.now() }];
+    });
+  },
+});
+
+/* A criterion's score, 0–100; null clears it. */
+export const pontuar = mutation({
+  args: { tipo: vTipo, id: v.string(), chave: v.string(), nota: v.union(v.number(), v.null()) },
+  handler: async (ctx, { tipo, id, chave, nota }) => {
+    const quem = await exigirAdmin(ctx, "candidaturas");
+    if (nota !== null && (!Number.isFinite(nota) || nota < 0 || nota > 100)) throw new ConvexError("Uma pontuação de 0 a 100.");
+    await gravarAvaliacao(ctx, TABELA[tipo], id, quem.email ?? "", (a) => {
+      a.notas = a.notas.filter((n) => n.chave !== chave);
+      if (nota !== null) a.notas.push({ chave, nota: Math.round(nota) });
+    });
+  },
+});
+
+/*
+ * An application registered by hand (spec 5.2: «site ou registo manual»): the
+ * same table and the same path as the site's (funnel card, Contactos, the
+ * bell), with only what the team knows. The form's required fields that a
+ * phone call doesn't give stay empty.
+ */
+export const criarManual = mutation({
+  args: {
+    tipo: vTipo,
+    nome: v.string(),
+    empresa: v.optional(v.string()),
+    email: v.optional(v.string()),
+    telefone: v.optional(v.string()),
+    zona: v.optional(v.string()),
+    categoria: v.optional(v.string()),
+    notas: v.optional(v.string()),
+  },
+  handler: async (ctx, a) => {
+    const quem = await exigirAdmin(ctx, "candidaturas");
+    const nome = a.nome.trim();
+    if (!nome) throw new ConvexError("Diga o nome de quem se candidata.");
+    if (a.tipo === "parceiros" && !a.empresa?.trim()) throw new ConvexError("Diga o nome da empresa.");
+    const email = a.email?.trim() ?? "";
+    const telefone = a.telefone?.trim() ?? "";
+    if (!email && !telefone) throw new ConvexError("Indique um email ou um telefone.");
+    const tabela = TABELA[a.tipo];
+    const ultimo = await ctx.db.query(tabela).order("desc").first();
+    const base = {
+      status: "submitted" as const,
+      queuePosition: (ultimo?.queuePosition ?? 0) + 1,
+      createdAt: Date.now(),
+      termsAccepted: false,
+      origem: "manual" as const,
+      internalNotes: [a.notas?.trim(), `Registada à mão por ${quem.email ?? "?"}.`].filter(Boolean).join("\n"),
+      billingAccountHolder: "",
+      billingInvoiceName: "",
+      billingSwiftBic: "",
+      billingIban: "",
+      billingTaxOffice: "",
+      billingAddress: "",
+    };
+    let id: string;
+    if (a.tipo === "motoristas") {
+      id = await ctx.db.insert("driverApplications", {
+        ...base,
+        operatingZone: a.zona?.trim() ?? "",
+        fullName: nome,
+        email,
+        representativeEmail: email,
+        phone: telefone,
+        whatsapp: telefone,
+        languages: [],
+        referral: "manual",
+        vehicleCategory: a.categoria?.trim() ?? "",
+        vehicleBrand: "",
+        vehicleModel: "",
+        vehiclePlate: "",
+        vehicleColor: "",
+        vehicleYear: "",
+        vehicleOwnership: "",
+        vehiclePassengerCapacity: "",
+        vehicleLuggageCapacity: "",
+        vehicleTvdeLicensed: "",
+        vehicleInteriorPhotoIds: [],
+        vehicleExteriorPhotoIds: [],
+        childSeatBaby: 0,
+        childSeatChild: 0,
+        childSeatBooster: 0,
+        surfboardRack: false,
+        amenities: [],
+        billingNif: "",
+        availabilityDays: [],
+        availabilityShifts: [],
+      });
+    } else {
+      id = await ctx.db.insert("partnerApplications", {
+        ...base,
+        operatingZones: a.zona?.trim() ? [a.zona.trim()] : [],
+        driverCount: "",
+        driversComfortableWithMobile: "no",
+        companyName: a.empresa!.trim(),
+        representativeFullName: nome,
+        representativeEmail: email,
+        representativePhone: telefone,
+        representativeWhatsapp: telefone,
+        drivers: [],
+        vehicles: a.categoria?.trim() ? [{ make: "", model: "", licensePlate: "", category: a.categoria.trim() }] : [],
+        billingTaxId: "",
+        priceAgreementAcknowledged: false,
+      });
+    }
+    await enfileirarLead(ctx, tabela, id);
+    await avisarPedido(ctx, tabela, id);
+    return id;
   },
 });

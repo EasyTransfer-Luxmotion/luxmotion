@@ -121,6 +121,14 @@ export default defineSchema({
        cookie (main site, after visiting a partner page) gets the commission
        but the customer pays the site's price. */
     precoDeParceiro: v.optional(v.boolean()),
+    /* The type of service (lib/tipoServico.ts). Set only on bookings created
+       from a won quote; checkout bookings derive it (tour, event, wedding
+       partner, transfer). */
+    tipoServico: v.optional(v.string()),
+    /* A booking created from a won quote (funis.converterEmReservas): the
+       quote's card and which of its services. Converting twice finds it
+       here and creates nothing new. */
+    origemOrcamento: v.optional(v.object({ negocioId: v.id("negocios"), indice: v.number() })),
     /* When the car was chosen (epoch ms): the payment check prices the
        lead-time surge as of then, so crossing the 12 h mark while paying
        never refuses the payment. */
@@ -328,6 +336,7 @@ export default defineSchema({
     .searchIndex("search_orders", { searchField: "searchText", filterFields: ["status"] })
     .index("by_status", ["status"])
     .index("by_payment_status", ["paymentStatus"])
+    .index("by_origem_orcamento", ["origemOrcamento.negocioId"])
     .index("by_order_number", ["orderNumber"])
     /* Contador "hoje" da sidebar: departureDate começa por AAAA-MM-DD, por
        isso o dia é um intervalo do índice. */
@@ -522,6 +531,25 @@ export default defineSchema({
     .index("by_upgrade_from", ["upgradeFromVehicleId"])
     .index("by_category", ["categoryId"]),
 
+  /* The evaluation of a driver's or a fleet's application (dashboard spec
+     5.3–5.5): the state of each document and a score per criterion. One per
+     application; the files stay where they are. */
+  avaliacoesCandidatura: defineTable({
+    tabela: v.union(v.literal("driverApplications"), v.literal("partnerApplications")),
+    candidaturaId: v.string(),
+    documentos: v.array(
+      v.object({
+        chave: v.string(),
+        estado: v.union(v.literal("recebido"), v.literal("validado"), v.literal("recusado")),
+        por: v.optional(v.string()),
+        em: v.optional(v.number()),
+      }),
+    ),
+    notas: v.array(v.object({ chave: v.string(), nota: v.number() })),
+    atualizadoEm: v.number(),
+    por: v.optional(v.string()),
+  }).index("by_candidatura", ["tabela", "candidaturaId"]),
+
   /* What the customer chooses: "Minibus", "Business Class"... Each car
      belongs to one; a category with several sizes (minibus of 15, 20 and 22
      seats) shows once, priced with the smallest car that takes the group. */
@@ -619,6 +647,15 @@ export default defineSchema({
         nightFrom: v.optional(v.number()),
         nightTo: v.optional(v.number()),
         extras: v.optional(v.object({ childSeat: v.number(), surfboard: v.number(), pet: v.number() })),
+      }),
+    ),
+    /* How applications are scored (lib/avaliacao.ts): the criteria and their
+       weights, and the two marks. Missing: the spec's defaults. */
+    avaliacaoCandidaturas: v.optional(
+      v.object({
+        criterios: v.array(v.object({ chave: v.string(), titulo: v.string(), peso: v.number() })),
+        limiteAprovar: v.number(),
+        limiteRever: v.number(),
       }),
     ),
     updatedAt: v.optional(v.number()),
@@ -1185,6 +1222,8 @@ export default defineSchema({
     queuePosition: v.number(),
     createdAt: v.number(),
     reviewedAt: v.optional(v.number()),
+    /* Registered from the site (default) or by hand in the back-office. */
+    origem: v.optional(v.union(v.literal("site"), v.literal("manual"))),
     internalNotes: v.optional(v.string()),
   })
     .index("by_created", ["createdAt"])
@@ -1253,6 +1292,8 @@ export default defineSchema({
     queuePosition: v.number(),
     createdAt: v.number(),
     reviewedAt: v.optional(v.number()),
+    /* Registered from the site (default) or by hand in the back-office. */
+    origem: v.optional(v.union(v.literal("site"), v.literal("manual"))),
     internalNotes: v.optional(v.string()),
   })
     .index("by_created", ["createdAt"])
@@ -2121,6 +2162,10 @@ export default defineSchema({
     movidoEm: v.number(),
     fechadoEm: v.optional(v.number()),
     motivoPerda: v.optional(v.string()),
+    /* Applications: who evaluates it (a team member's email). */
+    responsavel: v.optional(v.string()),
+    /* A won quote: the bookings created from it (funis.converterEmReservas). */
+    reservasCriadas: v.optional(v.array(v.id("orders"))),
     /* Tirado do quadro sem se perder nem apagar (funis.arquivar): o registo
        e o histórico ficam, e desarquiva-se na ficha. */
     arquivadoEm: v.optional(v.number()),

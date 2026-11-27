@@ -4,6 +4,7 @@ import { pageArgs, pageOf } from "./lib/list";
 import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./functions";
 import type { Doc, Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { exigirAdmin, lerAcesso, permite, temCapacidade, type Acesso } from "./lib/admin";
 import { chega, type Capacidade, type Nivel } from "./lib/permissoes";
 import { CHAVES_FUNIL, FUNIS, SEGMENTOS, eChaveFunil, moduloDoCartao, modulosDoFunil, segmentoDaOrigem, tituloDaOrigem, type ChaveFunil, type Etapa } from "./lib/funis";
@@ -11,7 +12,9 @@ import { colocarNoFunil, entrarNoFunil, entrarReservaNoFunil } from "./lib/funil
 import { aplicarEtapaNaOrigem } from "./lib/funilEstado";
 import { ativarCarteira } from "./contactos";
 import type { TabelaLead } from "./lib/pipedriveMapa";
-import { zona } from "./candidaturas";
+import { exigirDocumentosValidados, zona } from "./candidaturas";
+import { tipoDaEncomenda, tipoDoPedido } from "./lib/tipoServico";
+import { categoriasDe, estadoDaDocumentacao, type Documentacao, type Tabela } from "./lib/avaliacao";
 
 /*
  * O quadro (kanban) dos Serviços — Website (despacho) e Por medida (venda)
@@ -29,7 +32,7 @@ const FECHADOS_VISIVEIS_MS = 30 * 86_400_000;
 /* Uma coluna aberta com mais do que isto já não se trabalha a arrastar. */
 const MAX_POR_COLUNA = 300;
 
-const vChave = v.union(v.literal("reservas"), v.literal("medida"), v.literal("parcerias"));
+const vChave = v.union(v.literal("reservas"), v.literal("medida"), v.literal("parcerias"), v.literal("candidaturas"));
 const vEtapa = v.object({
   id: v.string(),
   nome: v.string(),
@@ -85,7 +88,16 @@ function cartao(acesso: Acesso, n: Doc<"negocios">) {
     movidoEm: n.movidoEm,
     fechadoEm: n.fechadoEm ?? null,
     proximaReuniao: n.proximaReuniao ?? null,
+    responsavel: n.responsavel ?? null,
   };
+}
+
+/* An open booking whose service day has passed (Lisbon) is late: it stays on
+   the board, marked, until it is concluded or cancelled (spec v1.0, 2.3). */
+function diasDeAtraso(viagem: string | null, today: string): number {
+  const day = viagem?.slice(0, 10);
+  if (!day || day >= today) return 0;
+  return Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${day}T12:00:00Z`)) / 86_400_000);
 }
 
 /*
@@ -98,35 +110,56 @@ function cartao(acesso: Acesso, n: Doc<"negocios">) {
 async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
   const base = { email: n.pessoa.email ?? null, telefone: n.pessoa.telefone ?? null };
   const vazio = {
-    viagem: null,
-    metodo: null,
-    anuncio: null,
-    referencia: null,
-    motorista: null,
+    viagem: null as string | null,
+    metodo: null as string | null,
+    anuncio: null as string | null,
+    referencia: null as string | null,
+    motorista: null as string | null,
     parceiro: null as string | null,
     zonas: [] as string[],
     tipoParceiro: null as string | null,
     segmento: n.segmento ?? segmentoDaOrigem(n.origem),
+    tipoServico: null as string | null,
+    atraso: 0,
+    canal: n.origem === "manual" ? (n.canal ?? "outro") : "site",
+    categorias: [] as string[],
+    registo: null as "site" | "manual" | null,
+    documentacao: null as Documentacao | null,
   };
-  if (!n.origemId) return { ...base, ...vazio };
+  if (!n.origemId) return { ...base, ...vazio, tipoServico: tipoDoPedido(n) };
   if (n.origem === "orders") {
     const o = await ctx.db.get(n.origemId as Id<"orders">);
+    const viagem = o?.departureDate ? String(o.departureDate) : null;
     return {
       ...base,
       ...vazio,
-      viagem: o?.departureDate ? String(o.departureDate) : null,
+      viagem,
       metodo: o?.paymentMethod ?? null,
       anuncio: o?.adSource?.utmSource?.trim().toLowerCase() || null,
       referencia: o?.orderNumber ?? null,
       motorista: o?.motorista ?? null,
       parceiro: o?.partnershipName ?? null,
+      tipoServico: o ? await tipoDaEncomenda(ctx, o) : null,
+      atraso: n.fechadoEm ? 0 : diasDeAtraso(viagem, lisbonToday()),
     };
   }
   /* Pedidos e candidaturas: o parceiro por onde chegou e, nas candidaturas,
-     as zonas onde trabalham. */
+     as zonas onde trabalham, as categorias das viaturas, de onde veio e o
+     estado dos documentos. */
   const id = ctx.db.normalizeId(n.origem as "contactSubmissions", n.origemId);
-  const d = (id ? await ctx.db.get(id) : null) as { partnershipName?: string; operatingZone?: string; operatingZones?: string[]; partnerType?: string } | null;
+  const d = (id ? await ctx.db.get(id) : null) as
+    | ({ partnershipName?: string; operatingZone?: string; operatingZones?: string[]; partnerType?: string; origem?: "site" | "manual" } & Record<string, unknown>)
+    | null;
   const zonas = d?.operatingZones ?? (d?.operatingZone ? [d.operatingZone] : []);
+  const candidatura = n.origem === "driverApplications" || n.origem === "partnerApplications" ? (n.origem as Tabela) : null;
+  let documentacao: Documentacao | null = null;
+  if (candidatura && n.origemId) {
+    const av = await ctx.db
+      .query("avaliacoesCandidatura")
+      .withIndex("by_candidatura", (q) => q.eq("tabela", candidatura).eq("candidaturaId", n.origemId!))
+      .first();
+    documentacao = estadoDaDocumentacao(candidatura, d, av?.documentos);
+  }
   return {
     ...base,
     ...vazio,
@@ -134,6 +167,10 @@ async function filtraveis(ctx: QueryCtx, n: Doc<"negocios">) {
     zonas: zonas.map(zona),
     tipoParceiro: d?.partnerType ?? null,
     segmento: n.segmento ?? segmentoDaOrigem(n.origem, d?.partnerType),
+    tipoServico: tipoDoPedido(n),
+    categorias: candidatura ? categoriasDe(candidatura, d as never) : [],
+    registo: candidatura ? (d?.origem ?? "site") : null,
+    documentacao,
   };
 }
 
@@ -175,6 +212,9 @@ export const quadro = query({
     const methods = new Set<string>();
     const sources = new Set<string>();
     const partners = new Set<string>();
+    const zones = new Set<string>();
+    const categories = new Set<string>();
+    const owners = new Set<string>();
     const colunas = [];
     for (const etapa of funil.etapas) {
       const { lista, mais } = await cartoesDaEtapa(ctx, funil, etapa, filtering ? 1000 : undefined);
@@ -186,6 +226,9 @@ export const quadro = query({
         if (card.metodo) methods.add(card.metodo);
         if (card.anuncio) sources.add(card.anuncio);
         if (card.parceiro) partners.add(card.parceiro);
+        for (const z of card.zonas) zones.add(z);
+        for (const c of card.categorias) categories.add(c);
+        if (card.responsavel) owners.add(card.responsavel);
         if (matchesBoardFilters(chave, f, today, card)) cartoes.push(card);
       }
       colunas.push({ etapa, mais: mais || cartoes.length > MAX_POR_COLUNA, cartoes: cartoes.slice(0, MAX_POR_COLUNA) });
@@ -196,7 +239,14 @@ export const quadro = query({
       chave,
       colunas,
       verValores: temCapacidade(acesso, "valores"),
-      options: { methods: sorted(methods), sources: sorted(sources), partners: sorted(partners) },
+      options: {
+        methods: sorted(methods),
+        sources: sorted(sources),
+        partners: sorted(partners),
+        zones: sorted(zones),
+        categories: sorted(categories),
+        owners: sorted(owners),
+      },
     };
   },
 });
@@ -271,7 +321,14 @@ export const fechados = query({
         // Won over everything closed: the share of deals that ended well.
         rate: rows.length ? won.length / rows.length : null,
       },
-      options: { methods: [] as string[], sources: [] as string[], partners: [...partners].sort((a, b) => a.localeCompare(b, "pt")) },
+      options: {
+        methods: [] as string[],
+        sources: [] as string[],
+        partners: [...partners].sort((a, b) => a.localeCompare(b, "pt")),
+        zones: [] as string[],
+        categories: [] as string[],
+        owners: [] as string[],
+      },
     };
   },
 });
@@ -401,6 +458,10 @@ export const mover = mutation({
     /* O registo acompanha (lib/funilEstado.ts): uma reserva em Cancelada
        fica cancelada. Antes de mexer no cartão, para que uma passagem
        impossível não o deixe numa etapa que o registo não acompanha. */
+    /* An application turns «Ativo» only with its documents validated (spec 5.5). */
+    if (mudaEtapa && funil.chave === "candidaturas" && destino.tipo === "ganho" && n.origemId) {
+      await exigirDocumentosValidados(ctx, n.origem as Tabela, n.origemId);
+    }
     if (mudaEtapa) await aplicarEtapaNaOrigem(ctx, n, funil.etapas, etapaId, quem(acesso));
     /* Onboarding concluído: a parceria ganha entra na Carteira (contactos.ts). */
     if (mudaEtapa && funil.chave === "parcerias" && destino.tipo === "ganho") await ativarCarteira(ctx, n);
@@ -894,5 +955,307 @@ export const calendario = query({
       }
     }
     return linhas.sort((a, b) => a.quando - b.quando);
+  },
+});
+
+/*
+ * Applications: who evaluates (spec 5.2). A team member's email, or null to
+ * clear. The list to pick from is the team's (responsaveis below).
+ */
+export const atribuirResponsavel = mutation({
+  args: { id: v.id("negocios"), email: v.union(v.string(), v.null()) },
+  handler: async (ctx, { id, email }) => {
+    const { n, acesso } = await exigirNegocio(ctx, id, "editar");
+    const limpo = email?.trim().toLowerCase() || undefined;
+    if (limpo === n.responsavel) return null;
+    const agora = Date.now();
+    await ctx.db.patch(id, { responsavel: limpo, atualizadoEm: agora });
+    await ctx.db.insert("negocioAtividades", {
+      negocioId: id,
+      tipo: "editado",
+      por: quem(acesso),
+      texto: limpo ? `Responsável: ${limpo}` : "Sem responsável",
+      em: agora,
+    });
+    return null;
+  },
+});
+
+/* The team members one can make responsible: the active collaborators and
+   the owners of ADMIN_EMAILS (as contactos.responsaveis). */
+export const responsaveis = query({
+  args: {},
+  handler: async (ctx) => {
+    await exigirAdmin(ctx, "candidaturas", "ver");
+    const pessoas = (await ctx.db.query("colaboradores").collect())
+      .filter((c) => c.estado === "activo")
+      .map((c) => ({ email: c.email, nome: c.nome }));
+    const donos = (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e && !pessoas.some((p) => p.email === e))
+      .map((e) => ({ email: e, nome: e.split("@")[0]! }));
+    return [...pessoas, ...donos].sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
+  },
+});
+
+/*
+ * Applications leave the partnerships funnel for their own CRM (spec v1.0,
+ * 4–5). Every card that came from an application moves, with its history
+ * and notes, to the matching stage:
+ *   Lead → Candidatura recebida; Nutrição, R1, R2, Q&A/R3, Follow up →
+ *   Pré-qualificação; Reativação → Aguardar aprovação; Onboarding → Ativo;
+ *   Perdido → Rejeitado.
+ * Stages renamed since are matched by type: open ones go to the second stage,
+ * won to «Ativo», lost to «Rejeitado». Can run again: cards already moved
+ * stay put. Run after criarFunisIniciais has created the «candidaturas» funnel.
+ *
+ * npx convex run funis:moverCandidaturas
+ */
+export const moverCandidaturas = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const parcerias = await funilPorChave(ctx, "parcerias");
+    const destino = await funilPorChave(ctx, "candidaturas");
+    if (!destino) throw new ConvexError("O funil das Candidaturas ainda não existe: corra primeiro funis:criarFunisIniciais.");
+    if (!parcerias) return { movidos: 0 };
+    const MAPA: Record<string, string> = {
+      lead: "recebida",
+      nutricao: "prequalificacao",
+      r1: "prequalificacao",
+      r2: "prequalificacao",
+      r3: "prequalificacao",
+      followup: "prequalificacao",
+      reativacao: "aprovacao",
+      onboarding: "ativo",
+      perdido: "rejeitado",
+    };
+    const porTipo = {
+      aberta: destino.etapas.filter((e) => e.tipo === "aberta")[1]?.id ?? destino.etapas[0]!.id,
+      ganho: destino.etapas.find((e) => e.tipo === "ganho")!.id,
+      perdido: destino.etapas.find((e) => e.tipo === "perdido")!.id,
+    };
+    const existe = new Set(destino.etapas.map((e) => e.id));
+    let movidos = 0;
+    for (const origem of ["driverApplications", "partnerApplications"] as const) {
+      const cartoes = await ctx.db
+        .query("negocios")
+        .withIndex("by_origem", (q) => q.eq("origem", origem))
+        .collect();
+      for (const n of cartoes) {
+        if (n.funilId !== parcerias._id) continue;
+        const etapaAntiga = parcerias.etapas.find((e) => e.id === n.etapaId);
+        const mapeada = MAPA[n.etapaId];
+        const etapaId = mapeada && existe.has(mapeada) ? mapeada : porTipo[etapaAntiga?.tipo ?? "aberta"];
+        const tipo = destino.etapas.find((e) => e.id === etapaId)!.tipo;
+        const agora = Date.now();
+        await ctx.db.patch(n._id, {
+          funilId: destino._id,
+          etapaId,
+          ordem: await ordemNoFim(ctx, destino._id, etapaId),
+          fechadoEm: tipo === "aberta" ? undefined : (n.fechadoEm ?? agora),
+          atualizadoEm: agora,
+        });
+        await ctx.db.insert("negocioAtividades", {
+          negocioId: n._id,
+          tipo: "editado",
+          por: "migração",
+          texto: `Movido das Parcerias (${etapaAntiga?.nome ?? n.etapaId}) para as Candidaturas`,
+          em: agora,
+        });
+        movidos++;
+      }
+    }
+    return { movidos };
+  },
+});
+
+/* ───────────────── Orçamento ganho → reservas (spec v1.0, 3.2) ─────────── */
+
+const vServico = v.object({
+  tipoServico: v.string(),
+  /* "YYYY-MM-DD HH:mm", Lisbon time, as the checkout stores it. */
+  data: v.string(),
+  recolha: v.string(),
+  destino: v.string(),
+  passageiros: v.number(),
+  /* The car category, by name (shown to the operation). */
+  viatura: v.optional(v.string()),
+  valor: v.number(),
+  pago: v.boolean(),
+  /* How it was paid, when paid: cash, transferencia, tpa, link. */
+  metodo: v.optional(v.string()),
+});
+
+/*
+ * A won quote becomes bookings: one per service, each entering Reservas at
+ * «Por atribuir», and the quote's card moves to its won stage keeping the
+ * customer, the conditions and the links to the bookings. Converting again
+ * finds the services already created (origemOrcamento) and creates nothing
+ * twice. The operation is told as for a payment confirmed in the
+ * back-office (webhooks.sendOrderPayload; production only).
+ */
+export const converterEmReservas = mutation({
+  args: { id: v.id("negocios"), servicos: v.array(vServico) },
+  handler: async (ctx, { id, servicos }) => {
+    const { n, funil, acesso, chave } = await exigirNegocio(ctx, id, "editar");
+    if (chave !== "medida") throw new ConvexError("Só um orçamento se converte em reservas.");
+    if (servicos.length === 0) throw new ConvexError("Junte pelo menos um serviço.");
+    servicos.forEach((s, i) => {
+      const linha = servicos.length > 1 ? ` (serviço ${i + 1})` : "";
+      if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(s.data)) throw new ConvexError(`Indique a data e a hora${linha}.`);
+      if (!s.recolha.trim() || !s.destino.trim()) throw new ConvexError(`Indique a recolha e o destino${linha}.`);
+      if (!Number.isInteger(s.passageiros) || s.passageiros < 1) throw new ConvexError(`Indique quantos passageiros${linha}.`);
+      if (!Number.isFinite(s.valor) || s.valor < 0) throw new ConvexError(`Indique o valor${linha}.`);
+      if (s.pago && !s.metodo) throw new ConvexError(`Diga como foi pago${linha}.`);
+    });
+    const ganho = funil.etapas.find((e) => e.tipo === "ganho");
+    if (!ganho) throw new ConvexError("Este funil não tem etapa de ganho.");
+
+    /* The quote's form row: the partner it came through. */
+    const origemId = n.origemId ? ctx.db.normalizeId(n.origem as "contactSubmissions", n.origemId) : null;
+    const pedido = (origemId ? await ctx.db.get(origemId) : null) as { partnershipId?: Id<"partnerships">; partnershipName?: string } | null;
+    const reservasFunil = await funilPorChave(ctx, "reservas");
+
+    const ja = await ctx.db
+      .query("orders")
+      .withIndex("by_origem_orcamento", (q) => q.eq("origemOrcamento.negocioId", id))
+      .collect();
+    const criadas: Id<"orders">[] = ja.map((o) => o._id);
+    const agora = Date.now();
+    let novas = 0;
+    for (const [indice, s] of servicos.entries()) {
+      if (ja.some((o) => o.origemOrcamento?.indice === indice)) continue;
+      const orderNumber = `ET${agora}${String(indice).padStart(2, "0")}${Math.floor(Math.random() * 90 + 10)}`;
+      const orderId = await ctx.db.insert("orders", {
+        orderNumber,
+        status: s.pago ? "paid" : "confirmed",
+        paymentStatus: s.pago ? "completed" : "pending",
+        paymentMethod: s.pago ? s.metodo : undefined,
+        totalAmount: s.valor,
+        basePrice: s.valor,
+        departure: { location: s.recolha.trim() },
+        arrival: { location: s.destino.trim() },
+        departureDate: s.data,
+        passengers: s.passageiros,
+        isRoundTrip: false,
+        vehicleName: s.viatura?.trim() || undefined,
+        customerName: n.pessoa.nome,
+        customerEmail: n.pessoa.email,
+        customerPhone: n.pessoa.telefone,
+        partnershipId: pedido?.partnershipId,
+        partnershipName: pedido?.partnershipName ?? "Easy Transfer",
+        contactoId: n.contactoId,
+        organizacaoId: n.organizacaoId,
+        tipoServico: s.tipoServico,
+        origemOrcamento: { negocioId: id, indice },
+        driverNotes: n.nota ? `Do orçamento: ${n.titulo}` : undefined,
+        createdAt: agora,
+        updatedAt: agora,
+      });
+      criadas.push(orderId);
+      novas++;
+      const o = (await ctx.db.get(orderId))!;
+      /* Straight into «Por atribuir», in this transaction; the webhook path
+         below finds the card already there (by_origem). */
+      if (reservasFunil) {
+        const cartao = await entrarReservaNoFunil(ctx, o);
+        /* A quote by phone may have no email, which the website's card needs:
+           the booking enters all the same, with what the quote knows. */
+        if (!cartao) {
+          await colocarNoFunil(ctx, {
+            origem: "orders",
+            origemId: orderId,
+            titulo: `Reserva ${orderNumber} · ${s.recolha.trim()} → ${s.destino.trim()}`,
+            pessoa: { nome: n.pessoa.nome, telefone: n.pessoa.telefone },
+            valor: s.valor || undefined,
+            por: quem(acesso),
+          });
+        }
+      }
+      const registoId = await ctx.db.insert("registoReservas", {
+        reservaId: orderId,
+        numero: orderNumber,
+        accao: "estado",
+        de: "orcamento",
+        para: o.status,
+        ator: quem(acesso),
+        operacao: `orcamento-${id}-${indice}`,
+        resultado: "feito",
+        nota: `Criada do orçamento «${n.titulo}».${s.pago ? "" : " Por pagar."}`,
+        aviso: { estado: "agendado", tentativas: 0, em: agora },
+        em: agora,
+      });
+      await ctx.scheduler.runAfter(0, internal.webhooks.sendOrderPayload, { orderId, aviso: registoId });
+    }
+
+    /* The card follows: won, with the bookings linked. */
+    if (n.etapaId !== ganho.id) await aplicarEtapaNaOrigem(ctx, n, funil.etapas, ganho.id, quem(acesso));
+    const origemEtapa = funil.etapas.find((e) => e.id === n.etapaId);
+    await ctx.db.patch(id, {
+      reservasCriadas: criadas,
+      atualizadoEm: agora,
+      ...(n.etapaId !== ganho.id
+        ? { etapaId: ganho.id, ordem: await ordemNoFim(ctx, n.funilId, ganho.id), movidoEm: agora, fechadoEm: agora, motivoPerda: undefined }
+        : {}),
+    });
+    if (novas > 0 || n.etapaId !== ganho.id) {
+      await ctx.db.insert("negocioAtividades", {
+        negocioId: id,
+        tipo: "ganho",
+        por: quem(acesso),
+        texto: `${origemEtapa?.nome ?? "?"} → ${ganho.nome} · ${novas} ${novas === 1 ? "reserva criada" : "reservas criadas"}`,
+        em: agora,
+      });
+    }
+    return { criadas, novas };
+  },
+});
+
+/* What the quote's form already says, to fill the conversion sheet: the
+   date, the places, how many, the vehicle. One service; more are added in
+   the sheet. Fields the form doesn't have come empty. */
+export const paraConverter = query({
+  args: { id: v.id("negocios") },
+  handler: async (ctx, { id }) => {
+    const { n, chave } = await exigirNegocio(ctx, id, "ver");
+    if (chave !== "medida") return null;
+    const ja = await ctx.db
+      .query("orders")
+      .withIndex("by_origem_orcamento", (q) => q.eq("origemOrcamento.negocioId", id))
+      .collect();
+    const origemId = n.origemId ? ctx.db.normalizeId(n.origem as "contactSubmissions", n.origemId) : null;
+    const d = (origemId ? await ctx.db.get(origemId) : null) as Record<string, unknown> | null;
+    const txt = (k: string) => (typeof d?.[k] === "string" ? (d[k] as string).trim() : "");
+    const num = (k: string) => {
+      const x = d?.[k];
+      const m = typeof x === "number" ? x : typeof x === "string" ? Number(/\d+/.exec(x)?.[0]) : NaN;
+      return Number.isFinite(m) && m > 0 ? m : null;
+    };
+    /* A form date (YYYY-MM-DD, or epoch ms for corporate) with the time if any. */
+    const quando = (() => {
+      const raw = d?.weddingDate ?? d?.date ?? d?.eventDate;
+      const dia =
+        typeof raw === "number"
+          ? new Date(raw).toISOString().slice(0, 10)
+          : typeof raw === "string" && /^\d{4}-\d{2}-\d{2}/.test(raw)
+            ? raw.slice(0, 10)
+            : "";
+      const hora = /^\d{1,2}:\d{2}/.test(txt("departureTime")) ? txt("departureTime").padStart(5, "0").slice(0, 5) : "";
+      return { dia, hora };
+    })();
+    return {
+      tipoServico: tipoDoPedido(n),
+      jaCriadas: ja.map((o) => ({ id: o._id, numero: o.orderNumber ?? "", indice: o.origemOrcamento?.indice ?? 0 })),
+      servico: {
+        dia: quando.dia,
+        hora: quando.hora,
+        recolha: txt("pickup") || txt("venue"),
+        destino: txt("dropoff") || txt("venue"),
+        passageiros: num("guests") ?? num("children") ?? num("people"),
+        viatura: txt("vehicle") || txt("vehicleType"),
+        valor: n.valor ?? null,
+      },
+    };
   },
 });

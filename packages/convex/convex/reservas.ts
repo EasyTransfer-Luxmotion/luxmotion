@@ -7,6 +7,7 @@ import { exigirAdmin, lerAcesso, permite, temCapacidade } from "./lib/admin";
 import { acertarCartaoDaOrigem } from "./lib/funilEstado";
 import { facts } from "./lib/orderFacts";
 import { facetOptions, readOrderList } from "./lib/orderList";
+import { tipoDaEncomenda } from "./lib/tipoServico";
 
 /*
  * Reservas no dashboard (E2 do plano de reconstrução do back-office).
@@ -593,5 +594,119 @@ export const reenviarAviso = mutation({
     });
     await ctx.scheduler.runAfter(0, internal.webhooks.sendOrderPayload, { orderId: o._id, aviso: registoId });
     return { resultado: "feito" as const };
+  },
+});
+
+/* ───────────────────── Reservas → Finalizadas (spec v1.0, 2.3) ───────────── */
+
+/* With a filter the facts can't narrow (search, origin, partner, type), at
+   most this many concluded/cancelled bookings are read in the period. */
+const FINAL_SCAN = 2000;
+
+const nextDay = (d: string) => {
+  const x = new Date(`${d}T12:00:00Z`);
+  x.setUTCDate(x.getUTCDate() + 1);
+  return x.toISOString().slice(0, 10);
+};
+
+/*
+ * The finished bookings: concluded and cancelled, newest service first, one
+ * line per booking (the outbound leg). Read through the order facts
+ * (lib/orderFacts.ts, namespace "final"), never the whole table: with no
+ * filter but the state and the dates, the page is found by position. The
+ * dashboard opens it on the last 30 days; the calendar reaches any period.
+ */
+export const finalizadas = query({
+  args: {
+    estado: v.optional(v.union(v.literal("completed"), v.literal("cancelled"))),
+    /* Service date, both inclusive (YYYY-MM-DD). */
+    from: v.optional(v.string()),
+    to: v.optional(v.string()),
+    search: v.optional(v.string()),
+    source: v.optional(v.string()),
+    partner: v.optional(v.string()),
+    service: v.optional(v.string()),
+    page: v.number(),
+    pageSize: v.number(),
+  },
+  handler: async (ctx, a) => {
+    await exigirAdmin(ctx, "reservas", "ver");
+    const acesso = await lerAcesso(ctx);
+    const valores = temCapacidade(acesso, "valores");
+    const pageSize = Math.min(Math.max(1, Math.floor(a.pageSize)), 100);
+    const lower = a.from ? { key: a.from, inclusive: true } : undefined;
+    const upper = a.to ? { key: nextDay(a.to), inclusive: false } : undefined;
+    const bounds = lower || upper ? { lower, upper } : undefined;
+    const namespaces = a.estado ? [["final", a.estado]] : [["final", "all"]];
+    const terms = (a.search ?? "").trim().toLowerCase();
+    const filtering = Boolean(terms || a.source || a.partner || a.service);
+
+    type O = Doc<"orders">;
+    let docs: O[];
+    let total: number;
+    let approximate = false;
+    if (!filtering) {
+      total = await facts.count(ctx, { namespace: namespaces[0]!, bounds });
+      const pageCount = Math.max(1, Math.ceil(total / pageSize));
+      const page = Math.min(Math.max(0, a.page), pageCount - 1);
+      if (total === 0) {
+        docs = [];
+      } else {
+        const start = await facts.at(ctx, -(page * pageSize + 1), { namespace: namespaces[0]!, bounds });
+        const { page: items } = await facts.paginate(ctx, {
+          namespace: namespaces[0]!,
+          bounds: { lower, upper: { key: start.key, id: start.id, inclusive: true } },
+          order: "desc",
+          pageSize,
+        });
+        docs = (await Promise.all(items.map((i) => ctx.db.get(i.id as Id<"orders">)))).filter((d): d is O => d !== null);
+      }
+    } else {
+      const found: O[] = [];
+      let cursor: string | undefined;
+      let read = 0;
+      while (read < FINAL_SCAN) {
+        const r = await facts.paginate(ctx, { namespace: namespaces[0]!, bounds, cursor, order: "desc", pageSize: 200 });
+        read += r.page.length;
+        for (const o of await Promise.all(r.page.map((i) => ctx.db.get(i.id as Id<"orders">)))) {
+          if (!o) continue;
+          if (a.partner && (a.partner === "direct" ? o.partnershipName && o.partnershipName !== "Easy Transfer" : o.partnershipName !== a.partner)) continue;
+          if (a.source && (a.source === "unknown" ? origemAnuncio(o) : `source:${origemAnuncio(o)}` !== a.source)) continue;
+          if (a.service && (await tipoDaEncomenda(ctx, o)) !== a.service) continue;
+          if (terms && !terms.split(/\s+/).every((t) => (o.searchText ?? "").includes(t))) continue;
+          found.push(o);
+        }
+        cursor = r.cursor;
+        if (r.isDone) break;
+      }
+      approximate = read >= FINAL_SCAN;
+      total = found.length;
+      const pageCount = Math.max(1, Math.ceil(total / pageSize));
+      const page = Math.min(Math.max(0, a.page), pageCount - 1);
+      docs = found.slice(page * pageSize, (page + 1) * pageSize);
+    }
+
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(Math.max(0, a.page), pageCount - 1);
+    const linhas = await Promise.all(
+      docs.map(async (o) => {
+        const volta = o.relatedOrderId ? await ctx.db.get(o.relatedOrderId) : null;
+        return {
+          _id: o._id,
+          numero: o.orderNumber ?? "",
+          estado: o.status,
+          cliente: o.customerName?.trim() || volta?.customerName?.trim() || null,
+          viagem: o.departureDate,
+          origem: local(o.departure),
+          destino: local(o.arrival),
+          idaEVolta: o.isRoundTrip || Boolean(volta),
+          /* A booking's value: both legs. */
+          valor: valores ? (o.totalAmount ?? 0) + (volta?.totalAmount ?? 0) : null,
+          parceiro: o.partnershipName ?? null,
+          tipoServico: await tipoDaEncomenda(ctx, o),
+        };
+      }),
+    );
+    return { linhas, total, page, pageCount, pageSize, approximate, valores };
   },
 });

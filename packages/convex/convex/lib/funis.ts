@@ -17,7 +17,9 @@
    ultra-luxo, corporate, escolas: venda); «parcerias» é a aquisição de
    parceiros (leads da página Hotéis e todas as candidaturas). Os que houve
    antes («pedidos», «candidaturas») apaga-os criarFunisIniciais. */
-export const CHAVES_FUNIL = ["reservas", "medida", "parcerias"] as const;
+/* «candidaturas» (dashboard spec v1.0, 5) is the CRM of drivers' and
+   fleets' applications, apart from the commercial partnerships since 2026-11-27. */
+export const CHAVES_FUNIL = ["reservas", "medida", "parcerias", "candidaturas"] as const;
 export type ChaveFunil = (typeof CHAVES_FUNIL)[number];
 
 export function eChaveFunil(x: string): x is ChaveFunil {
@@ -37,8 +39,8 @@ export const ORIGENS_FUNIL = [
   { chave: "schoolQuoteSubmissions", titulo: "Escolas", funil: "medida" },
   { chave: "corporateRequests", titulo: "Proposta corporate", funil: "medida" },
   { chave: "partnerLeads", titulo: "Lead do site", funil: "parcerias" },
-  { chave: "driverApplications", titulo: "Candidatura de motorista", funil: "parcerias" },
-  { chave: "partnerApplications", titulo: "Candidatura de empresa", funil: "parcerias" },
+  { chave: "driverApplications", titulo: "Candidatura de motorista", funil: "candidaturas" },
+  { chave: "partnerApplications", titulo: "Candidatura de empresa", funil: "candidaturas" },
   /* Criado à mão: o funil é o do quadro onde se carregou em «Novo». */
   { chave: "manual", titulo: "Criado à mão", funil: "medida" },
 ] as const satisfies readonly { chave: string; titulo: string; funil: ChaveFunil }[];
@@ -99,6 +101,8 @@ export type Etapa = { id: string; nome: string; cor: string; tipo: TipoEtapa };
 const ORIGENS_CANDIDATURA = new Set(["partnerApplications", "driverApplications"]);
 
 export function moduloDoCartao(chave: ChaveFunil, origem: string): "reservas" | "pedidos" | "leads" | "candidaturas" {
+  /* An application card still in the partnerships funnel (before the move
+     to its own CRM) keeps needing Candidaturas. */
   if (chave === "parcerias" && ORIGENS_CANDIDATURA.has(origem)) return "candidaturas";
   return FUNIS[chave].modulo;
 }
@@ -111,7 +115,7 @@ export function modulosDoFunil(chave: ChaveFunil): ("reservas" | "pedidos" | "le
    se se criam cartões à mão, e as etapas com que começa. */
 export const FUNIS: Record<
   ChaveFunil,
-  { titulo: string; modulo: "reservas" | "pedidos" | "leads"; manual: boolean; etapas: Etapa[] }
+  { titulo: string; modulo: "reservas" | "pedidos" | "leads" | "candidaturas"; manual: boolean; etapas: Etapa[] }
 > = {
   reservas: {
     titulo: "Reservas",
@@ -154,6 +158,23 @@ export const FUNIS: Record<
       { id: "perdido", nome: "Perdido", cor: "#dc2626", tipo: "perdido" },
     ],
   },
+  /* Dashboard spec v1.0, 5.1. Applications come from the site or are
+     registered by hand (their own form, not the generic «Novo»). */
+  candidaturas: {
+    titulo: "Candidaturas",
+    modulo: "candidaturas",
+    manual: false,
+    etapas: [
+      { id: "recebida", nome: "Candidatura recebida", cor: "#64748b", tipo: "aberta" },
+      { id: "prequalificacao", nome: "Pré-qualificação", cor: "#3b82f6", tipo: "aberta" },
+      { id: "documentacao", nome: "Recolha de documentação", cor: "#0d9488", tipo: "aberta" },
+      { id: "avaliacao", nome: "Avaliação e validação", cor: "#8b5cf6", tipo: "aberta" },
+      { id: "aprovacao", nome: "Aguardar aprovação", cor: "#d97706", tipo: "aberta" },
+      { id: "onboarding", nome: "Onboarding", cor: "#b8954f", tipo: "aberta" },
+      { id: "ativo", nome: "Ativo", cor: "#16a34a", tipo: "ganho" },
+      { id: "rejeitado", nome: "Rejeitado", cor: "#dc2626", tipo: "perdido" },
+    ],
+  },
 };
 
 /*
@@ -161,9 +182,11 @@ export const FUNIS: Record<
  * Vêm da origem do cartão; num cartão criado à mão escolhe-se.
  */
 export const SEGMENTOS: Record<ChaveFunil, string[]> = {
-  reservas: [],
-  medida: ["Casamentos", "Ultra-luxo", "Corporate", "Escolas", "Contactos", "Outro"],
+  /* Bookings and quotes: the type of service (lib/tipoServico.ts). */
+  reservas: ["Transfer", "Tour", "Casamento", "Corporate", "Escolas", "Ultra Luxo", "Eventos"],
+  medida: ["Transfer", "Tour", "Casamento", "Corporate", "Escolas", "Ultra Luxo", "Eventos"],
   parcerias: ["Hotelaria", "Weddings", "Agências e operadores", "Restauração", "Motoristas", "Empresas de motoristas", "Outro"],
+  candidaturas: ["Motoristas", "Empresas de motoristas"],
 };
 
 /* O tipo de parceiro chega como o formulário o mostrou (em pt ou en). */

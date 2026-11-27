@@ -127,6 +127,15 @@ export async function factsOf(ctx: Reader, o: Doc<"orders">): Promise<FactEntry[
       out.push({ ns: ["created", view, dim, value], key: o._creationTime, sum: 0 });
     }
   }
+  /* Reservas → Finalizadas: concluded and cancelled bookings by service
+     date, one per booking (the outbound leg), together and per state. */
+  if (o.status === "completed" || o.status === "cancelled") {
+    const { isReturn } = await legOf(ctx, o);
+    if (!isReturn) {
+      out.push({ ns: ["final", "all"], key: o.departureDate, sum: 0 });
+      out.push({ ns: ["final", o.status], key: o.departureDate, sum: 0 });
+    }
+  }
   if (SERVICE.has(o.status)) {
     const { isReturn, outbound } = await legOf(ctx, o);
     /* One per service by trip date: a round trip is one trip ("Garantido"). */
