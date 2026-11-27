@@ -569,6 +569,7 @@
     "vatIncluded": "IVA incl.",
     "vatIncludedRoundTrip": "IVA incl. · ida y vuelta",
     "selectRouteForPrice": "Seleccione la ruta para ver el precio",
+    "sizeSeats": "Vehículo de {seats} plazas",
     "fixedPriceGuaranteed": "PRECIO FIJO GARANTIZADO",
     "wifi": "Wi-Fi",
     "included": "Incluido",

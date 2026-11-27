@@ -19,6 +19,10 @@ interface Vehicle {
   passengers: number
   luggage: number
   isElectric: boolean
+  originalName?: string
+  /** The car the server picked inside the category, and its seats. */
+  size?: string
+  seats?: number
 }
 
 interface VehicleCardProps {
@@ -45,7 +49,10 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false, selected =
   )
   const hasDistance = vehicle.hasDistance ?? vehicle.price > 0
   const displayPrice = priceBreakdown.total.toFixed(2).replace(".", ",")
-  const pricePerKm = vehicle.pricePerKm?.toFixed(2).replace(".", ",") ?? "0,00"
+  /* A category with several sizes says which one the group gets. A €/km
+     price used to show before the route was known; with distance bands it
+     is no longer one number, so the card just asks for the route. */
+  const sizeLine = vehicle.size && vehicle.seats && vehicle.size !== vehicle.originalName ? t("sizeSeats", { seats: vehicle.seats }) : null
 
   return (
     <div
@@ -100,9 +107,12 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false, selected =
       </div>
 
       <div className="flex items-start justify-between w-full">
-        <h3 className="text-[16px] font-bold text-[var(--ck-text,#f7f4ef)] leading-[21.76px]">
-          {vehicle.name}
-        </h3>
+        <div className="min-w-0">
+          <h3 className="text-[16px] font-bold text-[var(--ck-text,#f7f4ef)] leading-[21.76px]">
+            {vehicle.name}
+          </h3>
+          {sizeLine && <p className="mt-0.5 text-[12px] text-[var(--ck-text-muted,#999999)]">{sizeLine}</p>}
+        </div>
         <div className="flex flex-col items-end">
           {hasDistance ? (
             <>
@@ -114,15 +124,9 @@ export function VehicleCard({ vehicle, onSelect, isRoundTrip = false, selected =
               </p>
             </>
           ) : (
-            <>
-              <p className="text-[20px] font-bold text-[var(--ck-text,#f7f4ef)] leading-[28.16px] text-right whitespace-nowrap">
-                €{pricePerKm}
-                <span className="text-[12px] text-[rgba(var(--ck-text-rgb,247,244,239),0.38)] font-normal">/km</span>
-              </p>
-              <p className="text-[8px] text-[rgba(var(--ck-text-rgb,247,244,239),0.38)] leading-[14.85px] text-right">
-                {t("selectRouteForPrice")}
-              </p>
-            </>
+            <p className="max-w-[9rem] text-[12px] text-[rgba(var(--ck-text-rgb,247,244,239),0.55)] leading-[16px] text-right">
+              {t("selectRouteForPrice")}
+            </p>
           )}
         </div>
       </div>

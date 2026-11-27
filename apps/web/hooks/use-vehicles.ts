@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@workspace/convex/api";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "next-intl";
 import { localizeVehicle } from "@/lib/catalog-translations";
 
@@ -16,7 +16,26 @@ import { localizeVehicle } from "@/lib/catalog-translations";
  *
  * As datas vão como texto "YYYY-MM-DD HH:mm", hora local — o mesmo formato com
  * que a encomenda é gravada, para o servidor decidir noite/dia uma só vez.
+ *
+ * One line per vehicle category: `passengers`/`luggage` are the category's
+ * largest car (the counters' cap and the upgrade banner follow the category,
+ * not the size picked), `seats` and `size` the car the server chose for the
+ * group. Changing the group may swap that car — and its id — inside the same
+ * category; the checkout follows the line by `categoryId`.
  */
+
+/* The lead-time surge depends on the clock, and a Convex query doesn't re-run
+   as time passes: send the time, in quarter hours so the query isn't
+   re-subscribed every second. */
+const QUARTER = 15 * 60_000;
+function useQuarterHour() {
+  const [now, setNow] = useState(() => Math.floor(Date.now() / QUARTER) * QUARTER);
+  useEffect(() => {
+    const id = setInterval(() => setNow(Math.floor(Date.now() / QUARTER) * QUARTER), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
 
 interface LuggageRequirement {
   checkedBaggage: number;
@@ -55,7 +74,9 @@ export function useVehicles({
   currentVehicleLuggage = 0,
 }: UseVehiclesProps) {
   const locale = useLocale();
+  const now = useQuarterHour();
   const quoted = useQuery(api.vehicles.listQuoted, {
+    now,
     partnershipSlug,
     passengers,
     checkedBaggage: luggage?.checkedBaggage ?? 0,
@@ -76,7 +97,7 @@ export function useVehicles({
         // Em modo de upgrade só entram os que dão mais do que o actual.
         if (!upgradeMode) return true;
         return (
-          v.passengers > currentVehiclePassengers || v.luggage > currentVehicleLuggage
+          v.maxPassengers > currentVehiclePassengers || v.maxLuggage > currentVehicleLuggage
         );
       })
       .map((v) => localizeVehicle({
@@ -92,8 +113,12 @@ export function useVehicles({
         pricePerKm: v.pricePerKm,
         hasDistance: v.hasDistance,
         image: v.imageUrl || "/shared/image-54.png",
-        passengers: v.passengers,
-        luggage: v.luggage,
+        passengers: v.maxPassengers,
+        luggage: v.maxLuggage,
+        categoryId: v.categoryId as string | undefined,
+        /* The size inside the category ("Mini Bus (16–20 pax)") and its seats. */
+        size: v.categoryId ? v.vehicleName : undefined,
+        seats: v.passengers,
         isElectric: v.isElectric,
         hasWifi: v.hasWifi,
         order: v.order,
