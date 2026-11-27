@@ -202,6 +202,16 @@ export const precos = query({
       versao: site?.updatedAt ?? null,
       precos: pricingConfigOf(site?.pricing),
       sobretaxaAeroporto: site?.airportSurchargePercent ?? siteSettingsDefaults.airportSurchargePercent,
+      /* How many cars use each class: one in use cannot be removed. */
+      carrosPorClasse: await (async () => {
+        const categorias = new Map((await ctx.db.query("vehicleCategories").collect()).map((c) => [c._id, c]));
+        const n: Record<string, number> = {};
+        for (const car of await ctx.db.query("vehicles").collect()) {
+          const k = classOf(car, car.categoryId ? categorias.get(car.categoryId) : null);
+          n[k] = (n[k] ?? 0) + 1;
+        }
+        return n;
+      })(),
       /* Active cars still without a tariff: the checkout hides them. */
       semTarifa: (await ctx.db.query("vehicles").withIndex("by_status", (q) => q.eq("status", "active")).collect())
         .filter((c) => !tariffOf(c))
