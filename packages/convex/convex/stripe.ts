@@ -53,12 +53,22 @@ export const createCheckoutSession = internalAction({
     // Default: Stripe selects the eligible methods enabled in its Dashboard.
     const p = stripeCheckoutParams(args);
 
-    const criar = (corpo: URLSearchParams) =>
+    /* The same request twice (a double click, a retry after a timeout) gets
+       the same session back instead of a second one the customer could also
+       pay. The key is the request itself: change the amount or anything else
+       and it is a new session, as it should be. Stripe keeps keys 24 h. */
+    const chave = async (corpo: string) => {
+      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(corpo));
+      const hex = [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
+      return `checkout-${args.kind}-${args.orderNumber}-${hex.slice(0, 32)}`;
+    };
+    const criar = async (corpo: URLSearchParams) =>
       fetch(`${STRIPE_API}/checkout/sessions`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${secretKey()}`,
           "Content-Type": "application/x-www-form-urlencoded",
+          "Idempotency-Key": await chave(corpo.toString()),
         },
         body: corpo.toString(),
       });

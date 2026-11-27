@@ -122,7 +122,11 @@ export function OtpInput({
               type="text"
               inputMode="numeric"
               autoComplete={idx === 0 ? "one-time-code" : "off"}
-              maxLength={1}
+              /* The first cell takes the whole code: an SMS/email autofill
+                 writes it all into the cell with one-time-code, and a
+                 maxLength of 1 cut it to the first digit before distribute()
+                 could spread it. The others take one digit. */
+              maxLength={idx === 0 ? length : 1}
               aria-label={`Digit ${idx + 1}`}
               className={cn(
                 "w-[40px] h-[44px] bg-white border border-[rgba(28,27,24,0.08)] text-center text-[16px] font-medium text-[#1c1b18] focus:outline-none focus:border-[#a08248] transition-colors",

@@ -339,6 +339,9 @@ describe("the checkout on the server", () => {
     expect(o.pricingSnapshot?.model).toBe("bands");
     expect(o.pricingSnapshot?.car).toBe(line.price);
     expect(o.pricingWarning).toBeUndefined();
+    /* Paying again a paid booking is refused (it used to open a second
+       Stripe session the customer could also pay). */
+    await expect(t.action(api.orders.startPaymentAction, payArgs(id, Math.ceil(line.price)))).rejects.toThrow(/já está paga/);
   });
 
   test("the route recomputed after the trip step: the payment is checked against the route paid", async () => {

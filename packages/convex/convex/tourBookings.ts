@@ -24,6 +24,8 @@ function generateBookingNumber(): string {
  */
 function exigirAlteravel(booking: Doc<"tourBookings"> | null): Doc<"tourBookings"> {
   if (!booking) throw new ConvexError("Reserva não encontrada.");
+  /* Paying again a booking already paid would open a second session. */
+  if (booking.paymentStatus === "completed") throw new ConvexError("Esta reserva já está paga. Não é preciso pagar outra vez.");
   if (booking.status !== "draft" && booking.status !== "pending") {
     throw new ConvexError("Esta reserva já não pode ser alterada.");
   }
@@ -76,16 +78,22 @@ export const init = mutation({
     /* Evento partilhado com saídas (E3A): a ida, o regresso ou os dois. */
     saidaIdaId: v.optional(v.id("eventDepartures")),
     saidaRegressoId: v.optional(v.id("eventDepartures")),
+    /* The draft this checkout already created. Going back to step 1 and
+       continuing again used to insert a second booking every time; with it,
+       the same draft is updated with the new choices. */
+    bookingId: v.optional(v.id("tourBookings")),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     const ref = await resolveReferral(ctx, args.referralSlug);
-    let bookingNumber = generateBookingNumber();
+    const rascunho = args.bookingId ? await ctx.db.get(args.bookingId) : null;
+    const reutilizar = rascunho && rascunho.status === "draft" && rascunho.paymentStatus !== "completed" && rascunho.tourSlug === args.tourSlug ? rascunho : null;
+    let bookingNumber = reutilizar?.bookingNumber ?? generateBookingNumber();
     let existing = await ctx.db
       .query("tourBookings")
       .withIndex("by_booking_number", (q) => q.eq("bookingNumber", bookingNumber))
       .unique();
-    while (existing) {
+    while (existing && existing._id !== reutilizar?._id) {
       bookingNumber = generateBookingNumber();
       existing = await ctx.db
         .query("tourBookings")
@@ -109,7 +117,7 @@ export const init = mutation({
        que os emails, a lista das Reservas e o webhook já sabem mostrar. */
     const primeira = preco.pernas?.[0];
     const quando = primeira ? emLisboa(primeira.partida) : null;
-    const id = await ctx.db.insert("tourBookings", {
+    const campos = {
       bookingNumber,
       productType: args.productType,
       tourId: args.tourId ?? undefined,
@@ -136,10 +144,32 @@ export const init = mutation({
       customerName: "",
       customerEmail: "",
       customerPhone: "",
-      status: "draft",
-      createdAt: now,
+      status: "draft" as const,
       updatedAt: now,
-    });
+    };
+    let id: Id<"tourBookings">;
+    if (reutilizar) {
+      /* Keep what later steps saved (contact, pickup); refresh the choices
+         and the price, and drop the tip, which was a share of the old price
+         (step 3 asks for it again). Fields the new choices don't have are
+         cleared. */
+      const { customerName: _n, customerEmail: _e, customerPhone: _p, ...escolhas } = campos;
+      id = reutilizar._id;
+      await ctx.db.patch(id, {
+        ...escolhas,
+        tourId: campos.tourId,
+        eventId: campos.eventId,
+        sharingMode: campos.sharingMode,
+        saidaIdaId: "saidaIdaId" in campos ? campos.saidaIdaId : undefined,
+        saidaRegressoId: "saidaRegressoId" in campos ? campos.saidaRegressoId : undefined,
+        pernas: "pernas" in campos ? campos.pernas : undefined,
+        selectedAddons: campos.selectedAddons,
+        addonsTotal: campos.addonsTotal,
+        totalAmount: campos.totalAmount,
+      });
+    } else {
+      id = await ctx.db.insert("tourBookings", { ...campos, createdAt: now });
+    }
 
     const booking = await ctx.db.get(id);
     return { bookingId: id, booking, bookingNumber: booking?.bookingNumber ?? bookingNumber };

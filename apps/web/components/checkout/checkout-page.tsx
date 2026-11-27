@@ -28,6 +28,7 @@ import { useCheckoutPaymentOutcome } from "@/hooks/use-checkout-payment-outcome"
 import { useTranslations } from "next-intl"
 import { readAdSourceCookie, readOppref } from "@/lib/ad-source"
 import { MeasureOrderCreated } from "@/components/analytics/measure-order-created"
+import { useCheckoutHistory } from "@/hooks/use-checkout-history"
 
 export function CheckoutPage({ logoUrl, partnershipSlug }: { logoUrl?: string | null; partnershipSlug?: string } = {}) {
   return (
@@ -62,6 +63,18 @@ function CheckoutPageContent({ logoUrl, partnershipSlug }: { logoUrl?: string | 
   const paymentOutcome = useCheckoutPaymentOutcome(orderId)
   const bookingConfirmed = paymentOutcome === "paid" || paymentOutcome === "cash"
   const confirmationStep = hasNearbyTours ? 5 : 4
+  /* The steps in the browser history: Back walks back one step instead of
+     leaving the checkout. Step 1 has two screens (the cars, then the trip
+     form), so the position counts those apart. */
+  useCheckoutHistory(
+    state.currentStep * 2 + (state.currentStep === 1 && state.showTransferForm ? 1 : 0),
+    (pos) => {
+      const step = Math.floor(pos / 2)
+      setShowTransferForm(step === 1 && pos % 2 === 1)
+      setStep(step)
+    },
+    state.currentStep === confirmationStep,
+  )
   const passengerStep = hasNearbyTours ? 3 : 2
   const paymentStep = hasNearbyTours ? 4 : 3
   const experiencesStep = 2

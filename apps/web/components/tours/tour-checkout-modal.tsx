@@ -369,6 +369,8 @@ export function TourCheckoutModal() {
         ...(tour.saidas?.regresso && { saidaRegressoId: tour.saidas.regresso.id as Id<"eventDepartures"> }),
         selectedAddons: selectedAddons?.length ? selectedAddons : undefined,
         referralSlug: readReferralCookie() ?? undefined,
+        /* Back to step 1 and on again: update this draft, don't create another. */
+        bookingId: (state.bookingId as Id<"tourBookings"> | null) ?? undefined,
       })
       const bookingNumber = (result as { bookingNumber?: string })?.bookingNumber
       const bookingId = (result as { bookingId?: string })?.bookingId ?? (result as { booking?: { _id: string } })?.booking?._id

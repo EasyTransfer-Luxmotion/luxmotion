@@ -1025,6 +1025,11 @@ export const startPaymentAction = action({
     if (!order) {
       throw new Error("Order not found");
     }
+    /* Paying again a booking already paid opened a second Stripe session the
+       customer could also pay. */
+    if (order.paymentStatus === "completed") {
+      throw new ConvexError("Esta reserva já está paga. Não é preciso pagar outra vez.");
+    }
 
     const isRoundTrip = !!order.relatedOrderId;
     let returnOrder: any = null;
