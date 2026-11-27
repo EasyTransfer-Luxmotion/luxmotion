@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation } from "./functions";
 import { query } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
 import { exigirAdmin, pode } from "./lib/admin";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { urlDaImagem, vImagem } from "./lib/imagens";
@@ -328,4 +328,13 @@ export const applySheetValues = internalMutation({
   },
 });
 
-export type CategoryId = Id<"vehicleCategories">;
+/* Which model the checkout uses and the partner factor, for the partnership
+   editor: in the banded model the per-partner adjustment no longer counts. */
+export const pricingModel = query({
+  args: {},
+  handler: async (ctx) => {
+    if (!(await pode(ctx, "parcerias")) && !(await pode(ctx, "veiculos"))) return null;
+    const { config } = await loadPricing(ctx);
+    return { model: config.model, partnerFactor: config.partnerFactor };
+  },
+});
