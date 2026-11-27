@@ -161,6 +161,19 @@ export const lista = query({
   },
 });
 
+/* The lead-time multipliers of each class (Configurações → Preços →
+   Antecedência), shown under the car's class so the choice is not blind. */
+async function antecedencia(ctx: QueryCtx) {
+  const { config } = await loadPricing(ctx);
+  return {
+    surge: config.surge,
+    freeAfterHours: config.freeAfterHours,
+    lastMinuteHours: config.lastMinuteHours,
+    earlyMorningFrom: config.earlyMorningFrom,
+    earlyMorningTo: config.earlyMorningTo,
+  };
+}
+
 /* The categories a car can belong to, for the editor's picker. */
 async function categoriasParaEditor(ctx: QueryCtx) {
   const all = await ctx.db.query("vehicleCategories").withIndex("by_order").collect();
@@ -177,6 +190,7 @@ export const detalhe = query({
     return {
       encontrado: true as const,
       categorias: await categoriasParaEditor(ctx),
+      antecedencia: await antecedencia(ctx),
       veiculo: {
         ...x,
         /* The price and the reach in the new shape, whatever the car had. */
@@ -213,6 +227,7 @@ export const paraNovo = query({
     const todos = await ctx.db.query("vehicles").withIndex("by_order").collect();
     return {
       categorias: await categoriasParaEditor(ctx),
+      antecedencia: await antecedencia(ctx),
       ordem: todos.length ? Math.max(...todos.map((y) => y.order)) + 1 : 0,
       outros: todos.map((y) => ({
         _id: y._id,
