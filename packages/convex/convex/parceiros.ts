@@ -5,7 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, lerAcesso, temCapacidade } from "./lib/admin";
 import { acertarCartaoDaOrigem } from "./lib/funilEstado";
 import { urlDaImagem } from "./lib/imagens";
-import { frotaVisivel } from "./lib/frota";
+import { frotaVisivel, reachOf } from "./lib/frota";
 import { facts, isTour } from "./lib/orderFacts";
 
 /*
@@ -335,10 +335,12 @@ export const detalhe = query({
       seoTitulo: conteudo.seoTitle ?? "",
       seoDescricao: conteudo.seoDescription ?? "",
       veiculosEscondidos: (p.veiculosEscondidos ?? []) as string[],
-      ajustePreco: p.ajustePreco ?? 0,
+      /* null = the default of Configurações → Preços. */
+      markup: typeof p.priceMarkupPercent === "number" ? p.priceMarkupPercent : null,
       slugsAntigos: p.slugsAntigos ?? [],
-      /* A frota que o checkout do parceiro pode mostrar: a global (que se
-         liga e desliga aqui) e os carros só deste parceiro (lib/frota.ts). */
+      /* A frota que o checkout do parceiro pode mostrar: os carros de todos
+         os parceiros (que se ligam e desligam aqui) e os escolhidos só para
+         alguns, este incluído (lib/frota.ts). */
       frota: await frotaParaOEditor(ctx, p._id),
       numeros: {
         reservas: nReservas,
@@ -365,8 +367,14 @@ async function frotaParaOEditor(ctx: QueryCtx, id: Id<"partnerships">) {
     ordem: v.order,
   });
   return {
-    globais: todos.filter((v) => !v.partnershipId).sort((a, b) => a.order - b.order).map(linha),
-    proprios: todos.filter((v) => v.partnershipId === id).sort((a, b) => a.order - b.order).map(linha),
+    globais: todos.filter((v) => reachOf(v).mode === "all").sort((a, b) => a.order - b.order).map(linha),
+    proprios: todos
+      .filter((v) => {
+        const r = reachOf(v);
+        return r.mode === "some" && r.partnerIds.includes(id);
+      })
+      .sort((a, b) => a.order - b.order)
+      .map(linha),
   };
 }
 
@@ -454,8 +462,9 @@ export const guardar = mutation({
       cores: v.record(v.string(), v.string()),
       /* Opcional: um editor aberto antes da frota existir continua a gravar. */
       veiculosEscondidos: v.optional(v.array(v.id("vehicles"))),
-      /* Em %, sobre o preço por km e o mínimo de cada carro (lib/precoTransfer.ts). */
-      ajustePreco: v.optional(v.number()),
+      /* This partner's price over the site's, in %; null = the default of
+         Preços (lib/pricing.ts, partnerFactorOf). Absent = leave as is. */
+      markup: v.optional(v.union(v.number(), v.null())),
     }),
   },
   handler: async (ctx, { id, versao, dados }) => {
@@ -474,8 +483,8 @@ export const guardar = mutation({
       const outra = await slugOcupado(ctx, slug, id);
       if (outra) erros.slug = `Já é o endereço de "${outra.name}".`;
     }
-    if (dados.ajustePreco !== undefined && !(Number.isFinite(dados.ajustePreco) && dados.ajustePreco >= -50 && dados.ajustePreco <= 100)) {
-      erros.ajustePreco = "Entre −50% e +100%.";
+    if (typeof dados.markup === "number" && !(Number.isFinite(dados.markup) && dados.markup >= -50 && dados.markup <= 100)) {
+      erros.markup = "Entre −50% e +100%.";
     }
     if (dados.seoTitulo.trim().length > 70) erros.seoTitulo = "No máximo 70 caracteres — o Google corta o resto.";
     if (dados.seoDescricao.trim().length > 180) erros.seoDescricao = "No máximo 180 caracteres.";
@@ -522,7 +531,7 @@ export const guardar = mutation({
       logoId: dados.logo ?? undefined,
       heroImageId: dados.hero ?? undefined,
       ...(dados.veiculosEscondidos && { veiculosEscondidos: dados.veiculosEscondidos }),
-      ...(dados.ajustePreco !== undefined && { ajustePreco: Math.round(dados.ajustePreco * 10) / 10 }),
+      ...(dados.markup !== undefined && { priceMarkupPercent: dados.markup === null ? undefined : Math.round(dados.markup * 10) / 10 }),
       /* O endereço antigo fica a reencaminhar para o novo (lib/parceriaPorSlug.ts). */
       ...(slug !== p.slug && {
         slugsAntigos: [...new Set([...(p.slugsAntigos ?? []), p.slug])].filter((s) => s !== slug),
@@ -549,14 +558,18 @@ export const remover = mutation({
   handler: async (ctx, { id }) => {
     await exigirAdmin(ctx, "parcerias", "editar", "apagar");
     if (!(await ctx.db.get(id))) return;
-    /* Um veículo de um parceiro só aparece no checkout dele (veiculos.ts):
-       apagar o parceiro deixava-o preso a um dono que não existe. Nenhum em
-       produção a 2026-11-15, mas o editor de veículos deixa criá-los. */
-    const veiculos = (await ctx.db.query("vehicles").collect()).filter((x) => x.partnershipId === id);
-    if (veiculos.length) {
-      throw new ConvexError({
-        tipo: "emUso",
-        mensagem: `Tem ${veiculos.length === 1 ? "um veículo associado" : `${veiculos.length} veículos associados`} (${veiculos.map((x) => x.name).join(", ")}). Associe-os ao site principal ou a outra parceria em Catálogo → Veículos antes de a apagar.`,
+    /* Cars offered to some partners stop listing this one (lib/frota.ts);
+       a car that was only here then shows nowhere until someone chooses. */
+    for (const x of await ctx.db.query("vehicles").collect()) {
+      const r = reachOf(x);
+      if (r.mode !== "some" || !r.partnerIds.includes(id)) continue;
+      const resto = r.partnerIds.filter((y) => y !== id);
+      await ctx.db.patch(x._id, {
+        showOnSite: r.site,
+        partnerMode: resto.length ? "some" : "none",
+        partnerIds: resto.length ? resto : undefined,
+        partnershipId: undefined,
+        actualizadoEm: Date.now(),
       });
     }
     /* As reservas e os pedidos ficam com o partnershipName gravado, por isso

@@ -10,11 +10,6 @@
  * a corre. O checkout passa a mostrar o número que o servidor devolve.
  */
 
-/** Percentagem sobre a tarifa de dia, para pernas em horário nocturno. */
-export const NIGHT_TAX_PERCENT = 20;
-/** Mínimo por perna, quando os 20% ficam abaixo deste valor. */
-export const NIGHT_TAX_MIN_EUR = 9;
-
 /**
  * Horário nocturno: das 20h às 08h.
  *
@@ -32,93 +27,15 @@ export function isNightDeparture(departureDate: string | undefined | null, from 
   return from > to ? hour >= from || hour < to : hour >= from && hour < to;
 }
 
-export type LegPricingInput = {
-  pricePerKm: number;
-  minimumPrice: number;
-  /** Distância de uma perna, em quilómetros. */
-  distance?: number | null;
-  isNight: boolean;
-  isNightReturn?: boolean;
-  bookReturn?: boolean;
-  /** A recolha da ida é num aeroporto: acresce a percentagem abaixo a essa perna. */
-  isAirportPickup?: boolean;
-  airportSurchargePercent?: number;
-};
-
 export type LegPricing = {
-  /** O que o cliente paga pelo transfer, já com noite e aeroporto. */
+  /** What the customer pays for the transfer, night and airport included. */
   price: number;
-  /** O mesmo sem a taxa noturna, para a linha do detalhe. */
+  /** The same without the night part, for the breakdown line. */
   dayPrice: number;
   nightTaxOutbound: number;
   nightTaxReturn: number;
   hasDistance: boolean;
 };
-
-function nightTaxFor(dayBase: number): number {
-  return Math.max(dayBase * (NIGHT_TAX_PERCENT / 100), NIGHT_TAX_MIN_EUR);
-}
-
-/**
- * O preço de um veículo para uma viagem.
- *
- * A taxa noturna incide sobre a tarifa de dia de cada perna, e cada perna tem o
- * seu horário: uma ida à meia-noite com volta às dez da manhã leva taxa só na
- * ida. A sobretaxa de aeroporto aplica-se apenas à perna cuja recolha é no
- * aeroporto, e antes da taxa noturna.
- */
-export function priceVehicle(input: LegPricingInput): LegPricing {
-  const {
-    pricePerKm,
-    minimumPrice,
-    distance,
-    isNight,
-    isNightReturn = false,
-    bookReturn = false,
-    isAirportPickup = false,
-    airportSurchargePercent = 0,
-  } = input;
-
-  const hasDistance = distance !== undefined && distance !== null && distance > 0;
-  const airportPct = isAirportPickup ? airportSurchargePercent / 100 : 0;
-
-  if (!hasDistance) {
-    return {
-      price: 0,
-      dayPrice: 0,
-      nightTaxOutbound: 0,
-      nightTaxReturn: 0,
-      hasDistance: false,
-    };
-  }
-
-  const legBase = Math.max(minimumPrice, pricePerKm * distance!);
-
-  if (bookReturn) {
-    const airportSurcharge = legBase * airportPct;
-    const dayPrice = legBase + legBase + airportSurcharge;
-    const nightTaxOutbound = isNight ? nightTaxFor(legBase) : 0;
-    const nightTaxReturn = isNightReturn ? nightTaxFor(legBase) : 0;
-    return {
-      price: dayPrice + nightTaxOutbound + nightTaxReturn,
-      dayPrice,
-      nightTaxOutbound,
-      nightTaxReturn,
-      hasDistance: true,
-    };
-  }
-
-  const airportSurcharge = legBase * airportPct;
-  const dayPrice = legBase + airportSurcharge;
-  const nightTaxOutbound = isNight ? nightTaxFor(legBase) : 0;
-  return {
-    price: dayPrice + nightTaxOutbound,
-    dayPrice,
-    nightTaxOutbound,
-    nightTaxReturn: 0,
-    hasDistance: true,
-  };
-}
 
 /* ───────────────────────────── Banded model ─────────────────────────────
  *
@@ -129,15 +46,15 @@ export function priceVehicle(input: LegPricingInput): LegPricing {
  * checkouts. Every lever lives in siteSettings.pricing and in each car's
  * `tariff`, so the numbers can be tuned without a deploy.
  *
- * It runs next to the linear model until siteSettings.pricing.model says
- * "bands": production keeps today's prices while the values are calibrated.
- * A car without a `tariff` keeps the linear price even in "bands" mode.
+ * The only model since 2026-11-27: the linear one (price per km × distance,
+ * flat 20% night fee) was removed. A car saved before the tariffs existed is
+ * priced from its old per-km price and minimum (tariffOf) until the
+ * migration gives it a tariff.
  */
 
 export type VehicleClass = "standard" | "van" | "large";
 
 export type PricingConfig = {
-  model: "linear" | "bands";
   /** Slices of the distance; the last one has upToKm null (no ceiling). */
   bands: { upToKm: number | null; pct: number }[];
   surge: Record<VehicleClass, { sameDay: number; lastMinute: number }>;
@@ -148,17 +65,17 @@ export type PricingConfig = {
   /** Pickups in [from, to) local hours always pay the last-minute surge. */
   earlyMorningFrom: number;
   earlyMorningTo: number;
-  /** Partner (hotel, white-label) checkouts, e.g. 1.15 = 15% commission built in. */
+  /** Partner (hotel, white-label) checkouts, e.g. 1.15 = 15% commission built
+      in. The default: a partner can have its own (priceMarkupPercent). */
   partnerFactor: number;
   /** The night window of the banded model, local hours [from, to). */
   nightFrom: number;
   nightTo: number;
-  /** Luggage extras, euros per unit and per leg (both models). */
+  /** Luggage extras, euros per unit and per leg. */
   extras: { childSeat: number; surfboard: number; pet: number };
 };
 
 export const PRICING_DEFAULTS: PricingConfig = {
-  model: "linear",
   bands: [
     { upToKm: 15, pct: 1 },
     { upToKm: 50, pct: 0.9 },
@@ -250,12 +167,12 @@ export function leadTimeSurge(
 }
 
 export type TripInput = {
-  /** Linear fields (today's model) and, optionally, the banded tariff. */
-  vehicle: { pricePerKm: number; minimumPrice: number; tariff?: Tariff | null };
+  /** The banded tariff; the old per-km fields only for cars not migrated yet. */
+  vehicle: { tariff?: Tariff | null; pricePerKm?: number | null; minimumPrice?: number | null };
   vehicleClass: VehicleClass;
   config: PricingConfig;
-  /** null on the main site. ajustePreco only counts in the linear model. */
-  partner: { ajustePreco?: number | null } | null;
+  /** null on the main site; a partner's checkout pays its markup. */
+  partner: { priceMarkupPercent?: number | null } | null;
   distance?: number | null;
   departureDate?: string | null;
   returnDate?: string | null;
@@ -268,53 +185,49 @@ export type TripInput = {
 
 export type LegSnapshot = { base: number; airport: number; night: number; surge: number; channel: number; price: number };
 
-export type TripPricing = LegPricing & {
-  model: "linear" | "bands";
-  legs?: LegSnapshot[];
-};
+export type TripPricing = LegPricing & { legs: LegSnapshot[] };
 
-/** Partner adjustment of the linear model (partnerships.ajustePreco, in %). */
-export function linearPartnerFactor(p: { ajustePreco?: number | null } | null | undefined): number {
-  const a = p?.ajustePreco ?? 0;
-  return Number.isFinite(a) ? 1 + a / 100 : 1;
-}
+/* The night fee of the old model (+20%), for cars still without a tariff. */
+const LEGACY_NIGHT_MULTIPLIER = 1.2;
 
-/* To the cent: 57 × 1.1 gave 62.699999… in the checkout. */
-export function withFactor(value: number, f: number): number {
-  return f === 1 ? value : Math.round(value * f * 100) / 100;
+/**
+ * The car's tariff. A car saved before the tariffs existed gets one from its
+ * old per-km price and minimum (no base fare, +20% at night, like before);
+ * null when it has neither, and such a car is not offered.
+ */
+export function tariffOf(vehicle: TripInput["vehicle"]): Tariff | null {
+  if (vehicle.tariff) return vehicle.tariff;
+  if (vehicle.pricePerKm && vehicle.pricePerKm > 0) {
+    return { baseFare: 0, ratePerKm: vehicle.pricePerKm, nightMultiplier: LEGACY_NIGHT_MULTIPLIER, minimum: vehicle.minimumPrice ?? 0 };
+  }
+  return null;
 }
 
 /**
- * The price of a trip with whichever model is switched on. The single entry
- * point for the checkout (vehicles.listQuoted), the payment check
- * (lib/precoTransfer.ts) and the back-office simulator: if they disagree the
- * customer sees one price and the payment is refused.
+ * The factor of a partner's checkout: its own markup when it has one
+ * (partnerships.priceMarkupPercent, +10 = ×1.10), else the default of
+ * Configurações → Preços. 1 on the main site.
+ */
+export function partnerFactorOf(partner: TripInput["partner"], config: Pick<PricingConfig, "partnerFactor">): number {
+  if (!partner) return 1;
+  const m = partner.priceMarkupPercent;
+  return typeof m === "number" && Number.isFinite(m) ? 1 + m / 100 : config.partnerFactor;
+}
+
+/**
+ * The price of a trip. The single entry point for the checkout
+ * (vehicles.listQuoted), the payment check (lib/precoTransfer.ts) and the
+ * back-office simulators: if they disagree the customer sees one price and
+ * the payment is refused.
  */
 export function priceTrip(input: TripInput): TripPricing {
-  const { vehicle, config, partner } = input;
-  const tariff = vehicle.tariff;
-  if (config.model !== "bands" || !tariff) {
-    const f = linearPartnerFactor(partner);
-    return {
-      model: "linear",
-      ...priceVehicle({
-        pricePerKm: withFactor(vehicle.pricePerKm, f),
-        minimumPrice: withFactor(vehicle.minimumPrice, f),
-        distance: input.distance,
-        isNight: isNightDeparture(input.departureDate),
-        isNightReturn: input.bookReturn ? isNightDeparture(input.returnDate) : false,
-        bookReturn: input.bookReturn,
-        isAirportPickup: input.isAirportPickup,
-        airportSurchargePercent: input.airportSurchargePercent,
-      }),
-    };
-  }
-
+  const { config } = input;
+  const tariff = tariffOf(input.vehicle);
   const km = input.distance ?? 0;
-  if (!(km > 0)) {
-    return { model: "bands", price: 0, dayPrice: 0, nightTaxOutbound: 0, nightTaxReturn: 0, hasDistance: false, legs: [] };
+  if (!tariff || !(km > 0)) {
+    return { price: 0, dayPrice: 0, nightTaxOutbound: 0, nightTaxReturn: 0, hasDistance: false, legs: [] };
   }
-  const channel = partner ? config.partnerFactor : 1;
+  const channel = partnerFactorOf(input.partner, config);
   const base = tariffLeg(tariff, km, config.bands);
   const leg = (pickup: string | null | undefined, airport: boolean): LegSnapshot & { nightPart: number } => {
     const airportFactor = airport ? 1 + (input.airportSurchargePercent ?? 0) / 100 : 1;
@@ -333,7 +246,6 @@ export function priceTrip(input: TripInput): TripPricing {
   const nightTaxReturn = back?.nightPart ?? 0;
   const strip = ({ nightPart: _n, ...l }: LegSnapshot & { nightPart: number }) => l;
   return {
-    model: "bands",
     price,
     dayPrice: cents(price - nightTaxOutbound - nightTaxReturn),
     nightTaxOutbound,
@@ -344,10 +256,12 @@ export function priceTrip(input: TripInput): TripPricing {
 }
 
 /** siteSettings.pricing with the defaults filled in. */
-export function pricingConfigOf(stored: Partial<PricingConfig> | null | undefined): PricingConfig {
+export function pricingConfigOf(stored: (Partial<PricingConfig> & { model?: string }) | null | undefined): PricingConfig {
+  /* `model` was the switch between the linear and the banded model. */
+  const { model: _model, ...rest } = stored ?? {};
   return {
     ...PRICING_DEFAULTS,
-    ...(stored ?? {}),
+    ...rest,
     surge: { ...PRICING_DEFAULTS.surge, ...(stored?.surge ?? {}) },
     extras: { ...PRICING_DEFAULTS.extras, ...(stored?.extras ?? {}) },
   };

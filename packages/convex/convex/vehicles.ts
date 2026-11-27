@@ -1,106 +1,14 @@
 import { frotaVisivel } from "./lib/frota";
 import { parceriaPorSlug } from "./lib/parceriaPorSlug";
 import { v } from "convex/values";
-import { catalogTranslationsValidator } from "./lib/catalogTranslations";
-import { priceTrip } from "./lib/pricing";
+import { priceTrip, tariffOf } from "./lib/pricing";
 import { categoriesOf, classOf, loadPricing, smallestThatFits } from "./lib/quote";
 import type { Doc, Id } from "./_generated/dataModel";
 import { query } from "./_generated/server";
-import { mutation } from "./functions";
-import { pagedArgs, paginate, applySearch, applySort } from "./lib/pagination";
-import { urlDaImagem, vImagem } from "./lib/imagens";
-import { exigirAdmin } from "./lib/admin";
+import { urlDaImagem } from "./lib/imagens";
 
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    await exigirAdmin(ctx, "veiculos", "ver");
-    const vehicles = await ctx.db
-      .query("vehicles")
-      .withIndex("by_order")
-      .collect();
-    
-    return Promise.all(
-      vehicles.map(async (vehicle) => {
-        const partnership = vehicle.partnershipId 
-          ? await ctx.db.get(vehicle.partnershipId)
-          : null;
-          
-        return {
-        ...vehicle,
-        imageUrl: vehicle.imageId 
-          ? await urlDaImagem(ctx, vehicle.imageId) 
-          : null,
-          partnershipName: partnership?.name || "EasyTransfer",
-        };
-      })
-    );
-  },
-});
-
-export const listPaged = query({
-  args: pagedArgs,
-  handler: async (ctx, a) => {
-    await exigirAdmin(ctx, "veiculos", "ver");
-    const vehicles = await ctx.db.query("vehicles").withIndex("by_order").collect();
-
-    // Enrich with partnershipName (needed for search/filter) — cheap db.get per row.
-    let rows = await Promise.all(
-      vehicles.map(async (vehicle) => {
-        const partnership = vehicle.partnershipId ? await ctx.db.get(vehicle.partnershipId) : null;
-        return { ...vehicle, partnershipName: partnership?.name || "EasyTransfer" };
-      }),
-    );
-
-    rows = applySearch(rows, a.search, [(r) => r.name, (r) => r.partnershipName]);
-
-    const owner = a.filters?.owner;
-    if (owner) rows = rows.filter((r) => (owner === "global" ? !r.partnershipId : r.partnershipId === owner));
-    const status = a.filters?.status;
-    if (status) rows = rows.filter((r) => r.status === status);
-
-    rows = applySort(rows, a.sortBy, a.sortDir, {
-      name: (r) => r.name.toLowerCase(),
-      day: (r) => r.pricePerKm,
-      night: (r) => r.pricePerKmNight ?? r.pricePerKm,
-      min: (r) => r.minimumPrice,
-    });
-
-    const result = paginate(rows, a.page, a.pageSize);
-    const withImages = await Promise.all(
-      result.rows.map(async (r) => ({
-        ...r,
-        imageUrl: r.imageId ? await urlDaImagem(ctx, r.imageId) : null,
-      })),
-    );
-    return { ...result, rows: withImages };
-  },
-});
-
-export const listActive = query({
-  args: { partnershipSlug: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const parceria = args.partnershipSlug
-      ? await parceriaPorSlug(ctx, args.partnershipSlug)
-      : null;
-
-    const vehicles = await ctx.db
-      .query("vehicles")
-      .withIndex("by_status", (q) => q.eq("status", "active"))
-      .collect();
-
-    const sortedVehicles = frotaVisivel(vehicles, parceria);
-
-    return Promise.all(
-      sortedVehicles.map(async (vehicle) => ({
-        ...vehicle,
-        imageUrl: vehicle.imageId 
-          ? await urlDaImagem(ctx, vehicle.imageId) 
-          : null,
-      }))
-    );
-  },
-});
+/* The back-office's vehicle functions live in veiculos.ts; the old admin's
+   list/create/update/remove were removed with the linear model (2026-11-27). */
 
 /**
  * Os veículos disponíveis para uma viagem, já com preço.
@@ -142,7 +50,8 @@ export const listQuoted = query({
       .query("vehicles")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
-    const visible = frotaVisivel(all, parceria);
+    /* A car without a price is not offered: it would show at 0 €. */
+    const visible = frotaVisivel(all, parceria).filter((c) => tariffOf(c));
     const categories = await categoriesOf(ctx, visible);
     const pricing = await loadPricing(ctx);
 
@@ -188,9 +97,11 @@ export const listQuoted = query({
           now: args.now,
         });
         const imageId = category?.imageId ?? car.imageId;
-        const { legs: _legs, model: _model, ...price } = quote;
+        const { legs: _legs, ...price } = quote;
+        /* The old per-km fields stay out of the checkout. */
+        const { pricePerKm: _k, pricePerKmNight: _n, minimumPrice: _m, partnerIds: _p, ...publicCar } = car;
         return {
-          ...car,
+          ...publicCar,
           ...(category
             ? {
                 name: category.name,
@@ -209,87 +120,5 @@ export const listQuoted = query({
         };
       }),
     );
-  },
-});
-
-export const create = mutation({
-  args: {
-    name: v.string(),
-    translations: v.optional(catalogTranslationsValidator),
-    examples: v.optional(v.string()),
-    imageId: v.optional(vImagem),
-    partnershipId: v.optional(v.id("partnerships")),
-    passengers: v.number(),
-    luggage: v.number(),
-    maxBackpacks: v.optional(v.number()),
-    maxHandLuggage: v.optional(v.number()),
-    maxCheckedBaggage: v.optional(v.number()),
-    maxChildSeats: v.optional(v.number()),
-    maxBabySeats: v.optional(v.number()),
-    maxBoosterSeats: v.optional(v.number()),
-    pricePerKm: v.number(),
-    pricePerKmNight: v.number(),
-    minimumPrice: v.number(),
-    hasWifi: v.boolean(),
-    isElectric: v.boolean(),
-    status: v.union(
-      v.literal("active"),
-      v.literal("inactive"),
-      v.literal("maintenance")
-    ),
-    order: v.number(),
-    upgradeFromVehicleId: v.optional(v.id("vehicles")),
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "veiculos");
-    return await ctx.db.insert("vehicles", { ...args, actualizadoEm: Date.now() });
-  },
-});
-
-export const update = mutation({
-  args: {
-    id: v.id("vehicles"),
-    name: v.optional(v.string()),
-    translations: v.optional(catalogTranslationsValidator),
-    examples: v.optional(v.string()),
-    imageId: v.optional(vImagem),
-    partnershipId: v.optional(v.id("partnerships")),
-    passengers: v.optional(v.number()),
-    luggage: v.optional(v.number()),
-    maxBackpacks: v.optional(v.number()),
-    maxHandLuggage: v.optional(v.number()),
-    maxCheckedBaggage: v.optional(v.number()),
-    maxChildSeats: v.optional(v.number()),
-    maxBabySeats: v.optional(v.number()),
-    maxBoosterSeats: v.optional(v.number()),
-    pricePerKm: v.optional(v.number()),
-    pricePerKmNight: v.optional(v.number()),
-    minimumPrice: v.optional(v.number()),
-    hasWifi: v.optional(v.boolean()),
-    isElectric: v.optional(v.boolean()),
-    status: v.optional(
-      v.union(
-        v.literal("active"),
-        v.literal("inactive"),
-        v.literal("maintenance")
-      )
-    ),
-    order: v.optional(v.number()),
-    upgradeFromVehicleId: v.optional(v.id("vehicles")),
-  },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "veiculos");
-    const { id, ...data } = args;
-    // A imagem antiga não se apaga: o ficheiro pode ser partilhado com outros registos (ver lib/imagens.ts).
-    await ctx.db.patch(id, { ...data, actualizadoEm: Date.now() });
-  },
-});
-
-export const remove = mutation({
-  args: { id: v.id("vehicles") },
-  handler: async (ctx, args) => {
-    await exigirAdmin(ctx, "veiculos", "editar", "apagar");
-    // O ficheiro da imagem não se apaga: pode ser partilhado com outros registos (ver lib/imagens.ts).
-    await ctx.db.delete(args.id);
   },
 });

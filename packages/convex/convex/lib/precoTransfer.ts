@@ -3,7 +3,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { haversineKm } from "./geo";
 import { eAeroporto, type Local } from "./aeroportos";
-import { linearPartnerFactor, priceTrip, withFactor } from "./pricing";
+import { priceTrip, tariffOf } from "./pricing";
 import { precoDaReserva } from "./precoTours";
 import { classOf, loadPricing, smallestThatFits } from "./quote";
 
@@ -18,7 +18,7 @@ import { classOf, loadPricing, smallestThatFits } from "./quote";
  *
  * As peças são as do checkout (apps/web/components/*checkout/pricing.ts e
  * lib/format.ts, calculatePriceBreakdown):
- *  - o carro: priceVehicle com a distância, a noite, o aeroporto e a volta;
+ *  - o carro: priceTrip com a distância, a noite, o aeroporto e a volta;
  *  - os seguros e opções escolhidos, pelo código (o mais barato dos dois
  *    checkouts, que não têm a mesma tabela — refundTerms é 4 num e 5 noutro);
  *  - os extras de bagagem gravados na ida (cadeiras, pranchas, animais);
@@ -42,14 +42,6 @@ const OPCOES_MINIMO: Record<string, number> = {
    reexportam, para quem já os importava deste ficheiro. */
 export { codigoDoAeroporto, eAeroporto } from "./aeroportos";
 
-/** O ajuste de preço de um parceiro sobre a frota (partnerships.ajustePreco, em %).
-    Only the linear model uses it; the banded one has one channel factor for
-    every partner (siteSettings.pricing.partnerFactor). */
-export const factorDoParceiro = (p: Pick<Doc<"partnerships">, "ajustePreco"> | null | undefined) => linearPartnerFactor(p);
-
-/* Ao cêntimo: 57 × 1,1 dava 62,699999… no checkout. */
-export const comAjuste = withFactor;
-
 /* How long a quote keeps its lead-time surge: someone who chose the car an
    hour ago and pays now is priced as of then. Longer than that, the clock of
    the payment counts. */
@@ -65,6 +57,7 @@ export async function minimoDoTransfer(
   if (!ida.vehicleId) throw new ConvexError("Escolha um carro antes de pagar.");
   let carro = await ctx.db.get(ida.vehicleId);
   if (!carro) throw new ConvexError("O carro escolhido já não existe. Volte atrás e escolha outro.");
+  if (!tariffOf(carro)) throw new ConvexError("O carro escolhido já não está disponível. Volte atrás e escolha outro.");
   const categoria = carro.categoryId ? await ctx.db.get(carro.categoryId) : null;
   /* A category's car must take the group: a request edited to keep the
      15-seat minibus for 20 people is priced with the car that fits. */
@@ -124,7 +117,7 @@ export async function minimoDoTransfer(
     extras,
     experiencias,
     distancia,
-    snapshot: { model: preco.model, distance: Math.round(distancia * 10) / 10, car: preco.price, ...(preco.legs ? { legs: preco.legs } : {}) },
+    snapshot: { model: "bands" as const, distance: Math.round(distancia * 10) / 10, car: preco.price, legs: preco.legs },
   };
 }
 

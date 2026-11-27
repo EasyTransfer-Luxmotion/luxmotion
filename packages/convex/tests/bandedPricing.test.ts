@@ -5,7 +5,7 @@ import {
   leadTimeSurge,
   lisbonLocalToEpoch,
   priceTrip,
-  priceVehicle,
+  tariffOf,
   type PricingConfig,
   type Tariff,
 } from "../convex/lib/pricing";
@@ -17,10 +17,10 @@ import {
  * customer pays another.
  */
 
-const bands: PricingConfig = { ...PRICING_DEFAULTS, model: "bands" };
+const bands: PricingConfig = { ...PRICING_DEFAULTS };
 const businessVan: Tariff = { baseFare: 35, ratePerKm: 2.05, nightMultiplier: 1.171, minimum: 70 };
 const business: Tariff = { baseFare: 25, ratePerKm: 1.55, nightMultiplier: 1.097, minimum: 50 };
-const car = (tariff: Tariff, pricePerKm = 2, minimumPrice = 60) => ({ pricePerKm, minimumPrice, tariff });
+const car = (tariff: Tariff) => ({ tariff });
 const trip = (t: Tariff, km: number, extra: Partial<Parameters<typeof priceTrip>[0]> = {}) =>
   priceTrip({ vehicle: car(t), vehicleClass: "standard", config: bands, partner: null, distance: km, departureDate: "2030-03-10 12:00", ...extra });
 
@@ -58,9 +58,16 @@ describe("night, airport, partner", () => {
     expect(p.price).toBeCloseTo(69.175 * 1.12 + 69.18, 2);
   });
 
-  test("a partner checkout pays the channel factor; ajustePreco no longer counts", () => {
-    const p = trip(business, 30, { partner: { ajustePreco: 40 } });
+  test("a partner checkout pays the default channel factor", () => {
+    const p = trip(business, 30, { partner: {} });
     expect(p.price).toBeCloseTo(69.175 * 1.15, 2);
+    expect(p.legs[0]?.channel).toBe(1.15);
+  });
+
+  test("a partner with its own markup pays that instead (+10%, −5%, 0%)", () => {
+    expect(trip(business, 30, { partner: { priceMarkupPercent: 10 } }).price).toBeCloseTo(69.175 * 1.1, 2);
+    expect(trip(business, 30, { partner: { priceMarkupPercent: -5 } }).price).toBeCloseTo(69.175 * 0.95, 2);
+    expect(trip(business, 30, { partner: { priceMarkupPercent: 0 } }).price).toBe(69.18);
   });
 });
 
@@ -93,28 +100,19 @@ describe("lead-time surge", () => {
   });
 });
 
-describe("the linear model stays exactly as today", () => {
-  test("model linear, or a car without a tariff, gives priceVehicle's number", () => {
-    const today = priceVehicle({ pricePerKm: 2, minimumPrice: 60, distance: 100, isNight: true, isAirportPickup: true, airportSurchargePercent: 12 });
-    const linear = priceTrip({
-      vehicle: { pricePerKm: 2, minimumPrice: 60, tariff: business },
-      vehicleClass: "standard",
-      config: PRICING_DEFAULTS,
-      partner: null,
-      distance: 100,
-      departureDate: "2030-03-10 22:00",
-      isAirportPickup: true,
-      airportSurchargePercent: 12,
-    });
-    expect(linear.price).toBe(today.price);
-    const noTariff = priceTrip({ vehicle: { pricePerKm: 2, minimumPrice: 60 }, vehicleClass: "standard", config: bands, partner: null, distance: 100 });
-    expect(noTariff.model).toBe("linear");
-    expect(noTariff.price).toBe(200);
+describe("the linear model is gone", () => {
+  test("a car saved before the tariffs is priced from its old per-km price, +20% at night", () => {
+    const old = { pricePerKm: 2, minimumPrice: 60 };
+    expect(tariffOf(old)).toEqual({ baseFare: 0, ratePerKm: 2, nightMultiplier: 1.2, minimum: 60 });
+    /* The bands taper it now: 100 km = 15 + 31.5 + 39 + 0 weighted km. */
+    expect(priceTrip({ vehicle: old, vehicleClass: "standard", config: bands, partner: null, distance: 100 }).price).toBe(171);
   });
 
-  test("the partner's ajustePreco keeps working in the linear model", () => {
-    const p = priceTrip({ vehicle: { pricePerKm: 2, minimumPrice: 60 }, vehicleClass: "standard", config: PRICING_DEFAULTS, partner: { ajustePreco: 10 }, distance: 100 });
-    expect(p.price).toBeCloseTo(220, 6);
+  test("a car with no price at all is priced at nothing and flagged (never a guess)", () => {
+    const p = priceTrip({ vehicle: {}, vehicleClass: "standard", config: bands, partner: null, distance: 100 });
+    expect(p.hasDistance).toBe(false);
+    expect(p.price).toBe(0);
+    expect(tariffOf({})).toBeNull();
   });
 });
 

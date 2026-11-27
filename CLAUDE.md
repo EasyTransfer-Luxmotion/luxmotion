@@ -282,22 +282,30 @@ pagamento é recusado se o valor que o browser viu for outro.
 **Preço dos transfers: o servidor confere o total antes de cobrar.**
 `orders.startPaymentAction` calcula o mínimo da reserva (`lib/precoTransfer.ts`:
 carro com distância, noite, aeroporto e volta, seguros, extras, experiências,
-ajuste do parceiro) e recusa um total mais de 10% abaixo; entre 1 € e 10%
-aceita e grava `pricingWarning`. A folga existe porque as reservas antigas
-pagaram até 20% menos por regras já corrigidas; as de Novembro de 2026 batem
-certo. A distância continua a vir do browser, mas nunca abaixo da linha recta.
-Se mudares preços no checkout (`*checkout/pricing.ts`), muda também ali.
-`npx convex run orders:auditarMinimos` mede a regra contra as reservas pagas.
+percentagem do parceiro) e recusa um total mais de 10% abaixo; entre 1 € e 10%
+aceita e grava `pricingWarning`. A distância continua a vir do browser, mas
+nunca abaixo da linha recta. Se mudares preços no checkout
+(`*checkout/pricing.ts`), muda também ali.
 
-**Ajuste de preço por parceiro** (`partnerships.ajustePreco`, em %, de −50 a
-+100): multiplica o preço por km e o mínimo de cada carro no checkout do
-parceiro (`vehicles.listQuoted`) e no mínimo que o pagamento confere
-(`lib/precoTransfer.ts`, `factorDoParceiro`). Os dois sítios têm de usar o
-mesmo, ou o cliente vê um preço e o pagamento é recusado.
+**Um só modelo de preço: bandas** (`lib/pricing.ts`, `priceTrip`, desde
+2026-11-27). Cada carro tem uma `tariff` (base, €/km, multiplicador de noite,
+mínimo); as bandas de distância, a subida por antecedência (pela **classe**
+da categoria: Standard, Van ou Grande), a janela da noite, a taxa de aeroporto
+e a percentagem por omissão dos parceiros estão em Configurações → Preços. O
+modelo linear (preço por km × distância, +20% à noite) e o «Novo vs atual»
+saíram; um carro antigo sem tarifa é cotado a partir do `pricePerKm` até
+`veiculos:migrarParaTarifas` (corre no `promover.sh`) lhe dar uma.
 
-**Frota dos parceiros**: um parceiro mostra a frota global menos os
-`veiculosEscondidos`, mais os carros que são só dele (`lib/frota.ts`). Não se
-copiam carros para parceiros: preços e carros novos chegam sozinhos.
+**Preço por parceiro** (`partnerships.priceMarkupPercent`, em %, de −50 a
++100; vazio = o valor por omissão de Preços, +15%): multiplica o preço no
+checkout do parceiro e no mínimo que o pagamento confere — os dois passam por
+`partnerFactorOf`. O antigo `ajustePreco` já não se lê.
+
+**Onde aparece cada carro** (`lib/frota.ts`, `reachOf`): `showOnSite` (site
+principal) e `partnerMode` — `all` (todos os parceiros; cada um ainda o pode
+esconder na sua Frota, `veiculosEscondidos`), `some` (`partnerIds`) ou
+`none`. O `partnershipId` (dono único, «Associado a») é o formato antigo, lido
+como «só esse parceiro». Não se copiam carros para parceiros.
 
 **Sininho do back-office** (`notificacoes`): cada coisa nova grava uma linha
 no momento em que acontece, por `lib/notificar.ts` — reservas pagas

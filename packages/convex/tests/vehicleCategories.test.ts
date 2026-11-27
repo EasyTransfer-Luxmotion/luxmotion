@@ -47,7 +47,7 @@ async function seed() {
     const mb20 = await mk("Mini Bus (16–20 pax)", 20, minibus, 65, 10);
     const mb22 = await mk("Mini Bus (21–22 pax)", 22, minibus, 80, 11);
     const bc = await mk("Business Class", 3, business, 25, 2);
-    await ctx.db.insert("siteSettings", { key: "global", minAdvanceBookingHours: 2, pricing: { ...PRICING_DEFAULTS, model: "bands" } });
+    await ctx.db.insert("siteSettings", { key: "global", minAdvanceBookingHours: 2, pricing: { ...PRICING_DEFAULTS } });
     return { minibus, business, mb15, mb20, mb22, bc };
   });
 }

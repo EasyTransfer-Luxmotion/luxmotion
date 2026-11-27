@@ -5,7 +5,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { exigirAdmin, pode } from "./lib/admin";
 import { catalogTranslationsValidator } from "./lib/catalogTranslations";
 import { urlDaImagem, vImagem } from "./lib/imagens";
-import { priceTrip, type Tariff } from "./lib/pricing";
+import { priceTrip, tariffLeg, tariffOf, PRICING_DEFAULTS, type Tariff } from "./lib/pricing";
+import { reachOf } from "./lib/frota";
 import { loadPricing } from "./lib/quote";
 
 /*
@@ -34,7 +35,7 @@ export const list = query({
     const rows = await Promise.all(
       categories.map(async (c) => {
         const mine = cars
-          .filter((car) => car.categoryId === c._id && !car.partnershipId)
+          .filter((car) => car.categoryId === c._id && reachOf(car).site)
           .sort((a, b) => a.passengers - b.passengers || a.luggage - b.luggage);
         return {
           _id: c._id,
@@ -53,35 +54,27 @@ export const list = query({
             status: car.status,
             passengers: car.passengers,
             luggage: car.luggage,
-            hasTariff: Boolean(car.tariff),
+            hasTariff: Boolean(tariffOf(car)),
             prices: SAMPLE_KM.map((km) => ({
               km,
-              ...pricesAt(car, c.vehicleClass, km, pricing.airportSurchargePercent, pricing.config),
+              price: priceTrip({
+                vehicle: car,
+                vehicleClass: c.vehicleClass,
+                config: pricing.config,
+                partner: null,
+                distance: km,
+                departureDate: "2030-01-01 12:00",
+                airportSurchargePercent: pricing.airportSurchargePercent,
+              }).price,
             })),
           })),
         };
       }),
     );
     const loose = cars.filter((car) => !car.categoryId).map((car) => ({ _id: car._id, name: car.name, status: car.status }));
-    return { rows, loose, model: pricing.config.model, sampleKm: SAMPLE_KM };
+    return { rows, loose, sampleKm: SAMPLE_KM };
   },
 });
-
-/* Day price of a car at a distance, with today's (linear) and the banded
-   model, so the back-office sees both while the new one is calibrated. */
-function pricesAt(
-  car: Doc<"vehicles">,
-  vehicleClass: Doc<"vehicleCategories">["vehicleClass"],
-  km: number,
-  airportSurchargePercent: number,
-  config: Awaited<ReturnType<typeof loadPricing>>["config"],
-) {
-  const trip = { vehicle: car, vehicleClass, partner: null, distance: km, departureDate: "2030-01-01 12:00", airportSurchargePercent };
-  return {
-    linear: priceTrip({ ...trip, config: { ...config, model: "linear" } }).price,
-    bands: car.tariff ? priceTrip({ ...trip, config: { ...config, model: "bands" } }).price : null,
-  };
-}
 
 export const detail = query({
   args: { id: v.id("vehicleCategories") },
@@ -220,7 +213,7 @@ function groupOf(car: Doc<"vehicles">): Group | null {
 export const createFromFleet = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const cars = (await ctx.db.query("vehicles").withIndex("by_order").collect()).filter((c) => !c.partnershipId);
+    const cars = (await ctx.db.query("vehicles").withIndex("by_order").collect()).filter((c) => reachOf(c).site);
     const categories = await ctx.db.query("vehicleCategories").collect();
     const byName = new Map(categories.map((c) => [c.name.toLowerCase(), c._id]));
     let order = Math.max(0, ...categories.map((c) => c.order));
@@ -267,7 +260,12 @@ export const createFromFleet = internalMutation({
     const fresh = await ctx.db.query("vehicles").collect();
     const catOf = new Map(fresh.map((c) => [c._id, c.categoryId]));
     const at30 = (id: Id<"vehicleCategories">) => {
-      const prices = fresh.filter((c) => c.categoryId === id && c.status === "active").map((c) => Math.max(c.minimumPrice, c.pricePerKm * 30));
+      const prices = fresh
+        .filter((c) => c.categoryId === id && c.status === "active")
+        .map((c) => {
+          const t = tariffOf(c);
+          return t ? tariffLeg(t, 30, PRICING_DEFAULTS.bands) : 0;
+        });
       return prices.length ? Math.min(...prices) : 0;
     };
     let upgrades = 0;
@@ -300,7 +298,7 @@ export const createFromFleet = internalMutation({
       }
     }
     const tariffs = await fillSheetTariffs(ctx);
-    return { created, assigned, upgrades, cyclesUndone, tariffs, loose: fresh.filter((c) => !c.categoryId && !c.partnershipId).map((c) => c.name) };
+    return { created, assigned, upgrades, cyclesUndone, tariffs, loose: fresh.filter((c) => !c.categoryId && reachOf(c).site).map((c) => c.name) };
   },
 });
 
@@ -362,13 +360,13 @@ export const applySheetValues = internalMutation({
   handler: async (ctx) => await fillSheetTariffs(ctx),
 });
 
-/* Which model the checkout uses and the partner factor, for the partnership
-   editor: in the banded model the per-partner adjustment no longer counts. */
+/* The default partner factor, for the partnership editor ("+15%, the
+   default"): a partner without its own markup pays this. */
 export const pricingModel = query({
   args: {},
   handler: async (ctx) => {
     if (!(await pode(ctx, "parcerias")) && !(await pode(ctx, "veiculos"))) return null;
     const { config } = await loadPricing(ctx);
-    return { model: config.model, partnerFactor: config.partnerFactor };
+    return { partnerFactor: config.partnerFactor };
   },
 });

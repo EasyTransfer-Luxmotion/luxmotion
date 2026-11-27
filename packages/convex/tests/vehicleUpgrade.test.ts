@@ -28,23 +28,41 @@ const base = {
   maxChildSeats: 0,
   maxBabySeats: 0,
   maxBoosterSeats: 0,
-  minimumPrice: 50,
   hasWifi: true,
   isElectric: false,
   status: "active" as const,
 };
 
-async function carro(name: string, pricePerKm: number) {
-  return await t.run((ctx) => ctx.db.insert("vehicles", { ...base, name, pricePerKm, pricePerKmNight: pricePerKm, order: pricePerKm, actualizadoEm: 1 }));
+/* "More expensive" is the day price at 30 km: with no base and a 50 €
+   minimum, the rate decides (30 km × rate > 50 for every rate used here). */
+async function carro(name: string, ratePerKm: number) {
+  return await t.run((ctx) =>
+    ctx.db.insert("vehicles", {
+      ...base,
+      name,
+      tariff: { baseFare: 0, ratePerKm, nightMultiplier: 1.2, minimum: 50 },
+      showOnSite: true,
+      partnerMode: "all",
+      order: ratePerKm,
+      actualizadoEm: 1,
+    }),
+  );
 }
 
 async function guardar(id: Id<"vehicles">, args: { downgrade?: Id<"vehicles"> | null; upgrade?: Id<"vehicles"> | null }) {
   const doc = (await t.run((ctx) => ctx.db.get(id)))!;
-  const { _id, _creationTime, order, pricePerKmNight, actualizadoEm, ...dados } = doc;
+  const { _id, _creationTime, order, actualizadoEm, tariff, showOnSite, partnerMode, partnerIds, categoryId, ...dados } = doc;
   return await t.withIdentity(admin).mutation(api.veiculos.guardar, {
     id,
     versao: actualizadoEm ?? _creationTime,
-    dados: { ...dados, upgradeFromVehicleId: args.downgrade === undefined ? dados.upgradeFromVehicleId : (args.downgrade ?? undefined) },
+    dados: {
+      ...dados,
+      tariff: tariff!,
+      showOnSite: showOnSite ?? true,
+      partnerMode: partnerMode ?? "all",
+      partnerIds: partnerIds ?? [],
+      categoryId: categoryId ?? null,
+      upgradeFromVehicleId: args.downgrade === undefined ? dados.upgradeFromVehicleId : (args.downgrade ?? undefined) },
     ...(args.upgrade === undefined ? {} : { upgradeVehicleId: args.upgrade }),
   });
 }

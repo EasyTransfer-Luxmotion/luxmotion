@@ -7,7 +7,8 @@
 #      o branch de destino avança sem conflitos;
 #   2. tipos e testes do Convex;
 #   3. publica o Convex do ambiente (deploy key em ~/.config/luxmotion/);
-#   4. corre a migração dos agregados (orderFacts:backfill) e espera que acabe;
+#   4. corre a migração dos agregados (orderFacts:backfill) e espera que acabe,
+#      e a dos carros para as tarifas (veiculos:migrarParaTarifas);
 #   5. avança o branch do site (o Railway publica);
 #   6. no dashboard, põe o contrato do ambiente neste commit, confirma que
 #      compila e avança o branch;
@@ -111,6 +112,16 @@ for _ in $(seq 1 360); do
 done
 [ "$estado" = "acabou" ] || falha "a migração não acabou em 30 minutos ($estado)"
 echo; convex run orderFacts:counts
+
+# Os carros gravados antes de 2026-11-27 (modelo linear, dono único) passam
+# para a tarifa e o «Onde aparece». Idempotente; sem ela o checkout esconde
+# os carros sem tarifa e sem preço antigo.
+passo "Carros para tarifas (veiculos:migrarParaTarifas)"
+convex run veiculos:migrarParaTarifas '{"executar":true}' | node -e '
+  let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+    const r = JSON.parse(s.slice(s.indexOf("{")));
+    console.log("  " + r.carros + " carros migrados" + (r.semPreco ? ", " + r.semPreco + " sem preço nenhum (ficam fora do checkout)" : ""));
+  });'
 
 # ── 5. Site ──────────────────────────────────────────────────────────────
 passo "Site: $AMB ← development"

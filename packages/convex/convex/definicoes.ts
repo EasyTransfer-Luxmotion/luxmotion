@@ -3,7 +3,7 @@ import { query } from "./_generated/server";
 import { mutation } from "./functions";
 import { exigirAdmin } from "./lib/admin";
 import { siteSettingsDefaults } from "./siteSettings";
-import { pricingConfigOf } from "./lib/pricing";
+import { pricingConfigOf, tariffOf } from "./lib/pricing";
 import { configAvaliacao } from "./lib/avaliacao";
 import { marketingStatsDefaults } from "./marketingStats";
 import { deIndice, indiceDia } from "./lib/orderLabels";
@@ -56,7 +56,6 @@ export const detalhe = query({
       versao: { site: site?.updatedAt ?? null, marketing: mkt?.updatedAt ?? null },
       valores: {
         antecedenciaHoras: site?.minAdvanceBookingHours ?? d.minAdvanceBookingHours,
-        sobretaxaAeroporto: site?.airportSurchargePercent ?? d.airportSurchargePercent,
         cambios: site?.exchangeRates ?? { ...d.exchangeRates },
         anunciosLigados: site?.announcementsEnabled ?? d.announcementsEnabled,
         anuncios: site?.announcements ?? [],
@@ -85,7 +84,6 @@ export const guardar = mutation({
     versao: v.object({ site: v.union(v.number(), v.null()), marketing: v.union(v.number(), v.null()) }),
     dados: v.object({
       antecedenciaHoras: v.number(),
-      sobretaxaAeroporto: v.number(),
       cambios: v.object({ BRL: v.number(), USD: v.number(), GBP: v.number() }),
       anunciosLigados: v.boolean(),
       anuncios: v.array(v.string()),
@@ -109,7 +107,6 @@ export const guardar = mutation({
     };
     /* 0 é sem restrição; 720 horas são 30 dias. */
     entre("antecedenciaHoras", d.antecedenciaHoras, 0, 720);
-    entre("sobretaxaAeroporto", d.sobretaxaAeroporto, 0, 100, false);
     for (const k of ["BRL", "USD", "GBP"] as const) entre(`cambio.${k}`, d.cambios[k], 0.01, 1000, false, "Quantas unidades valem 1 €: maior que 0.");
     entre("raioPesquisaTours", d.raioPesquisaTours, 1, 500);
     entre("raioCheckoutTours", d.raioCheckoutTours, 1, 500);
@@ -146,7 +143,6 @@ export const guardar = mutation({
     const registoSite = {
       key: CHAVE,
       minAdvanceBookingHours: d.antecedenciaHoras,
-      airportSurchargePercent: d.sobretaxaAeroporto,
       exchangeRates: d.cambios,
       announcementsEnabled: d.anunciosLigados,
       announcements: anuncios,
@@ -177,13 +173,12 @@ export const guardar = mutation({
 
 /* ─────────────────────── Preços (transfer pricing levers) ─────────────────
  *
- * Saved apart from the rest of the screen: it carries the switch between
- * today's linear prices and the banded model (lib/pricing.ts), and a mistake
- * here changes what every customer pays. */
+ * Saved apart from the rest of the screen: a mistake here changes what every
+ * customer pays. The airport surcharge lives here since 2026-11-27 (it was
+ * in Definições do site, away from the rest of the price). */
 
 const vSurge = v.object({ sameDay: v.number(), lastMinute: v.number() });
 const vPricing = v.object({
-  model: v.union(v.literal("linear"), v.literal("bands")),
   bands: v.array(v.object({ upToKm: v.union(v.number(), v.null()), pct: v.number() })),
   surge: v.object({ standard: vSurge, van: vSurge, large: vSurge }),
   freeAfterHours: v.number(),
@@ -205,19 +200,17 @@ export const precos = query({
       versao: site?.updatedAt ?? null,
       precos: pricingConfigOf(site?.pricing),
       sobretaxaAeroporto: site?.airportSurchargePercent ?? siteSettingsDefaults.airportSurchargePercent,
-      /* How many active cars already have a banded tariff: switching to
-         "bands" leaves the others on today's price. */
-      comTarifa: (await ctx.db.query("vehicles").withIndex("by_status", (q) => q.eq("status", "active")).collect()).reduce(
-        (n, c) => ({ com: n.com + (c.tariff ? 1 : 0), total: n.total + 1 }),
-        { com: 0, total: 0 },
-      ),
+      /* Active cars still without a tariff: the checkout hides them. */
+      semTarifa: (await ctx.db.query("vehicles").withIndex("by_status", (q) => q.eq("status", "active")).collect())
+        .filter((c) => !tariffOf(c))
+        .map((c) => ({ id: c._id, nome: c.name })),
     };
   },
 });
 
 export const guardarPrecos = mutation({
-  args: { versao: v.union(v.number(), v.null()), precos: vPricing },
-  handler: async (ctx, { versao, precos: p }) => {
+  args: { versao: v.union(v.number(), v.null()), precos: vPricing, sobretaxaAeroporto: v.number() },
+  handler: async (ctx, { versao, precos: p, sobretaxaAeroporto }) => {
     await exigirAdmin(ctx, "definicoes");
     const erros: Record<string, string> = {};
     const entre = (campo: string, n: number, min: number, max: number, msg: string) => {
@@ -243,6 +236,7 @@ export const guardarPrecos = mutation({
     entre("nightTo", p.nightTo, 0, 23, "Uma hora de 0 a 23.");
     if (p.nightFrom === p.nightTo) erros.nightTo = "Diferente da hora de início.";
     for (const k of ["childSeat", "surfboard", "pet"] as const) entre(`extras.${k}`, p.extras[k], 0, 500, "De 0 a 500 €.");
+    entre("sobretaxaAeroporto", sobretaxaAeroporto, 0, 100, "De 0 a 100%.");
     if (Object.keys(erros).length) throw new ConvexError({ tipo: "invalido", mensagem: "Há campos por corrigir.", erros });
 
     const site = await ctx.db.query("siteSettings").withIndex("by_key", (q) => q.eq("key", CHAVE)).first();
@@ -250,8 +244,15 @@ export const guardarPrecos = mutation({
       throw new ConvexError({ tipo: "conflito", mensagem: "Alguém gravou estas definições depois de abrir o ecrã. Veja a versão atual antes de gravar por cima." });
     }
     const t = Math.max(Date.now(), (site?.updatedAt ?? 0) + 1);
-    if (site) await ctx.db.patch(site._id, { pricing: p, updatedAt: t });
-    else await ctx.db.insert("siteSettings", { key: CHAVE, minAdvanceBookingHours: siteSettingsDefaults.minAdvanceBookingHours, pricing: p, updatedAt: t });
+    if (site) await ctx.db.patch(site._id, { pricing: p, airportSurchargePercent: sobretaxaAeroporto, updatedAt: t });
+    else
+      await ctx.db.insert("siteSettings", {
+        key: CHAVE,
+        minAdvanceBookingHours: siteSettingsDefaults.minAdvanceBookingHours,
+        pricing: p,
+        airportSurchargePercent: sobretaxaAeroporto,
+        updatedAt: t,
+      });
     return { versao: t };
   },
 });

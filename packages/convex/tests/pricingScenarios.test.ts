@@ -56,7 +56,7 @@ const SHEET: [string, Tariff, VehicleClass][] = [
 ];
 
 const BANDS = PRICING_DEFAULTS.bands;
-const cfg: PricingConfig = { ...PRICING_DEFAULTS, model: "bands" };
+const cfg: PricingConfig = { ...PRICING_DEFAULTS };
 
 /* The sheet's "Calculadora", cell by cell, written independently of the code:
    B15..E15 slice the km, B16 base price, B17 with the minimum, B22 the final
@@ -275,13 +275,13 @@ async function fleet(pricing: Partial<PricingConfig> = {}) {
     const minibus = await ctx.db.insert("vehicleCategories", { name: "Minibus", vehicleClass: "large", status: "active", order: 2 });
     const business = await ctx.db.insert("vehicleCategories", { name: "Business Class", vehicleClass: "standard", status: "active", order: 1 });
     const mk = (name: string, passengers: number, categoryId: Id<"vehicleCategories">, tariff: Tariff, order: number, luggage = 20) =>
-      ctx.db.insert("vehicles", { ...carBase, luggage, name, passengers, categoryId, order, pricePerKm: 4, minimumPrice: 100, tariff });
+      ctx.db.insert("vehicles", { ...carBase, luggage, name, passengers, categoryId, order, tariff });
     const tariffOf = (n: string) => SHEET.find(([x]) => x === n)![1];
     const bc = await mk("Business Class", 3, business, tariffOf("Business Class"), 1, 3);
     const mb15 = await mk("Mini Bus (max 15 pax)", 15, minibus, tariffOf("Mini Bus 15"), 2, 13);
     const mb20 = await mk("Mini Bus (16–20 pax)", 20, minibus, tariffOf("Mini Bus 20"), 3, 16);
     const mb22 = await mk("Mini Bus (21–22 pax)", 22, minibus, tariffOf("Mini Bus 22"), 4, 20);
-    await ctx.db.insert("siteSettings", { key: "global", minAdvanceBookingHours: 2, pricing: { ...PRICING_DEFAULTS, model: "bands", ...pricing } });
+    await ctx.db.insert("siteSettings", { key: "global", minAdvanceBookingHours: 2, pricing: { ...PRICING_DEFAULTS, ...pricing } });
     return { minibus, business, bc, mb15, mb20, mb22 };
   });
 }
@@ -392,12 +392,27 @@ describe("the checkout on the server", () => {
 
   test("a partner order pays the channel factor, quote and check agree", async () => {
     const s = await fleet();
+    /* The old model's ajustePreco is not read any more. */
     await t.run((ctx) => ctx.db.insert("partnerships", { name: "Hotel", slug: "hotel", theme: {}, ajustePreco: 40 }));
     const date = "2030-06-10 12:00";
     const q = await t.query(api.vehicles.listQuoted, { partnershipSlug: "hotel", passengers: 2, distance: 30, departureDate: date, now: Date.now() });
     const bc = q.find((r) => r._id === s.bc)!;
     expect(bc.price).toBeCloseTo(69.175 * 1.15, 2);
     const id = await book({ passengers: 2, date, partnershipSlug: "hotel", partnerCheckout: true });
+    await t.mutation(api.orders.selectCar, { orderId: id, vehicleId: s.bc, vehicleName: "Business Class", price: bc.price, passengerCapacity: 3 });
+    await t.mutation(api.orders.registTrip, { orderId: id, departureDate: date, passengers: 2, distance: 30 });
+    const m = await t.query(internal.orders.minimoAPagar, { orderId: id, opcoes: [] });
+    expect(m.carro).toBe(bc.price);
+  });
+
+  test("a partner with its own markup: the checkout and the payment check use it", async () => {
+    const s = await fleet();
+    await t.run((ctx) => ctx.db.insert("partnerships", { name: "Spa", slug: "spa", theme: {}, priceMarkupPercent: 25 }));
+    const date = "2030-06-10 12:00";
+    const q = await t.query(api.vehicles.listQuoted, { partnershipSlug: "spa", passengers: 2, distance: 30, departureDate: date, now: Date.now() });
+    const bc = q.find((r) => r._id === s.bc)!;
+    expect(bc.price).toBeCloseTo(69.175 * 1.25, 2);
+    const id = await book({ passengers: 2, date, partnershipSlug: "spa", partnerCheckout: true });
     await t.mutation(api.orders.selectCar, { orderId: id, vehicleId: s.bc, vehicleName: "Business Class", price: bc.price, passengerCapacity: 3 });
     await t.mutation(api.orders.registTrip, { orderId: id, departureDate: date, passengers: 2, distance: 30 });
     const m = await t.query(internal.orders.minimoAPagar, { orderId: id, opcoes: [] });
@@ -468,18 +483,33 @@ describe("the checkout on the server", () => {
     const s = await fleet();
     await t.run(async (ctx) => {
       await ctx.db.patch(s.minibus, { status: "inactive" });
-      await ctx.db.insert("vehicles", { ...carBase, name: "Solto", passengers: 4, order: 9, pricePerKm: 2, minimumPrice: 50 });
+      await ctx.db.insert("vehicles", { ...carBase, name: "Solto", passengers: 4, order: 9, tariff: { baseFare: 0, ratePerKm: 2, nightMultiplier: 1.2, minimum: 50 } });
     });
     const q = await t.query(api.vehicles.listQuoted, { passengers: 2, distance: 30 });
     expect(q.map((r) => r.name)).toEqual(["Business Class", "Solto"]);
-    /* Without a tariff it keeps today's price even with the model on. */
-    expect(q.find((r) => r.name === "Solto")!.price).toBe(60);
+    /* 30 km = 15 + 15 × 0.9 weighted km × 2 €. */
+    expect(q.find((r) => r.name === "Solto")!.price).toBe(57);
   });
 
-  test("switching the model back to linear gives today's prices again", async () => {
-    const s = await fleet({ model: "linear" });
+  test("a car without any price is not offered (it would show at 0 €)", async () => {
+    await fleet();
+    await t.run((ctx) => ctx.db.insert("vehicles", { ...carBase, name: "Sem preço", passengers: 4, order: 9 }));
     const q = await t.query(api.vehicles.listQuoted, { passengers: 2, distance: 30 });
-    expect(q.find((r) => r._id === s.bc)!.price).toBe(Math.max(100, 4 * 30));
+    expect(q.map((r) => r.name)).not.toContain("Sem preço");
+  });
+
+  test("where a car shows: site only, some partners only, nowhere", async () => {
+    const s = await fleet();
+    const hotel = await t.run((ctx) => ctx.db.insert("partnerships", { name: "Hotel", slug: "hotel", theme: {} }));
+    await t.run((ctx) => ctx.db.insert("partnerships", { name: "Spa", slug: "spa", theme: {} }));
+    const nomes = async (slug?: string) => (await t.query(api.vehicles.listQuoted, { partnershipSlug: slug, passengers: 2, distance: 30 })).map((r) => r.name);
+    await t.run((ctx) => ctx.db.patch(s.bc, { showOnSite: true, partnerMode: "none" }));
+    expect(await nomes()).toContain("Business Class");
+    expect(await nomes("hotel")).not.toContain("Business Class");
+    await t.run((ctx) => ctx.db.patch(s.bc, { showOnSite: false, partnerMode: "some", partnerIds: [hotel] }));
+    expect(await nomes()).not.toContain("Business Class");
+    expect(await nomes("hotel")).toContain("Business Class");
+    expect(await nomes("spa")).not.toContain("Business Class");
   });
 });
 
@@ -487,7 +517,7 @@ describe("Configurações → Preços", () => {
   const save = async (patch: Partial<PricingConfig>) => {
     const as = t.withIdentity(admin);
     const cur = await as.query(api.definicoes.precos, {});
-    return await as.mutation(api.definicoes.guardarPrecos, { versao: cur.versao, precos: { ...cur.precos, ...patch } });
+    return await as.mutation(api.definicoes.guardarPrecos, { versao: cur.versao, precos: { ...cur.precos, ...patch }, sobretaxaAeroporto: cur.sobretaxaAeroporto });
   };
 
   test("saves and the checkout uses it right away", async () => {
@@ -516,49 +546,71 @@ describe("Configurações → Preços", () => {
     await fleet();
     const as = t.withIdentity(admin);
     const cur = await as.query(api.definicoes.precos, {});
-    await as.mutation(api.definicoes.guardarPrecos, { versao: cur.versao, precos: { ...cur.precos, partnerFactor: 1.2 } });
-    await expect(as.mutation(api.definicoes.guardarPrecos, { versao: cur.versao, precos: { ...cur.precos, partnerFactor: 1.3 } })).rejects.toThrow(/Alguém gravou/);
+    await as.mutation(api.definicoes.guardarPrecos, { versao: cur.versao, precos: { ...cur.precos, partnerFactor: 1.2 }, sobretaxaAeroporto: 12 });
+    await expect(as.mutation(api.definicoes.guardarPrecos, { versao: cur.versao, precos: { ...cur.precos, partnerFactor: 1.3 }, sobretaxaAeroporto: 12 })).rejects.toThrow(/Alguém gravou/);
+  });
+
+  test("the airport surcharge is saved with the prices and the checkout uses it", async () => {
+    const s = await fleet();
+    const as = t.withIdentity(admin);
+    const cur = await as.query(api.definicoes.precos, {});
+    await as.mutation(api.definicoes.guardarPrecos, { versao: cur.versao, precos: cur.precos, sobretaxaAeroporto: 20 });
+    const q = await t.query(api.vehicles.listQuoted, { passengers: 2, distance: 30, isAirportPickup: true });
+    expect(q.find((r) => r._id === s.bc)!.price).toBeCloseTo(69.175 * 1.2, 2);
+    await expect(as.mutation(api.definicoes.guardarPrecos, { versao: (await as.query(api.definicoes.precos, {})).versao, precos: cur.precos, sobretaxaAeroporto: 150 })).rejects.toThrow();
   });
 
   test("without a session nothing is read or saved", async () => {
     await fleet();
     await expect(t.query(api.definicoes.precos, {})).rejects.toThrow();
-    await expect(t.query(api.pricingReport.grid, {})).rejects.toThrow();
+    await expect(t.query(api.pricingReport.parceiros, {})).rejects.toThrow();
   });
 });
 
-describe("the comparison for calibration", () => {
-  test("grid: the new and today's price for every car", async () => {
-    await fleet();
-    const g = await t.withIdentity(admin).query(api.pricingReport.grid, {});
-    const bc = g.rows.find((r) => r.car === "Business Class")!;
-    const c30 = bc.cells.find((c) => c.km === 30)!;
-    expect(c30.day).toEqual({ now: 120, next: 69.18 });
+describe("the simulator", () => {
+  test("a partner of its own: its markup and only its fleet", async () => {
+    const s = await fleet();
+    const spa = await t.run((ctx) => ctx.db.insert("partnerships", { name: "Spa", slug: "spa", theme: {}, priceMarkupPercent: 10 }));
+    const as = t.withIdentity(admin);
+    const args = { pricing: {}, km: 30, hour: 12, hoursAhead: 48, airport: false };
+    const site = await as.query(api.pricingReport.simular, args);
+    const comSpa = await as.query(api.pricingReport.simular, { ...args, partner: spa });
+    const bc = (r: typeof site) => r.rows.find((x) => x.category === "Business Class")!.price;
+    expect(bc(comSpa)).toBeCloseTo(bc(site) * 1.1, 1);
+    expect(comSpa.partnerFactor).toBeCloseTo(1.1);
+    await t.run((ctx) => ctx.db.patch(s.bc, { showOnSite: true, partnerMode: "none" }));
+    const semFrota = await as.query(api.pricingReport.simular, { ...args, partner: spa });
+    expect(semFrota.rows.map((r) => r.category)).not.toContain("Business Class");
   });
 
-  test("paid bookings: priced again with both models", async () => {
-    const s = await fleet();
-    await t.run((ctx) =>
-      ctx.db.insert("orders", {
-        orderNumber: "ET1",
-        status: "paid",
-        paymentStatus: "completed",
-        departure: LISBOA,
-        arrival: CASCAIS,
-        departureDate: "2030-06-10 12:00",
-        passengers: 2,
-        isRoundTrip: false,
-        vehicleId: s.bc,
-        distance: 30,
-        totalAmount: 120,
-        createdAt: 0,
-        updatedAt: 0,
-      } as never),
-    );
-    const r = await t.withIdentity(admin).query(api.pricingReport.paidBookings, {});
-    expect(r.total.trips).toBe(1);
-    expect(r.total.now).toBe(120);
-    expect(r.total.next).toBe(69);
-    expect(r.byDistance.find((b) => b.label === "15–50 km")!.trips).toBe(1);
+  test("the airport surcharge being edited counts before it is saved", async () => {
+    await fleet();
+    const as = t.withIdentity(admin);
+    const r = await as.query(api.pricingReport.simular, { pricing: {}, km: 30, hour: 12, hoursAhead: 48, airport: true, airportSurchargePercent: 30 });
+    expect(r.airportSurchargePercent).toBe(30);
+    expect(r.rows.find((x) => x.category === "Business Class")!.price).toBeCloseTo(69.175 * 1.3, 2);
+  });
+});
+
+describe("migrating the cars saved before 2026-11-27", () => {
+  test("a tariff from the old price, the reach from the old owner, the old fields gone; twice is harmless", async () => {
+    const hotel = await t.run((ctx) => ctx.db.insert("partnerships", { name: "Hotel", slug: "hotel", theme: {} }));
+    const [site, doHotel, comTarifa] = await t.run(async (ctx) => [
+      await ctx.db.insert("vehicles", { ...carBase, name: "Antigo", passengers: 3, order: 1, pricePerKm: 2, minimumPrice: 50 }),
+      await ctx.db.insert("vehicles", { ...carBase, name: "Do hotel", passengers: 3, order: 2, pricePerKm: 3, minimumPrice: 60, partnershipId: hotel }),
+      await ctx.db.insert("vehicles", { ...carBase, name: "Já com tarifa", passengers: 3, order: 3, pricePerKm: 9, minimumPrice: 9, tariff: { baseFare: 25, ratePerKm: 1.55, nightMultiplier: 1.097, minimum: 50 } }),
+    ]);
+    const lista = await t.mutation(internal.veiculos.migrarParaTarifas, { executar: false });
+    expect(lista.carros).toBe(3);
+    expect((await t.run((ctx) => ctx.db.get(site)))!.pricePerKm).toBe(2);
+    await t.mutation(internal.veiculos.migrarParaTarifas, { executar: true });
+    const [a, b, c] = await t.run(async (ctx) => [await ctx.db.get(site), await ctx.db.get(doHotel), await ctx.db.get(comTarifa)]);
+    expect(a).toMatchObject({ tariff: { baseFare: 0, ratePerKm: 2, nightMultiplier: 1.2, minimum: 50 }, showOnSite: true, partnerMode: "all" });
+    expect(a!.pricePerKm).toBeUndefined();
+    expect(b).toMatchObject({ showOnSite: false, partnerMode: "some", partnerIds: [hotel] });
+    expect(b!.partnershipId).toBeUndefined();
+    /* A car that already had a tariff keeps it: the old fields don't overwrite. */
+    expect(c!.tariff).toEqual({ baseFare: 25, ratePerKm: 1.55, nightMultiplier: 1.097, minimum: 50 });
+    expect((await t.mutation(internal.veiculos.migrarParaTarifas, { executar: true })).carros).toBe(0);
   });
 });

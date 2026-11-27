@@ -110,7 +110,6 @@ export function useVehicles({
         nightTaxAmount: v.nightTaxOutbound + v.nightTaxReturn,
         nightTaxOutbound: v.nightTaxOutbound,
         nightTaxReturn: v.nightTaxReturn,
-        pricePerKm: v.pricePerKm,
         hasDistance: v.hasDistance,
         image: v.imageUrl || "/shared/image-54.png",
         passengers: v.maxPassengers,

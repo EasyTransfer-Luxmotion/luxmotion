@@ -481,6 +481,15 @@ export default defineSchema({
     // a seguir ao nome para o cliente saber que carro esperar.
     examples: v.optional(v.string()),
     imageId: v.optional(v.string()),
+    /* Where the car is offered (lib/frota.ts, reachOf). showOnSite: the main
+       site's checkout. partnerMode: "all" partners (each can still hide it in
+       its Frota, partnerships.veiculosEscondidos), "some" (partnerIds only)
+       or "none". Absent: the old rule from partnershipId below. */
+    showOnSite: v.optional(v.boolean()),
+    partnerMode: v.optional(v.union(v.literal("all"), v.literal("some"), v.literal("none"))),
+    partnerIds: v.optional(v.array(v.id("partnerships"))),
+    /* The old single owner: set = only that partner's checkout, never the
+       site. Replaced by the three fields above (veiculos.migrarParaTarifas). */
     partnershipId: v.optional(v.id("partnerships")),
     passengers: v.number(),
     luggage: v.number(),
@@ -490,14 +499,14 @@ export default defineSchema({
     maxChildSeats: v.optional(v.number()),
     maxBabySeats: v.optional(v.number()),
     maxBoosterSeats: v.optional(v.number()),
-    pricePerKm: v.number(),
-    /* Never used in any price (the night fee was a flat 20%); optional since
-       the banded model brought tariff.nightMultiplier. */
+    /* The removed linear model (2026-11-27): kept only so cars saved before
+       the tariffs still load; veiculos.migrarParaTarifas turns them into a
+       tariff and clears them. Nothing reads them once a car has a tariff. */
+    pricePerKm: v.optional(v.number()),
     pricePerKmNight: v.optional(v.number()),
-    minimumPrice: v.number(),
-    /* The banded model (lib/pricing.ts, priceTrip). pricePerKm/minimumPrice
-       stay as the linear model, so production keeps its prices until
-       siteSettings.pricing.model is switched to "bands". */
+    minimumPrice: v.optional(v.number()),
+    /* The price (lib/pricing.ts, priceTrip): base + €/km by distance band,
+       × night, minimum. Every car saved by the dashboard has one. */
     tariff: v.optional(
       v.object({
         baseFare: v.number(),
@@ -593,10 +602,12 @@ export default defineSchema({
     /* Carros da frota global que este parceiro não mostra no checkout (ver
        lib/frota.ts). Vazio: mostra-os todos. */
     veiculosEscondidos: v.optional(v.array(v.id("vehicles"))),
-    /* Ajuste ao preço da frota no checkout deste parceiro, em percentagem
-       (10 = mais 10%, -5 = menos 5%). Vazio: o preço do site. Aplica-se no
-       que se mostra e no que se cobra (lib/precoTransfer.ts). */
+    /* The old model's adjustment (removed 2026-11-27); not read any more. */
     ajustePreco: v.optional(v.number()),
+    /* This partner's checkout price over the site's, in % (15 = +15%).
+       Absent: the default of Configurações → Preços (pricing.partnerFactor).
+       Shown and charged alike (lib/pricing.ts, partnerFactorOf). */
+    priceMarkupPercent: v.optional(v.number()),
     /* Endereços que a parceria já teve, para o site reencaminhar (lib/parceriaPorSlug.ts). */
     slugsAntigos: v.optional(v.array(v.string())),
   }).index("by_slug", ["slug"]),
@@ -629,10 +640,11 @@ export default defineSchema({
     // half an hour away.
     checkoutUpsellRadiusKm: v.optional(v.number()),
     /* The transfer pricing levers (lib/pricing.ts, PricingConfig). Missing
-       keys take PRICING_DEFAULTS; model "linear" is today's pricing. */
+       keys take PRICING_DEFAULTS. `model` was the linear/banded switch:
+       no longer written nor read. */
     pricing: v.optional(
       v.object({
-        model: v.union(v.literal("linear"), v.literal("bands")),
+        model: v.optional(v.union(v.literal("linear"), v.literal("bands"))),
         bands: v.array(v.object({ upToKm: v.union(v.number(), v.null()), pct: v.number() })),
         surge: v.object({
           standard: v.object({ sameDay: v.number(), lastMinute: v.number() }),
